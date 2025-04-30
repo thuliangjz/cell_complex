@@ -736,6 +736,67 @@ theorem aux_closed_in_subspace_of_sub_complex_coeherent {X: Type*} [TopologicalS
     rw [this]
     exact IsClosed.preimage (by continuity) hs
 
+theorem aux_closed_of_sub_complex_coeherent {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] (Y: SubCellComplex X) {s: Set Y} (hs: ∀ b ∈ {x | ∃ s ∈ sub_cell_complex_sets Y, closure s = x}, IsClosed (((↑): b → Y) ⁻¹' s)) : IsClosed (((↑): Y → X) '' s) := by
+    let g : Y → X := (↑)
+    let s' := g '' s
+    apply closed_crit_of_coeherent CW.coeherent
+    rintro _ ⟨e0, he0, rfl⟩
+    match (Y.cell_incl_or_disjoint e0 he0) with
+    | Or.inl h =>
+        -- e0 in Y
+        apply aux_closed_in_subspace_of_sub_complex_coeherent hs he0 h
+    | Or.inr h =>
+        rcases CW.closure_finite e0 he0 with ⟨ss, ss_all_sets, ss_finite, ss_cover⟩
+        let ss₁ := {e | e ∈ ss ∧ (e ∩ Y.carrier).Nonempty}
+        let φ : closure e0 → X := (↑)
+        have pre_img_eq: φ ⁻¹' (closure e0 ∩ s') = φ ⁻¹' s' := Subtype.preimage_coe_self_inter (closure e0) s'
+        have pre_img_closed: IsClosed (closure e0 ∩ s') := by
+            have eq1 : closure e0 ∩ s' = closure e0 ∩ s' ∩ (⋃ e ∈ ss₁, closure e) := by
+                ext x
+                constructor
+                case mpr =>
+                    intro hx
+                    use hx.1.1
+                    exact hx.1.2
+                case mp =>
+                    intro hx
+                    have : x ∈ ⋃ e ∈ ss₁, closure e := by
+                        rcases ss_cover hx.1 with ⟨e1, he1, hxe1⟩
+                        have : e1 ∈ ss₁ := by
+                            use he1
+                            have : x ∈ Y.carrier := by
+                                rcases hx.2 with ⟨y, hy, rfl⟩
+                                exact y.2
+                            use x, hxe1
+                        simp
+                        use e1, this, subset_closure hxe1
+                    use hx
+            have eq2 : closure e0 ∩ s' ∩ (⋃ e ∈ ss₁, closure e) = closure e0 ∩ (⋃ e ∈ ss₁, s' ∩ closure e) := by
+                rw [Set.inter_assoc]
+                congr
+                exact Set.inter_iUnion₂ s' fun i j ↦ closure i
+            rw [eq1, eq2]
+            have ss₁_finite: ss₁.Finite := Set.Finite.sep ss_finite fun a ↦ (a ∩ Y.carrier).Nonempty
+            have : ∀ e ∈ ss₁, IsClosed (s' ∩ closure e) := by
+                intro e he
+                let η : closure e → X := (↑)
+                have : s' ∩ closure e = η '' (η ⁻¹' s')  := by
+                    ext x
+                    simp [η]
+                    tauto
+                rw [this]
+                have : IsClosedEmbedding η := IsClosed.isClosedEmbedding_subtypeVal isClosed_closure
+                apply (IsClosedEmbedding.isClosed_iff_image_isClosed this).mp
+                have e_in_sets : e ∈ C.sets := ss_all_sets he.1
+                apply aux_closed_in_subspace_of_sub_complex_coeherent hs e_in_sets
+                apply Y.subset_of_intersect e_in_sets
+                rw [←Set.nonempty_iff_ne_empty]
+                exact he.2
+            apply IsClosed.inter isClosed_closure
+            refine Set.Finite.isClosed_biUnion ss₁_finite this
+        rw [isClosed_induced_iff]
+        use closure e0 ∩ s'
+
 instance cw_sub_cell_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] (Y: SubCellComplex X): CWComplexClass Y where
     closure_finite := by
         intro s hs
@@ -816,63 +877,7 @@ instance cw_sub_cell_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: Cel
             let g: Y → X := (↑)
             let s' := g '' s
             have coe_closed: @IsClosed X _ s' := by
-                apply closed_crit_of_coeherent CW.coeherent
-                rintro _ ⟨e0, he0, rfl⟩
-                match (Y.cell_incl_or_disjoint e0 he0) with
-                | Or.inl h =>
-                    -- e0 in Y
-                    apply aux_closed_in_subspace_of_sub_complex_coeherent hs he0 h
-                | Or.inr h =>
-                    rcases CW.closure_finite e0 he0 with ⟨ss, ss_all_sets, ss_finite, ss_cover⟩
-                    let ss₁ := {e | e ∈ ss ∧ (e ∩ Y.carrier).Nonempty}
-                    let φ : closure e0 → X := (↑)
-                    have pre_img_eq: φ ⁻¹' (closure e0 ∩ s') = φ ⁻¹' s' := Subtype.preimage_coe_self_inter (closure e0) s'
-                    have pre_img_closed: IsClosed (closure e0 ∩ s') := by
-                        have eq1 : closure e0 ∩ s' = closure e0 ∩ s' ∩ (⋃ e ∈ ss₁, closure e) := by
-                            ext x
-                            constructor
-                            case mpr =>
-                                intro hx
-                                use hx.1.1
-                                exact hx.1.2
-                            case mp =>
-                                intro hx
-                                have : x ∈ ⋃ e ∈ ss₁, closure e := by
-                                    rcases ss_cover hx.1 with ⟨e1, he1, hxe1⟩
-                                    have : e1 ∈ ss₁ := by
-                                        use he1
-                                        have : x ∈ Y.carrier := by
-                                            rcases hx.2 with ⟨y, hy, rfl⟩
-                                            exact y.2
-                                        use x, hxe1
-                                    simp
-                                    use e1, this, subset_closure hxe1
-                                use hx
-                        have eq2 : closure e0 ∩ s' ∩ (⋃ e ∈ ss₁, closure e) = closure e0 ∩ (⋃ e ∈ ss₁, s' ∩ closure e) := by
-                            rw [Set.inter_assoc]
-                            congr
-                            exact Set.inter_iUnion₂ s' fun i j ↦ closure i
-                        rw [eq1, eq2]
-                        have ss₁_finite: ss₁.Finite := Set.Finite.sep ss_finite fun a ↦ (a ∩ Y.carrier).Nonempty
-                        have : ∀ e ∈ ss₁, IsClosed (s' ∩ closure e) := by
-                            intro e he
-                            let η : closure e → X := (↑)
-                            have : s' ∩ closure e = η '' (η ⁻¹' s')  := by
-                                ext x
-                                simp [η]
-                                tauto
-                            rw [this]
-                            have : IsClosedEmbedding η := IsClosed.isClosedEmbedding_subtypeVal isClosed_closure
-                            apply (IsClosedEmbedding.isClosed_iff_image_isClosed this).mp
-                            have e_in_sets : e ∈ C.sets := ss_all_sets he.1
-                            apply aux_closed_in_subspace_of_sub_complex_coeherent hs e_in_sets
-                            apply Y.subset_of_intersect e_in_sets
-                            rw [←Set.nonempty_iff_ne_empty]
-                            exact he.2
-                        apply IsClosed.inter isClosed_closure
-                        refine Set.Finite.isClosed_biUnion ss₁_finite this
-                    rw [isClosed_induced_iff]
-                    use closure e0 ∩ s'
+                apply aux_closed_of_sub_complex_coeherent Y hs
             have : g ⁻¹' s' = s := by ext x; simp [g, s']
             rw [←this]
             exact IsClosed.preimage continuous_subtype_val coe_closed
@@ -900,6 +905,17 @@ instance cw_sub_cell_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: Cel
                 simp [sub_cell_complex_sets, this, hs1]
             have x_in_s' : x ∈  closure s' := subset_closure hs2
             use s', s'_in_sets
+
+theorem sub_cw_cell_complex_closed {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] (Y: SubCellComplex X) : IsClosed Y.carrier := by
+    let g : Y → X := (↑)
+    have : Y.carrier = g '' Set.univ := by
+        ext x
+        simp [g]
+        exact Set.mem_def
+    rw [this]
+    apply aux_closed_of_sub_complex_coeherent Y
+    rintro b ⟨e', he', rfl⟩
+    simp
 
 end CellComplexClass
 end Chp5
