@@ -917,6 +917,58 @@ theorem sub_cw_cell_complex_closed {X: Type*} [TopologicalSpace X] [T2Space X] [
     rintro b ⟨e', he', rfl⟩
     simp
 
+def Skeleton (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (n : ℕ) : SubCellComplex X where
+    carrier := ⋃ s : C.sets, ⋃ _:(C.dim_map s ≤ n), s.val
+    cell_incl_or_disjoint := by
+        intro e he
+        have : C.dim_map ⟨e, he⟩ ≤ n ∨ C.dim_map ⟨e, he⟩ > n := by exact le_or_lt (dim_map ⟨e, he⟩) n
+        match le_or_lt (dim_map ⟨e, he⟩) n with
+        | Or.inl h =>
+            left
+            intro x hx
+            simp
+            use e, ⟨he, h⟩
+        | Or.inr h =>
+            right
+            apply Set.disjoint_iUnion₂_right.mpr
+            intro e' he'
+            have : e ≠ e' := by
+                contrapose! he'
+                simpa [he'] using h
+            apply C.disjoint he e'.2 this
+    cell_closure_incl := by
+        intro e he e_in_y
+        rw [←characteristic_map_range ⟨e, he⟩]
+        intro x hx
+        rw [cb_map_range_decomposition _] at hx
+        match hx with
+        | Or.inl hx_boundary =>
+            have : ⋃ s:C.sets, ⋃ _:(C.dim_map s < C.dim_map ⟨e, he⟩), s.1 ⊆ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ n), s.1 := by
+                have aux : C.dim_map ⟨e, he⟩ ≤ n := by
+                    rcases C.nonempty e he with ⟨x0, hx0⟩
+                    specialize e_in_y hx0
+                    simp at e_in_y
+                    rcases e_in_y with ⟨e0, ⟨e0_in_sets, he0⟩, h_x0_in_e0⟩
+                    have : e0 = e := by
+                        by_contra! h
+                        have : Disjoint e0 e := C.disjoint e0_in_sets he h
+                        rw [Set.disjoint_left] at this
+                        specialize this h_x0_in_e0
+                        contradiction
+                    have : (⟨e0, e0_in_sets⟩:C.sets) = ⟨e, he⟩ := by exact SetCoe.ext this
+                    rw [←this]
+                    exact he0
+                intro y hy
+                simp at hy
+                rcases hy with ⟨s0, ⟨hs0_10, hs0_11⟩, hs0_2⟩
+                simp
+                have : C.dim_map ⟨s0, hs0_10⟩ ≤ n := by linarith
+                use s0, ⟨hs0_10, this⟩
+            apply this (C.characteristic_map_boundary ⟨e, he⟩ hx_boundary)
+        | Or.inr hx_inner =>
+            rw [C.characteristic_map_inner_range] at hx_inner
+            exact e_in_y hx_inner
+
 end CellComplexClass
 end Chp5
 example {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y] {s: Set X} (hs: IsClosed s) {f: X → Y} (hf: IsClosedEmbedding f) : IsClosed (f '' s) := by

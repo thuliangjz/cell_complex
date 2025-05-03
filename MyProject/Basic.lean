@@ -84,6 +84,27 @@ theorem mem_cb_inner_or_boundary {n : ℕ} (y : cb n) : y ∈ cb_inner ∨ y ∈
       use ⟨y.val, hy⟩
       simp
 
+theorem cb_map_range_decomposition {n: ℕ} {X: Type*} (f: cb n → X) : Set.range f = (Set.range (cb_boundary_map f)) ∪ (Set.range (cb_inner_map f)) := by
+    rw [boundary_map_range, inner_map_range]
+    ext y
+    constructor
+    case mp =>
+        rintro ⟨x, hx, rfl⟩
+        match mem_cb_inner_or_boundary x with
+        | Or.inl h =>
+            right
+            use x
+        | Or.inr h =>
+            left
+            use x
+    case mpr =>
+        intro hy
+        match hy with
+        | Or.inl h =>
+            exact Set.mem_range_of_mem_image f cb_boundary h
+        | Or.inr h =>
+            exact Set.mem_range_of_mem_image f cb_inner h
+
 theorem cb_inner_closure {n : ℕ} : closure (@cb_inner n) = Set.univ := by
     let f := fun x : cb n ↦ x.val
     have ce: Topology.IsClosedEmbedding f := by exact Isometry.isClosedEmbedding fun x1 ↦ congrFun rfl
