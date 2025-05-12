@@ -2,6 +2,7 @@ import Mathlib.Topology.Defs.Induced
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Topology.Constructions
+import Mathlib.Analysis.NormedSpace.Connected
 
 namespace Chp5
 def b := fun n ↦ Metric.ball (0: EuclideanSpace ℝ (Fin n)) 1
@@ -16,9 +17,24 @@ example {n : ℕ} : IsCompact (cb n) := by
     apply isCompact_closedBall
 instance cb_compact {n : ℕ} : CompactSpace (cb n) := by
     exact isCompact_iff_compactSpace.mp (isCompact_closedBall _ _)
+instance sph_connected {n : ℕ} (hn: 1 < n) : ConnectedSpace (sph n) := by
+    apply isConnected_iff_connectedSpace.mp
+    apply isConnected_sphere
+    case h =>
+        have : Module.rank ℝ (EuclideanSpace ℝ (Fin n)) = n := by apply rank_fin_fun
+        rw [this]
+        exact Nat.one_lt_cast.mpr hn
+    case hr=>
+        norm_num
 theorem b_closure_eq_cb {n : ℕ} : closure (b n) = cb n := by
     rw [b, cb]
     refine closure_ball 0 ?_
+    norm_num
+instance cb_connected {n : ℕ} : ConnectedSpace (cb n) := by
+    apply isConnected_iff_connectedSpace.mp
+    rw [←b_closure_eq_cb]
+    apply IsConnected.closure
+    apply Metric.isConnected_ball
     norm_num
 theorem b_in_cb {n : ℕ}: b n ⊆ cb n := by
     intro x

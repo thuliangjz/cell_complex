@@ -1,5 +1,5 @@
 import Mathlib.Topology.Basic
-import Mathlib.Topology.Instances.Real.Defs
+--import Mathlib.Topology.Instances.Real.Defs
 import Mathlib.Topology.Constructions
 import Mathlib.Topology.LocallyFinite
 import Mathlib.Topology.MetricSpace.Basic
@@ -498,7 +498,7 @@ def sub_cell_complex_hom {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellCom
             ext x
             simp
         have hom2: s.1 ≃ₜ Set.range (((↑): Y → X) ∘ ((↑): s.1 → Y)) := by
-            apply Homeomorph.ofIsEmbedding
+            apply Topology.IsEmbedding.toHomeomorph
             apply Topology.IsEmbedding.comp
             <;> exact Topology.IsEmbedding.subtypeVal
         exact hom2.trans (id hom1.symm)
@@ -969,121 +969,43 @@ def Skeleton (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
             rw [C.characteristic_map_inner_range] at hx_inner
             exact e_in_y hx_inner
 
-end CellComplexClass
-end Chp5
-example {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y] {s: Set X} (hs: IsClosed s) {f: X → Y} (hf: IsClosedEmbedding f) : IsClosed (f '' s) := by
-    exact (Topology.IsClosedEmbedding.isClosed_iff_image_isClosed hf).mp hs
-example {X: Type} [TopologicalSpace X] {s: Set X} (hs: IsClosed s) : IsClosedEmbedding ((↑): s → X) := by
-    exact IsClosed.isClosedEmbedding_subtypeVal hs
+section
+variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
+theorem boundary_sub_skeleton : ∀ s : C.sets, 1 ≤ C.dim_map s → Set.range (cb_boundary_map (C.characteristic_map s)) ⊆ Skeleton X ((C.dim_map s) - 1) := by
+    intro s hs
+    trans ⋃ p:C.sets, ⋃ _:(C.dim_map p < C.dim_map s), p.val
+    apply C.characteristic_map_boundary
+    intro x hx
+    simp at hx
+    rcases hx with ⟨s1, ⟨s1_in_sets, dim_s1_lt⟩, x_in_s1⟩
+    show x ∈ (Skeleton X ((C.dim_map s) - 1)).carrier
+    simp [Skeleton]
+    have : C.dim_map ⟨s1, s1_in_sets⟩ ≤ C.dim_map s - 1 := (Nat.le_sub_one_iff_lt hs).mpr dim_s1_lt
+    use s1, ⟨s1_in_sets, this⟩
 
-example {X: Type*} [TopologicalSpace X] {s1 s2: Set X} (hs1: IsClosed s1) (hs2: IsClosed s2) :
-    let g : s1 → X := (↑); let s' := g ⁻¹' s1; IsClosed (s1 ∩ s2) := by
-    apply?
-example {X: Type*} {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = s1 ∩ (s2 ∩ s3) := by apply?
-example {X: Type*} [TopologicalSpace X] {s: Set X} {t: Set s} : IsClosed t ↔ ∃ v: Set X, IsClosed v ∧ ((↑): s → X) ⁻¹' v = t := by exact isClosed_induced_iff
-example {X: Type*} [TopologicalSpace X] {s : Set X} {x : s} : 𝓝 x ≤ Filter.comap ((↑): s → X) (𝓝 (((↑): s → X) x)) := by
-    apply Filter.map_le_iff_le_comap.mp
-    have: ContinuousAt ((↑): s → X) x := by exact continuousAt_subtype_val
-    exact this
-#check Filter.map
-#check ContinuousAt
-example {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y] {f: X → Y} (hf: Continuous f) {s : Set Y} (hs: IsClosed s) : IsClosed (f ⁻¹' s) := IsClosed.preimage hf hs
-example {X Y : Type*} {s1 : Set X} (hs1: s1.Finite) {f: X → Y} : (f  '' s1).Finite := Set.Finite.image f hs1
-example {X: Type*} {s1 s2: Set X} (hs1: s1.Finite) (hs2: s2 ⊆ s1) : s2.Finite := Set.Finite.subset hs1 hs2
-example {X: Type*} {s1 s2 s3: Set X} (h1 : s2 ⊆ s3) (h2: s1 ∩ s2 ≠ ∅ ) : s1 ∩ s2 ≠ ∅ := by
-    have hle:s1 ∩ s2 ≤ s1 ∩ s3 := by intro x; simp [Set.mem_inter_iff]; tauto
-    have hlt: ⊥ < s1 ∩ s2 := by simpa[Set.nonempty_iff_ne_empty] using h2
-    have : ⊥ < s1 ∩ s3 := by exact gt_of_ge_of_gt hle hlt
-    simp [h2]
-example {X: Type*} {s1 s2 : Set X} : ((↑): s1 → X) '' (((↑): s1 → X) ⁻¹' s2) = s2 ∩ s1 := by
-    ext x
-    simp
-    tauto
-
-
-#check Function.Injective
-#check Equiv.toHomeomorph
-#check Equiv.Set.image
-#check Homeomorph.sets
-#check IsInducing
-
-noncomputable section
-example {X Y: Type*} {f: X → Y} {s1 s2 : Set X} (h: s1 ⊆ s2): f '' s1 ⊆ f '' s2  := by apply?
-example {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] {u: Set X} {v: Set Y} {f: X → Y} (hf: IsEmbedding f) : Function.Injective f := by exact hf.injective
-example {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] {u: Set X} {v: Set Y} {f: X → Y} (hf: IsEmbedding f) : X ≃ₜ Set.range f := by
-    exact Homeomorph.ofIsEmbedding f hf
-example {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] {u: Set X} {v: Set Y} {f: X → Y} (hf: IsEmbedding f) : u ≃ₜ f '' u := by
-    have : f '' u ≃ₜ Set.range (f ∘ ((↑): u → X)) := by
-        apply Homeomorph.setCongr
-        ext x
-        simp
-    have : u ≃ₜ Set.range (f ∘ ((↑): u → X)) := by
-        apply  Homeomorph.ofIsEmbedding
-        apply hf.comp
-        exact Topology.IsEmbedding.subtypeVal
-    sorry
-example {X: Type*} [TopologicalSpace X] {s1 s2: Set X} (h: s1 = s2) : s1 ≃ₜ s2 := by exact Homeomorph.setCongr h
+theorem sub_skeleton_iff {n : ℕ}: ∀ s : C.sets, s.1 ⊆ Skeleton X n ↔ C.dim_map s ≤ n := by
+    intro s
+    constructor
+    case mp =>
+        intro s_in_skeleton
+        rcases C.nonempty s.1 s.2 with ⟨x, hx⟩
+        let hx_in_skeleton : x ∈ (Skeleton X n).carrier := s_in_skeleton hx
+        simp [Skeleton] at hx_in_skeleton
+        rcases hx_in_skeleton with ⟨s1, ⟨s1_in_sets, hs1⟩, h_x_in_s1⟩
+        have : s.1 = s1 := by
+            by_contra! h
+            let s_s1_disjoint: Disjoint s.1 s1 := C.disjoint s.2 s1_in_sets h
+            rw [Set.disjoint_iff] at s_s1_disjoint
+            have : x ∈ s.1 ∩ s1 := Set.mem_inter hx h_x_in_s1
+            exact s_s1_disjoint this
+        have : s = ⟨s1, s1_in_sets⟩ := SetCoe.ext this
+        rw [this]
+        exact hs1
+    case mpr =>
+        intro hs
+        show s.1 ⊆ ⋃ r: C.sets, ⋃ _:(C.dim_map r ≤ n), r.val
+        exact Set.subset_biUnion_of_mem hs
 end
 
-example {X: Type*} {s1 s2 : Set X} {h: s1 ∩ s2 = ∅} : ((↑): s1 → X) ⁻¹' s2 = ∅ := by exact Subtype.preimage_coe_eq_empty.mpr h
-example {X : Type*} {s : Set X} {h : ∀ x: X, x ∈ s → False} : s = ∅ := Set.subset_eq_empty h rfl
-example {X : Type*} {s : Set X} {x : X} : x ∈ s ∨ x ∉ s := by apply?
-example {X Y: Type*} [TopologicalSpace X] [CompactSpace X] [TopologicalSpace Y]  [T2Space Y] (f : X → Y) (hc: Continuous f) (hs: Function.Surjective f) : IsQuotientMap f := by
-    exact IsQuotientMap.of_surjective_continuous hs hc
-example {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z] {f: X → Y} {g: Y → Z} (hg: IsEmbedding g) (hfg: Continuous (g ∘ f)) : Continuous f := by exact (IsEmbedding.continuous_iff hg).mpr hfg
-example {X: Type*} {x0 : X} : ∀ x, x = x0 ∨ x ≠ x0 := by apply?
-
-example {X:Type*} [TopologicalSpace X] {ss : Set (Set X)} (h : ∀ s ∈ ss, IsClosed s) (hss : ss.Finite) : IsClosed (⋃₀ ss) := by
-    have : ∀ s : ss, IsClosed s.val := by simp [h]
-    convert isClosed_iUnion_of_finite this
-    . ext x
-      simp
-    exact hss
-#check isClosed_iUnion_of_finite
-example {X: Type*} {W B : Set X} (h: W ⊆ B) (A: Set X) : W \ A = W \ (A ∩ B) := by
-    ext x
-    simp
-    tauto
-example {X: Type*} {A: Set X} {ss : Set (Set X)} : A ∩ (⋃₀ ss) = ⋃ p∈ ss, A ∩ p := by
-    ext x
-    simp
-example {X ι: Type*} [TopologicalSpace X] {f : ι → Set X} (h : LocallyFinite f) : LocallyFinite fun x ↦ closure (f x) := by exact LocallyFinite.closure h
-example {X: Type*} {s: Set X} : (sᶜ)ᶜ = s := by apply?
-example {X: Type*} {SS: Set (Set X)} (h : ⋃₀ SS = Set.univ) : ∀ x : X, ∃ s ∈ SS, x ∈ s := by
-    simp [←Set.mem_sUnion, h]
-example {X: Type*} {SS: Set (Set X)} (h : ∀ x : X, ∃ s ∈ SS, x ∈ s) :⋃₀ SS = Set.univ := by
-    exact Set.sUnion_eq_univ_iff.mpr h
-example {X: Type*} [TopologicalSpace X] {V: Set X} (h: ∀ x ∈ V, ∃ U ⊆ V, IsOpen U ∧ x ∈ U) : IsOpen V := by apply?
-example {X: Type*} {C: Set X} {ss : Set (Set X)} (h: ∀ s ∈ ss, s ⊆ C) : ⋃₀ ss ⊆ C := Set.sUnion_subset h
-example {X: Type*} {ss : Set (Set X)} (h : ∀ s ∈ ss, s.Finite) : (⋃₀ ss).Finite := by apply?
-example {X Y: Type*} {t : Finset X} (f : X → Y) : (f '' t).Finite := by exact Set.toFinite (f '' ↑t)
-example {X Y:Type*}  {s: Set X} (h: s.Finite) (f : X → Y) : (f '' s).Finite := by exact Set.Finite.image f h
-example {X:Type*} {s : Set (Set X)} {v: Set X} (h : ∀ x ∈ v, ∃ t ∈ s, x ∈ t) : v ⊆ ⋃₀ s := by apply?
-example {X: Type*} {s1 s2: Set X} : (s1 ∩ s2).Nonempty ↔ ∃ x, x ∈ s1 ∧ x ∈ s2 := by apply?
-example {X: Type*} {s1 s2: Set X} [TopologicalSpace X] (hs1: IsClosed s1) (hs2: IsCompact s2) (h: s1 ⊆ s2) : IsCompact s1 := by exact IsCompact.of_isClosed_subset hs2 hs1 h
-#check isCompact_iff_finite_subcover
-#check Set.inter_nonempty
-section sec_5_1
-variable {X: Type*} [TopologicalSpace X] (B: Set (Set X))
--- this standes for disjoint union of sets inside B
--- it is by nature a topological space
-#check Sigma (fun b:B ↦ b.1)
-example : TopologicalSpace (Sigma (fun b:B ↦ b.1)) := by infer_instance
-#check fun (⟨_, x⟩: Sigma (fun b:B ↦ b.1)) ↦ x.val
-#check Topology.QuotientMap
-#check LocallyFinite
-end sec_5_1
-
-example {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y] (f: X→ Y) : Continuous f ↔ ∀ s : Set Y, IsOpen s → IsOpen (f⁻¹' s) := by exact
-  continuous_def
-example {X: Type*} (T1 T2: TopologicalSpace X) : T1 = T2 ↔ ∀ s, T1.IsOpen s ↔ T2.IsOpen s := by exact
-  TopologicalSpace.ext_iff
-example {X Y: Type*} (T: TopologicalSpace X) (S: Set Y) (f : X → Y): (TopologicalSpace.coinduced f T).IsOpen S ↔ T.IsOpen (f⁻¹' S) := by rfl
-example {ι : Type*} {X : ι → Type v} [t₂ : ∀ i, TopologicalSpace (X i)] (s: Set (Sigma X)): IsOpen s ↔ ∀ i, IsOpen ((Sigma.mk i)⁻¹' s) := by exact
-  isOpen_sigma_iff
-#check TopologicalSpace
-#check TopologicalSpace.coinduced
-#check TopologicalSpace
-#check Set.restrict
-example {X Y: Type*} [TopologicalSpace X] [CompactSpace X] [TopologicalSpace Y] [T2Space Y] (f: X → Y) (hf: Continuous f) : IsClosedMap f := by exact Continuous.isClosedMap hf
-example {X Y: Type*} (f: X → Y) : Set.range f = f '' Set.univ := by apply?
+end CellComplexClass
+end Chp5
