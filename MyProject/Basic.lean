@@ -176,6 +176,15 @@ theorem cb_boundary_inner_cmpl {n : ℕ} : Set.univ \ @cb_inner n = cb_boundary 
             simp
         linarith
 
+theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n) := by
+    rw [cb_boundary,←Set.image_univ]
+    apply IsConnected.image
+    case H =>
+        refine connectedSpace_iff_univ.mp ?_
+        exact sph_connected hn
+    case hf =>
+        refine continuous_iff_continuousOn_univ.mp ?_
+        exact Isometry.continuous fun x1 ↦ congrFun rfl
 
 end Chp5
 

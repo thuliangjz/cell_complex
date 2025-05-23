@@ -85,6 +85,25 @@ theorem characteristic_map_range {X: Type*} [TopologicalSpace X] [T2Space X] [C:
     ext x
     tauto
 
+section
+variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
+theorem cell_closure_connected : ∀ s ∈ C.sets, IsConnected (closure s) := by
+    intro s hs
+    rw [←characteristic_map_range ⟨s, hs⟩]
+    let f := C.characteristic_map ⟨s, hs⟩
+    rw [←Set.image_univ]
+    apply IsConnected.image
+    case H => exact isConnected_univ
+    case hf => exact continuous_iff_continuousOn_univ.mp (characteristic_map_continuous ⟨s, hs⟩)
+theorem same_cell_of_mem {x: X} {e1 e2: Set X} (he1: e1 ∈ C.sets) (he2: e2 ∈ C.sets) (x_in_e1: x ∈ e1) (x_in_e2: x ∈ e2) : e1 = e2 := by
+    by_contra! h
+    have : Disjoint e1 e2 := C.disjoint he1 he2 h
+    rw [Set.disjoint_iff_inter_eq_empty] at this
+    have x_mem_inter: x ∈ e1 ∩ e2 := ⟨x_in_e1, x_in_e2⟩
+    rw [this] at x_mem_inter
+    exact x_mem_inter
+end
+
 theorem characteristic_map_inner_image {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] : ∀ s : C.sets, (C.characteristic_map s) '' cb_inner = s := by
     intro s
     set f := C.characteristic_map s
@@ -1005,7 +1024,30 @@ theorem sub_skeleton_iff {n : ℕ}: ∀ s : C.sets, s.1 ⊆ Skeleton X n ↔ C.d
         intro hs
         show s.1 ⊆ ⋃ r: C.sets, ⋃ _:(C.dim_map r ≤ n), r.val
         exact Set.subset_biUnion_of_mem hs
-end
 
+theorem mem_sub_complex_iff {x : X} {S: SubCellComplex X} : x ∈ S ↔ ∃ e ∈ C.sets, x ∈ e ∧ e ⊆ S := by
+    constructor
+    case mp =>
+        intro hx
+        let CS: CellComplexClass S := by infer_instance
+        have : ∃ e' ∈ CS.sets, ⟨x, hx⟩ ∈ e' := by
+            rw [←Set.mem_sUnion, CellComplexClass.cover]
+            trivial
+        rcases this with ⟨e', e'_in_sets_of_S, x'_in_e'⟩
+        let g : S → X := (↑)
+        use g '' e', e'_in_sets_of_S
+        have : x ∈ g '' e' := by
+            rw [Set.mem_image]
+            use ⟨x, hx⟩
+        use this
+        rintro x1 ⟨x1', hx1', rfl⟩
+        exact Subtype.coe_prop x1'
+    case mpr =>
+        rintro ⟨e, e_in_sets, ⟨x_in_e, e_sub_s⟩⟩
+        exact e_sub_s x_in_e
+
+end
+example {X: Type*} {x: X} {SS: Set (Set X)} : x ∈ ⋃₀ SS ↔ ∃ s ∈ SS, x ∈ s := by
+    apply?
 end CellComplexClass
 end Chp5
