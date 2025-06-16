@@ -5,8 +5,8 @@ namespace Chp5
 open CellComplexClass
 -- We shall not rule out the possiblity where X is empty, so is skeleton and subcomplex
 structure is_disconnection {X: Type*} [TopologicalSpace X] (s: Set X) (x1 : Set X) (x2: Set X) : Prop where
-  left_open: IsOpen x1
-  right_open: IsOpen x2
+  left_open: IsOpen (((↑): s → X) ⁻¹' x1)
+  right_open: IsOpen (((↑): s → X) ⁻¹' x2)
   cover: s ⊆ x1 ∪ x2
   left_inter: (s ∩ x1).Nonempty
   right_inter: (s ∩ x2).Nonempty
@@ -50,8 +50,8 @@ theorem aux_sub_one_partition_of_connected {X: Type*} [TopologicalSpace X] {s X1
   let X2' := g ⁻¹' X2
   have hX1': X1' = g ⁻¹' (s ∩ X1) := Eq.symm (Subtype.preimage_coe_self_inter s X1)
   have hX2': X2' = g ⁻¹' (s ∩ X2) := Eq.symm (Subtype.preimage_coe_self_inter s X2)
-  have X1'_open : IsOpen X1' := subset_open_of_open h.left_open
-  have X2'_open : IsOpen X2' := subset_open_of_open h.right_open
+  have X1'_open : IsOpen X1' := h.left_open
+  have X2'_open : IsOpen X2' := h.right_open
   have disjoint_X1'_X2' : Disjoint X1' X2' := by
     rw [hX1', hX2']
     refine Disjoint.preimage g ?_
@@ -400,7 +400,7 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
         have :closure e ∩ X1' ⊆ X2' ∩ X1' := Set.inter_subset_inter he fun ⦃a⦄ a ↦ a
         rw [Set.inter_comm X2', X1'X2'_disjoint] at this
         exact Set.subset_eq_empty this rfl
-    have X1'_closed : IsClosed (g ⁻¹' X1') := by
+    have X1'_closed_in_Xnp1 : IsClosed (g ⁻¹' X1') := by
       let Y1 := g ⁻¹' X1'
       show IsClosed Y1
       -- note that we implicitly use the fact that Skeleton X (n + 1) is also a CW complex
@@ -425,9 +425,87 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
         congr!
         exact Subtype.range_coe
       have : φ ⁻¹' Y1 = (g ∘ φ) ⁻¹' X1' := by ext x;exact Set.mem_preimage
-      rw [this, ←Set.preimage_inter_range, gφ_range]
-      -- use sub_X1'_or_disjoint
-      sorry
+      rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
+      match sub_X1'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
+      | Or.inl he₀ =>
+        rw [he₀, ←gφ_range, Set.preimage_range]
+        exact isClosed_univ
+      | Or.inr he₀ =>
+        rw [he₀]
+        exact isClosed_empty
+    have sub_X2'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X2' = closure e) ∨ ((closure e) ∩ X2' = ∅) := by
+      intro e e_in_sets e_sub_Xnp1
+      match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
+      | Or.inr he =>
+        left
+        rw [Set.inter_eq_left]
+        exact he
+      | Or.inl he =>
+        right
+        have :closure e ∩ X2' ⊆ X2' ∩ X1' := by
+          rw [Set.inter_comm]
+          exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) he
+        rw [Set.inter_comm X2', X1'X2'_disjoint] at this
+        exact Set.subset_eq_empty this rfl
+    have X2'_closed_in_Xnp1 : IsClosed (g ⁻¹' X2') := by
+      let Y2 := g ⁻¹' X2'
+      show IsClosed Y2
+      apply closed_crit_of_coeherent CWComplexClass.coeherent
+      rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
+      let φ : closure e → (Skeleton X (n + 1)) := (↑)
+      show IsClosed (φ ⁻¹' Y2)
+      let e₀ := g '' e
+      let e₀ := g '' e
+      have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
+      have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
+        rintro x ⟨y, hy, rfl⟩
+        exact Subtype.coe_prop y
+      have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
+        apply IsClosedMap.closure_image_eq_of_continuous
+        case f_closed =>
+          apply IsClosed.isClosedMap_subtype_val
+          apply sub_cw_cell_complex_closed
+        case f_cont =>
+          exact continuous_subtype_val
+      have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
+        rw [ce₀_eq_ce_img, Set.range_comp]
+        congr!
+        exact Subtype.range_coe
+      have : φ ⁻¹' Y2 = (g ∘ φ) ⁻¹' X2' := by ext x;exact Set.mem_preimage
+      rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
+      match sub_X2'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
+      | Or.inl he₀ =>
+        rw [he₀, ←gφ_range, Set.preimage_range]
+        exact isClosed_univ
+      | Or.inr he₀ =>
+        rw [he₀]
+        exact isClosed_empty
+    have sub_X1'X2'_eq_Xnp1: (g ⁻¹' X1') ∪ (g ⁻¹' X2') = Set.univ := by
+      rw [←Set.preimage_union, X1'X2'_eq_Xnp1, ←Set.preimage_range g]
+      congr!
+      exact Eq.symm Subtype.range_coe
+    have sub_X1'X2'_disjoint: (g ⁻¹' X1') ∩ (g ⁻¹' X2') = ∅ := by
+      rw  [←Set.preimage_inter, X1'X2'_disjoint]
+      rfl
+    have sub_X1'_eq_X2'_compl: g ⁻¹' X1' = (g ⁻¹' X2')ᶜ := by
+      refine Eq.symm (compl_unique ?disj ?union)
+      case disj =>
+        show (g ⁻¹' X2') ∩ (g ⁻¹' X1') = ∅
+        rw [Set.inter_comm]
+        exact sub_X1'X2'_disjoint
+      case union =>
+        show (g ⁻¹' X2') ∪ (g ⁻¹' X1') = Set.univ
+        rw [Set.union_comm]
+        exact sub_X1'X2'_eq_Xnp1
+    have sub_X2'_eq_X1'_compl: g ⁻¹' X2' = (g ⁻¹' X1')ᶜ := by
+      rw [eq_compl_comm]
+      exact sub_X1'_eq_X2'_compl
+    have X1'_open_in_Xnp1 : IsOpen (g ⁻¹' X1') := by
+      rw [sub_X1'_eq_X2'_compl]
+      exact IsClosed.isOpen_compl
+    have X2'_open_in_Xnp1 : IsOpen (g ⁻¹' X2') := by
+      rw [sub_X2'_eq_X1'_compl]
+      exact IsClosed.isOpen_compl
     sorry
   sorry
 
@@ -442,8 +520,6 @@ example {f: X → Y} (t: Set Y) : f ⁻¹' t = f ⁻¹' (t ∩ Set.range f) := b
   exact Eq.symm Set.preimage_inter_range
 example {f: X → Y} : f ⁻¹' (Set.range f) = Set.univ := by
   exact Set.preimage_range f
-example {f: X → Y} (s1 s2: Set X) (h: s1 = s2) : f '' s1 = f '' s2 := by
-  apply?
 example {s1 s2 : Set X} (h0: s1 ⊆ s2) (h1: IsClosed s2) : closure s1 ⊆ s2 := by
   exact (IsClosed.closure_subset_iff h1).mpr h0
 example {s1 s2 s3: Set X} (h0: s1 = s2 ∪ s3) (h1: s2 ∩ s3 = ∅) : s1 \ s2 = s3 := by
@@ -452,4 +528,9 @@ example {s1 s2 s3: Set X} (h0: s1 = s2 ∪ s3) (h1: s2 ∩ s3 = ∅) : s1 \ s2 =
   exact Set.subset_empty_iff.mpr h1
 example {s: Set X} : closure s = s ∪ (closure s \ s) := by
   exact Eq.symm (Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)
+example {f: X → Y}: f ⁻¹' ∅ = ∅ := by exact rfl
+example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) (h': s1 ∪ s2 = Set.univ) : s1 = s2ᶜ ↔ s2 = s1ᶜ := by
+  exact eq_compl_comm
+example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
+
 end
