@@ -273,3 +273,41 @@ theorem quotient_of_choherent {X: Type*} [TX:TopologicalSpace X] {B: Set (Set X)
             simp only [this]
             simpa using hB.open_crit s
 end Chp5
+
+
+example : (∀ p : (ℕ → Prop), (p 0 ∧ (∀ n: ℕ, (∀ m : ℕ, m ≤ n → p m) → p (n + 1))) → ∀ n, p n) ↔ (∀ p : (ℕ → Prop), (p 0 ∧ (∀ n: ℕ, p n → p (n + 1))) → ∀ n, p n) := by
+    constructor
+    case mp =>
+        intro l
+        rintro p ⟨hp0, hp⟩
+        apply l
+        use hp0
+        intro n hn
+        apply hp
+        apply hn
+        exact Nat.le_refl n
+    case mpr =>
+        intro r
+        rintro p ⟨hp0, hp⟩
+        have : ∀ n, (∀ m, m ≤ n → p m) := by
+            apply r
+            constructor
+            case a.left =>
+                intro m hm
+                have : m = 0 := Nat.eq_zero_of_le_zero hm
+                rw [this]
+                exact hp0
+            case a.right =>
+                intro n hn
+                intro m hm
+                have : m ≤ n ∨ m = n + 1 := Nat.le_or_eq_of_le_succ hm
+                match this with
+                | Or.inl hm_le_n =>
+                    apply hn _ hm_le_n
+                | Or.inr hm_eq_np1 =>
+                    rw [hm_eq_np1]
+                    apply hp
+                    exact hn
+        apply r
+        use hp0
+        exact fun n a ↦ hp n (this n)

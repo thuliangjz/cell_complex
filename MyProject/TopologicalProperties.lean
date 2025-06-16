@@ -190,6 +190,115 @@ theorem aux_cell_closure_inter_1_partition {n : ℕ} (hn: 1 ≤ n) {X1 X2: Set X
       simp at hx
     rw [not_and_or]
     exact ⟨Or.inl h1, Or.inr h2⟩
+
+-- bassically follow the method of previous theorem
+theorem aux_cell_frontier_sub_left_partition {n : ℕ} (hn: 1 ≤ n) {X1 X2: Set X} (h: is_disconnection (Skeleton X n) X1 X2) (hX1: X1 ⊆ Skeleton X n) : ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → (closure e ∩ X1).Nonempty → (closure e \ e) ⊆ X1 := by
+  intro e e_in_sets e_sub_skeleton_np1
+  have : C.dim_map ⟨e, e_in_sets⟩ ≤ n ∨ C.dim_map ⟨e, e_in_sets⟩ = n + 1 := by
+    have : C.dim_map ⟨e, e_in_sets⟩ ≤ n + 1 := (sub_skeleton_iff ⟨e, e_in_sets⟩).mp e_sub_skeleton_np1
+    exact Nat.le_or_eq_of_le_succ this
+  match this with
+  | Or.inl h_e_dim =>
+    have e_sub_Xn: e ⊆ Skeleton X n := by
+          rw [sub_skeleton_iff ⟨e, e_in_sets⟩]
+          exact h_e_dim
+    have ce_sub_Xn: closure e ⊆ Skeleton X n := by
+      apply (Skeleton X n).cell_closure_incl e e_in_sets e_sub_Xn
+    have ce_pre_connected: IsPreconnected (closure e) := by
+      exact IsConnected.isPreconnected (cell_closure_connected e e_in_sets)
+    have ce_in_either : closure e ⊆ X1 ∨ closure e ⊆ X2 := by
+      apply aux_sub_one_partition_of_connected h ce_sub_Xn ce_pre_connected
+    intro hce_inter_X1_nonempty
+    match ce_in_either with
+    | Or.inl ce_in_X1 =>
+      trans closure e
+      exact diff_subset_closure_iff.mpr fun ⦃a⦄ a ↦ a
+      exact ce_in_X1
+    | Or.inr ce_in_X2 =>
+      apply False.elim
+      rcases hce_inter_X1_nonempty with ⟨x, hx⟩
+      have hx_in_X1X2: x ∈ X1 ∩ X2 := ⟨hx.2, ce_in_X2 hx.1⟩
+      have hx_in_Xn: x ∈ (Skeleton X n) := hX1 hx.2
+      apply Set.disjoint_iff.mp h.disjoint ⟨hx_in_Xn, hx_in_X1X2⟩
+  | Or.inr h_e_dim =>
+    let boundary := Set.range (cb_boundary_map (C.characteristic_map ⟨e, e_in_sets⟩))
+    have boundary_connected : IsConnected boundary := by
+      simp [boundary, boundary_map_range]
+      apply IsConnected.image
+      case H =>
+        apply cb_boundary_connected
+        rw [h_e_dim]
+        linarith
+      case hf =>
+        apply Continuous.continuousOn
+        exact characteristic_map_continuous ⟨e, e_in_sets⟩
+    have boundary_sub_Xn : boundary ⊆ Skeleton X n := by
+      trans ⋃ p:C.sets, ⋃ _:(C.dim_map p < C.dim_map ⟨e, e_in_sets⟩), p.val
+      apply C.characteristic_map_boundary
+      have : ∀ p : C.sets, C.dim_map p < C.dim_map ⟨e, e_in_sets⟩ → p.val ⊆ Skeleton X n := by
+        intro p hp
+        rw [h_e_dim] at hp
+        rw [sub_skeleton_iff]
+        exact Nat.le_of_lt_succ hp
+      simpa using this
+    have boundary_in_either : boundary ⊆ X1 ∨ boundary ⊆ X2 := by
+      apply aux_sub_one_partition_of_connected h boundary_sub_Xn boundary_connected.isPreconnected
+    have boundary_sub_ce : boundary ⊆ closure e := by
+      rw [←C.characteristic_map_range ⟨e, e_in_sets⟩]
+      simp [boundary, boundary_map_range]
+    have boundary_nonempty : boundary.Nonempty := by
+      exact IsConnected.nonempty boundary_connected
+    have ce_decomp: closure e = e ∪ boundary := by
+      show closure e  = ((⟨e, e_in_sets⟩: C.sets):Set X) ∪ boundary
+      rw [←C.characteristic_map_inner_range ⟨e, e_in_sets⟩, ←characteristic_map_range ⟨e, e_in_sets⟩, Set.union_comm]
+      apply cb_map_range_decomposition
+    have e_inter_Xn_empty : e ∩ (Skeleton X n) = ∅ := by
+      show e ∩ (⋃s: C.sets, ⋃ _:(C.dim_map s ≤ n), s.val) = ∅
+      rw [Set.inter_iUnion₂]
+      simp
+      show ∀ (i : Set X) (i_1 : i ∈ sets), dim_map ⟨i, i_1⟩ ≤ n → e ∩ i = ∅ -- we keep this show here to make simp's goal explicit
+      intro s s_in_sets s_dim_less_n
+      rw [←Set.disjoint_iff_inter_eq_empty]
+      apply C.disjoint e_in_sets s_in_sets
+      contrapose! s_dim_less_n
+      have : C.dim_map ⟨s, s_in_sets⟩ = C.dim_map ⟨e, e_in_sets⟩ := by
+        congr!
+        exact s_dim_less_n.symm
+      rw [this]
+      linarith
+    have e_inter_boundary_empty: e ∩ boundary = ∅ := by
+      have : e ∩ boundary ⊆ e ∩ (Skeleton X n) := Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) boundary_sub_Xn
+      rw [e_inter_Xn_empty] at this
+      exact Set.subset_eq_empty this rfl
+    have ce_sub_e_eq_boundary: closure e \ e = boundary := by
+      rw [ce_decomp]
+      apply Set.union_diff_cancel_left
+      exact Set.subset_empty_iff.mpr e_inter_boundary_empty
+    have X1X2_disjoint : X1 ∩ X2 = ∅ := by
+      have : X1 ∩ X2 = ((Skeleton X n): Set X) ∩ (X1 ∩ X2) := by
+        apply Set.right_eq_inter.mpr
+        intro x hx
+        exact hX1 hx.1
+      rw [this, ←Set.disjoint_iff_inter_eq_empty]
+      exact h.disjoint
+    intro h_ce_inter_X1
+    rw [ce_sub_e_eq_boundary]
+    match boundary_in_either with
+    | Or.inl bX1 => exact bX1
+    | Or.inr bX2 =>
+      rcases h_ce_inter_X1 with ⟨x, hx⟩
+      have : x ∈ boundary ∩ X1 := by
+        rw [ce_decomp] at hx
+        have : X1 ∩ e = ∅ := by
+          rw [Set.inter_comm]
+          have : e ∩ X1 ⊆ e ∩ (Skeleton X n) := Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) hX1
+          exact Set.subset_eq_empty this e_inter_Xn_empty
+        rw [Set.inter_comm, Set.inter_union_distrib_left, this, Set.empty_union, Set.inter_comm] at hx
+        exact hx
+      have : x ∈ X1 ∩ X2 := ⟨this.2, bX2 this.1⟩
+      rw [X1X2_disjoint] at this
+      apply False.elim
+      exact this
 end topo_prop_helper
 
 theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] [PreconnectedSpace X] : IsPreconnected ((Skeleton X 1): Set X) := by
@@ -247,11 +356,100 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
       have e1_eq_e2 : e1 = e2 := by apply same_cell_of_mem e1_in_sets e2_in_sets x_in_e1 x_in_e2
       rw [←e1_eq_e2] at ce2_inter_X2
       exact (aux_inter_only_1 e1 e1_in_sets he1_sub_Xnp1).2 ⟨ce1_inter_X1, ce2_inter_X2⟩
+    have aux_sub_only_1 : ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → (closure e) ⊆ X1' ∨ (closure e) ⊆ X2' := by
+      intro e e_in_sets e_sub_Xnp1
+      have ce_sub_Xnp1 : closure e ⊆ (Skeleton X (n + 1)) := by
+        have : IsClosed ((Skeleton X (n + 1)) : Set X) := by apply sub_cw_cell_complex_closed
+        rw [IsClosed.closure_subset_iff this]
+        exact e_sub_Xnp1
+      match (aux_inter_only_1 e e_in_sets e_sub_Xnp1).1 with
+      | Or.inl he =>
+        left
+        have e_in_X1' : e ⊆ X1' := by
+          intro x hx
+          simp [X1'_def]
+          use e
+        have be_in_X1' : (closure e \ e) ⊆ X1' := by
+          trans X1
+          apply aux_cell_frontier_sub_left_partition hn h hX1 e e_in_sets e_sub_Xnp1 he
+          exact X1_sub_X1'
+        rw [←(Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)]
+        exact Set.union_subset e_in_X1' be_in_X1'
+      | Or.inr he =>
+        right
+        have e_in_X2' : e ⊆ X2' := by
+          intro x hx
+          simp [X2'_def]
+          use e
+        have be_in_X2' : (closure e \ e) ⊆ X2' := by
+          trans X2
+          apply aux_cell_frontier_sub_left_partition hn (aux_is_disconnection_comm_left h) hX2 e e_in_sets e_sub_Xnp1 he
+          exact X2_sub_X2'
+        rw [←(Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)]
+        exact Set.union_subset e_in_X2' be_in_X2'
+    let g : Skeleton X (n + 1) → X := (↑)
+    have sub_X1'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X1' = closure e) ∨ ((closure e) ∩ X1' = ∅) := by
+      intro e e_in_sets e_sub_Xnp1
+      match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
+      | Or.inl he =>
+        left
+        rw [Set.inter_eq_left]
+        exact he
+      | Or.inr he =>
+        right
+        have :closure e ∩ X1' ⊆ X2' ∩ X1' := Set.inter_subset_inter he fun ⦃a⦄ a ↦ a
+        rw [Set.inter_comm X2', X1'X2'_disjoint] at this
+        exact Set.subset_eq_empty this rfl
+    have X1'_closed : IsClosed (g ⁻¹' X1') := by
+      let Y1 := g ⁻¹' X1'
+      show IsClosed Y1
+      -- note that we implicitly use the fact that Skeleton X (n + 1) is also a CW complex
+      apply closed_crit_of_coeherent CWComplexClass.coeherent
+      rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
+      let φ : closure e → (Skeleton X (n + 1)) := (↑)
+      show IsClosed (φ ⁻¹' Y1)
+      let e₀ := g '' e
+      have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
+      have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
+        rintro x ⟨y, hy, rfl⟩
+        exact Subtype.coe_prop y
+      have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
+        apply IsClosedMap.closure_image_eq_of_continuous
+        case f_closed =>
+          apply IsClosed.isClosedMap_subtype_val
+          apply sub_cw_cell_complex_closed
+        case f_cont =>
+          exact continuous_subtype_val
+      have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
+        rw [ce₀_eq_ce_img, Set.range_comp]
+        congr!
+        exact Subtype.range_coe
+      have : φ ⁻¹' Y1 = (g ∘ φ) ⁻¹' X1' := by ext x;exact Set.mem_preimage
+      rw [this, ←Set.preimage_inter_range, gφ_range]
+      -- use sub_X1'_or_disjoint
+      sorry
     sorry
   sorry
 
 end Chp5
-example {X: Type*} {s1 s2 s3: Set x} : (s1 ∪ s2) ∩ s3 = (s1 ∩ s3) ∪ (s2 ∩ s3) := by exact Set.union_inter_distrib_right s1 s2 s3
-example {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y] {sx: Set X} (hsx: IsConnected sx) {f: X → Y} (hf: Continuous f) : (IsConnected (f '' sx)) := by
-  refine IsConnected.image hsx f ?_
-  exact Continuous.continuousOn hf
+
+section
+variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
+example {f: X → Y} (hf: IsClosedMap f) (fc: Continuous f) {s: Set X} : f '' (closure s) = closure (f '' s) := by exact Eq.symm (IsClosedMap.closure_image_eq_of_continuous hf fc s)
+example {s : Set X} (hs: IsClosed s) : let g : s → X := (↑); IsClosedMap g := by
+  exact IsClosed.isClosedMap_subtype_val hs
+example {f: X → Y} (t: Set Y) : f ⁻¹' t = f ⁻¹' (t ∩ Set.range f) := by
+  exact Eq.symm Set.preimage_inter_range
+example {f: X → Y} : f ⁻¹' (Set.range f) = Set.univ := by
+  exact Set.preimage_range f
+example {f: X → Y} (s1 s2: Set X) (h: s1 = s2) : f '' s1 = f '' s2 := by
+  apply?
+example {s1 s2 : Set X} (h0: s1 ⊆ s2) (h1: IsClosed s2) : closure s1 ⊆ s2 := by
+  exact (IsClosed.closure_subset_iff h1).mpr h0
+example {s1 s2 s3: Set X} (h0: s1 = s2 ∪ s3) (h1: s2 ∩ s3 = ∅) : s1 \ s2 = s3 := by
+  rw [h0]
+  apply Set.union_diff_cancel_left ?_
+  exact Set.subset_empty_iff.mpr h1
+example {s: Set X} : closure s = s ∪ (closure s \ s) := by
+  exact Eq.symm (Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)
+end
