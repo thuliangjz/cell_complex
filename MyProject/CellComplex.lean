@@ -1047,7 +1047,6 @@ theorem mem_sub_complex_iff {x : X} {S: SubCellComplex X} : x ∈ S ↔ ∃ e �
         exact e_sub_s x_in_e
 
 end
-example {X: Type*} {x: X} {SS: Set (Set X)} : x ∈ ⋃₀ SS ↔ ∃ s ∈ SS, x ∈ s := by
-    apply?
+
 end CellComplexClass
 end Chp5
