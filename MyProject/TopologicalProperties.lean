@@ -541,18 +541,47 @@ end topo_prop_helper
 theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] [PreconnectedSpace X] : IsPreconnected ((Skeleton X 1): Set X) := by
   by_contra! hc
   simp [IsPreconnected] at hc
-  rcases hc with ⟨X1, X1_open, X2, X2_open, X1X2_cover_1sk, X1_inter_nonempty, X2_inter_nonempty, X1X2_inter_empty⟩
-  have hx1x2_disconnection: is_disconnection (Skeleton X 1) X1 X2 := by
+  rcases hc with ⟨Y1, Y1_open, Y2, Y2_open, Y1Y2_cover_1sk, Y1_inter_nonempty, Y2_inter_nonempty, Y1Y2_inter_empty⟩
+  set X1 := Y1 ∩ (Skeleton X 1) with X1_def
+  set X2 := Y2 ∩ (Skeleton X 1) with X2_def
+  have hX1X2_disconnection: is_disconnection (Skeleton X 1) X1 X2 := by
+    let g : ((Skeleton X 1): Set X) → X := (↑)
     exact {
-      left_open := IsOpen.preimage_val X1_open
-      right_open := IsOpen.preimage_val X2_open
-      cover := X1X2_cover_1sk
-      left_inter := X1_inter_nonempty
-      right_inter := X2_inter_nonempty
+      left_open := by
+        rw [Subtype.preimage_coe_inter_self]
+        exact IsOpen.preimage_val Y1_open
+      right_open := by
+        rw [Subtype.preimage_coe_inter_self]
+        exact IsOpen.preimage_val Y2_open
+      cover := by
+        rw [X1_def, X2_def]
+        intro x hx
+        rcases Y1Y2_cover_1sk hx with x_in_Y1 | x_in_Y2
+        case inl =>
+          left
+          exact ⟨x_in_Y1, hx⟩
+        case inr =>
+          right
+          exact ⟨x_in_Y2, hx⟩
+      left_inter := by
+        rw [X1_def, Set.inter_comm, Set.inter_assoc, Set.inter_self, Set.inter_comm]
+        exact Y1_inter_nonempty
+      right_inter := by
+        rw [X2_def, Set.inter_comm, Set.inter_assoc, Set.inter_self, Set.inter_comm]
+        exact Y2_inter_nonempty
       disjoint := by
         rw [Set.disjoint_iff_inter_eq_empty]
-        contrapose! X1X2_inter_empty
-        exact X1X2_inter_empty
+        have : ((Skeleton X 1): Set X) ∩ (X1 ∩ X2) = ((Skeleton X 1): Set X) ∩ (Y1 ∩ Y2) := by
+          simp[X1_def, X2_def]
+          ext x
+          constructor
+          . intro hx
+            exact ⟨hx.1, ⟨hx.2.1.1, hx.2.2.1⟩⟩
+          intro hx
+          tauto
+        rw [this]
+        contrapose! Y1Y2_inter_empty
+        exact Y1Y2_inter_empty
     }
   sorry
 
@@ -579,5 +608,4 @@ example {f: X → Y}: f ⁻¹' ∅ = ∅ := by exact rfl
 example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) (h': s1 ∪ s2 = Set.univ) : s1 = s2ᶜ ↔ s2 = s1ᶜ := by
   exact eq_compl_comm
 example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
-#check Set.left_eq_inter
 end
