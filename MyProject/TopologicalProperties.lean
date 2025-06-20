@@ -583,6 +583,7 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
         contrapose! Y1Y2_inter_empty
         exact Y1Y2_inter_empty
     }
+  choose fx1 fx2 h_disconnection h_x1_sub_fx1 h_x2_sub_fx2 h_fx_sub_sknp1 using @aux_disconnection_induction X _ _ C CW
   sorry
 
 end Chp5
@@ -609,3 +610,29 @@ example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) (h': s1 ∪ s2 = Set.univ) : s1 = s2
   exact eq_compl_comm
 example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
 end
+
+-- example of dependent arrow notation
+-- constructing function having a desired property (proposition is required in f's input)
+example {X: Type*} (p : ℕ → X → Prop) (f0: (n: ℕ) →  (x: X) → p n x → X) (hf0: (n : ℕ) → (x : X) → (h: p n x) → p (n+1) (f0 n x h)) (x₀ : X) (hx₀: p 0 x₀): ∃ f: ℕ → X, ∀ n, p n (f n) := by
+  have: ∀ n: ℕ, ∃ x: X, p n x := by
+    intro n
+    induction' n with n ihn
+    case zero => use x₀
+    case succ =>
+      rcases ihn with ⟨x, hx⟩
+      use f0 n x hx
+      exact hf0 n x hx
+  choose f hf using this
+  use f
+
+-- proving a constructed function have the desired property (f's value have the property involving adjacent terms)
+example {X: Type*} (p: X → X → Prop) (f0: X → X) (hf0: ∀ x: X, p x (f0 x)) (x0: X): ∃ f: ℕ → X, ∀ n, p (f n) (f (n + 1)) := by
+  set f : ℕ → X := by
+    intro n
+    induction' n with n ihn
+    case zero => exact x0
+    case succ => exact f0 ihn
+  with f_def
+  use f
+  intro n
+  exact hf0 (f n)
