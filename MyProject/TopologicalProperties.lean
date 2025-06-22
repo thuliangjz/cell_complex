@@ -584,6 +584,43 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
         exact Y1Y2_inter_empty
     }
   choose fx1 fx2 h_disconnection h_x1_sub_fx1 h_x2_sub_fx2 h_fx_sub_sknp1 using @aux_disconnection_induction X _ _ C CW
+  have seq_fun: ∃ f: ℕ → (Set X × Set X), ∀ n : ℕ, (is_disconnection (Skeleton X (n + 1)) (f n).1 (f n).2) ∧ (f n).1 ⊆ (Skeleton X (n + 1)) ∧ (f n).2 ⊆ (Skeleton X (n + 1)) ∧ (f n).1 ⊆ (f (n + 1)).1 ∧ (f n).2 ⊆ (f (n + 1)).2:= by
+    let p : (ℕ × Set X × Set X) → Prop := fun ⟨n, s1, s2⟩ ↦ is_disconnection (Skeleton X (n + 1)) s1 s2 ∧ s1 ⊆ (Skeleton X (n + 1)) ∧ s2 ⊆ (Skeleton X (n + 1))
+    let r : (Set X × Set X) → (Set X × Set X) → Prop := fun ⟨s1, s2⟩ ⟨s1', s2'⟩ ↦ s1 ⊆ s1' ∧ s2 ⊆ s2'
+    -- the subtype constructor here is just a work-around to allow carry proposition in sigma type
+    let φ : (n : ℕ) → Σx : (Set X × Set X), {y: Set X // p ⟨n, x⟩}  := by
+      intro n
+      induction' n with n ihn
+      case zero =>
+        have : p ⟨0, ⟨X1, X2⟩⟩ := by
+          simp [p]
+          have X1_sub_SK1 : X1 ⊆ Skeleton X 1 := by rw [X1_def]; exact Set.inter_subset_right
+          have X2_sub_Sk1 : X2 ⊆ Skeleton X 1 := by rw [X2_def]; exact Set.inter_subset_right
+          exact ⟨hX1X2_disconnection, X1_sub_SK1, X2_sub_Sk1⟩
+        exact ⟨⟨X1, X2⟩, ⟨X1, this⟩⟩
+      case succ =>
+        rcases ihn with ⟨⟨Xₙ₁, Xₙ₂⟩, ⟨_, h⟩⟩
+        let Xₙ₁': Set X := fx1 h.1 h.2.1 h.2.2 (by norm_num)
+        let Xₙ₂': Set X := fx2 h.1 h.2.1 h.2.2 (by norm_num)
+        have : p ⟨(n + 1), Xₙ₁', Xₙ₂'⟩ := by
+          simp [p]
+          have aux_disconnection: is_disconnection (↑(Skeleton X (n + 1 + 1))) Xₙ₁' Xₙ₂' := by apply h_disconnection
+          have aux_subset: Xₙ₁' ⊆ ↑(Skeleton X (n + 1 + 1)) ∧ Xₙ₂' ⊆ ↑(Skeleton X (n + 1 + 1)) := by apply h_fx_sub_sknp1
+          exact ⟨aux_disconnection, aux_subset⟩
+        exact ⟨⟨Xₙ₁', Xₙ₂'⟩, ⟨Xₙ₁', this⟩⟩
+    let f : ℕ → (Set X × Set X) := fun n ↦ (φ n).1
+    use f
+    intro n
+    have p_satisfied : is_disconnection (↑(Skeleton X (n + 1))) (f n).1 (f n).2 ∧ (f n).1 ⊆ ↑(Skeleton X (n + 1)) ∧ (f n).2 ⊆ ↑(Skeleton X (n + 1)) := by
+      show p ⟨n, f n⟩
+      exact (φ n).2.2
+    have r_satisified: (f n).1 ⊆ (f (n + 1)).1 ∧ (f n).2 ⊆ (f (n + 1)).2 := by
+      -- this is possible because we have written φ EXPLICITLY instead of using choose
+      have sub1: (f n).1 ⊆ (f (n + 1)).1 := by apply h_x1_sub_fx1
+      have sub2: (f n).2 ⊆ (f (n + 1)).2 := by apply h_x2_sub_fx2
+      tauto
+    tauto
+
   sorry
 
 end Chp5
@@ -636,3 +673,26 @@ example {X: Type*} (p: X → X → Prop) (f0: X → X) (hf0: ∀ x: X, p x (f0 x
   use f
   intro n
   exact hf0 (f n)
+
+
+example {X: Type*} {p : X → Prop} {r: X → X → Prop}
+  (f: (x: X) → p x → X)
+  (hf0: (x: X) → (h: p x) → p (f x h))
+  (hf1: (x: X) → (h: p x) → r x (f x h))
+  (x₀: X) (h₀: p x₀) :
+  ∃ g: ℕ → X, ∀ n: ℕ, p (g n) ∧ r (g n) (g (n + 1)) := by
+    let φ : ℕ → Σ x : X, {y: X // p x} := by
+      intro n
+      induction' n with n ihn
+      case zero => exact ⟨x₀, ⟨x₀, h₀⟩⟩
+      case succ =>
+        rcases ihn with ⟨xₙ, ⟨ _, hₙ⟩⟩
+        exact ⟨f xₙ hₙ, ⟨x₀, hf0 xₙ hₙ⟩⟩
+    let g : ℕ → X := fun n ↦ (φ n).1
+    use g
+    intro n
+    constructor
+    . exact (φ n).2.2
+    have : g (n + 1) = f (g n) (φ n).2.2 := by rfl
+    rw [this]
+    exact hf1 (g n) (φ n).2.2
