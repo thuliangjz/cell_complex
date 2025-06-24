@@ -23,6 +23,9 @@ theorem aux_is_disconnection_comm_left {X: Type*} [TopologicalSpace X] {s X1 X2 
     disjoint := by simpa [Set.inter_comm] using h.disjoint
   }
 
+theorem aux_left_nonempty_of_disconnection {X: Type*} [TopologicalSpace X] {s x1 x2: Set X} (h: is_disconnection s x1 x2): x1.Nonempty := Set.Nonempty.right h.left_inter
+theorem aux_right_nonempty_of_disconnection {X: Type*} [TopologicalSpace X] {s x1 x2: Set X} (h: is_disconnection s x1 x2): x2.Nonempty := Set.Nonempty.right h.right_inter
+
 theorem aux_is_disconnection_comm {X: Type*} [TopologicalSpace X] {s X1 X2 : Set X} : is_disconnection s X1 X2 ↔ is_disconnection s X2 X1 := by
   constructor
   <;> apply aux_is_disconnection_comm_left
@@ -620,7 +623,51 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
       have sub2: (f n).2 ⊆ (f (n + 1)).2 := by apply h_x2_sub_fx2
       tauto
     tauto
-
+  rcases seq_fun with ⟨f, hf⟩
+  -- We wish to prove Z1 and Z2 form a disconnection of univ
+  set Z1 := ⋃ n:ℕ, (f n).1 with Z1_def
+  set Z2 := ⋃ n:ℕ, (f n).2 with Z2_def
+  have Z1_nonempty: Z1.Nonempty := by
+    have : (f 0).1 ⊆ Z1 := Set.subset_iUnion_of_subset 0 fun ⦃a⦄ a ↦ a
+    apply Set.Nonempty.mono this
+    apply aux_left_nonempty_of_disconnection (hf 0).1
+  have Z2_nonempty: Z2.Nonempty := by
+    have : (f 0).2 ⊆ Z2 := Set.subset_iUnion_of_subset 0 fun ⦃a⦄ a ↦ a
+    apply Set.Nonempty.mono this
+    apply aux_right_nonempty_of_disconnection (hf 0).1
+  have aux_f_mono: ∀ (m n : ℕ), m ≤ n → (f m).1 ⊆ (f n).1 ∧ (f m).2 ⊆ (f n).2 := by
+    intro m n hmn
+    induction' n with n ihn
+    case zero =>
+      have : m = 0 := Nat.eq_zero_of_le_zero hmn
+      simp [this]
+    case succ =>
+      rw [Nat.le_succ_iff] at hmn
+      rcases hmn with m_le_n | m_eq_np1
+      case inl =>
+        have : (f n).1 ⊆ (f (n + 1)).1 ∧ (f n).2 ⊆ (f (n + 1)).2 := by
+          rcases hf n with ⟨h0, h1, h2, h3⟩
+          exact h3
+        exact ⟨fun x hx↦ this.1 ((ihn m_le_n).1 hx), fun x hx ↦ this.2 ((ihn m_le_n).2 hx)⟩
+      case inr =>
+        simp [m_eq_np1]
+  have aux_f_disjoint: ∀ (m n : ℕ), Disjoint (f m).1 (f n).2 := by
+    have aux : ∀ n: ℕ, Disjoint (f n).1 (f n).2 := by
+      intro n
+      rw [Set.disjoint_iff_inter_eq_empty]
+      rcases hf n with ⟨h1, h2, h3, h4⟩
+      have eq1: (f n).1 = (f n).1 ∩ (Skeleton X (n + 1)) := by
+        rw [Set.left_eq_inter]
+        exact h2
+      have eq2: (f n).2 = (f n).2 ∩ (Skeleton X (n + 1)) := by
+        rw [Set.left_eq_inter]
+        exact h3
+      calc
+        (f n).1 ∩ (f n).2 = ((f n).1 ∩ (Skeleton X (n + 1))) ∩ ((f n).2 ∩ (Skeleton X (n + 1))) := by nth_rw 1 [eq1, eq2]
+        _                 = ((f n).1 ∩ (f n).2) ∩ (Skeleton X (n + 1)):= by rw [Set.inter_inter_distrib_right (f n).1 (f n).2 (Skeleton X (n + 1))]
+        _                 = ((Skeleton X (n + 1)): Set X) ∩ ((f n).1 ∩ (f n).2) := by rw[Set.inter_comm]
+        _                 = ∅ := by rw [←Set.disjoint_iff_inter_eq_empty]; exact h1.disjoint
+    sorry
   sorry
 
 end Chp5
@@ -646,6 +693,9 @@ example {f: X → Y}: f ⁻¹' ∅ = ∅ := by exact rfl
 example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) (h': s1 ∪ s2 = Set.univ) : s1 = s2ᶜ ↔ s2 = s1ᶜ := by
   exact eq_compl_comm
 example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
+example (s1 s2 s3: Set X) : (s1 ∩ s3) ∩ (s2 ∩ s3) = (s1 ∩ s2) ∩ s3 := by
+  exact Eq.symm (Set.inter_inter_distrib_right s1 s2 s3)
+#check Set.left_eq_inter
 end
 
 -- example of dependent arrow notation
