@@ -667,7 +667,19 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
         _                 = ((f n).1 ∩ (f n).2) ∩ (Skeleton X (n + 1)):= by rw [Set.inter_inter_distrib_right (f n).1 (f n).2 (Skeleton X (n + 1))]
         _                 = ((Skeleton X (n + 1)): Set X) ∩ ((f n).1 ∩ (f n).2) := by rw[Set.inter_comm]
         _                 = ∅ := by rw [←Set.disjoint_iff_inter_eq_empty]; exact h1.disjoint
-    sorry
+    intro m n
+    rcases le_or_lt m n with m_le_n | n_lt_m
+    case inl => exact Set.disjoint_of_subset (aux_f_mono m n m_le_n).1 (fun x h ↦ h) (aux n)
+    case inr => exact Set.disjoint_of_subset (fun x h ↦ h) (aux_f_mono n m (le_of_lt n_lt_m)).2 (aux m)
+  have Z1Z2_disjoint : Disjoint Z1 Z2 := by
+    rw [Set.disjoint_left]
+    intro x x_in_Z1
+    by_contra x_in_Z2
+    rw [Set.mem_iUnion] at x_in_Z1
+    rw [Set.mem_iUnion] at x_in_Z2
+    rcases x_in_Z1 with ⟨m, hm⟩
+    rcases x_in_Z2 with ⟨n, hn⟩
+    apply Set.disjoint_left.mp (aux_f_disjoint m n) hm hn
   sorry
 
 end Chp5
@@ -695,6 +707,14 @@ example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) (h': s1 ∪ s2 = Set.univ) : s1 = s2
 example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
 example (s1 s2 s3: Set X) : (s1 ∩ s3) ∩ (s2 ∩ s3) = (s1 ∩ s2) ∩ s3 := by
   exact Eq.symm (Set.inter_inter_distrib_right s1 s2 s3)
+example (s1 s2 s3: Set X) (h23: Disjoint s2 s3) (h112: s1 ⊆ s2) : Disjoint s1 s3 := by
+  exact Set.disjoint_of_subset h112 (fun ⦃a⦄ a ↦ a) h23
+example (s1 s2 s3: Set X) (h23: Disjoint s2 s3) (h112: s1 ⊆ s3) : Disjoint s2 s1 := by
+  exact Set.disjoint_of_subset (fun ⦃a⦄ a ↦ a) h112 h23
+example (s1 s2: Set X) (h: ∀ x, x ∈ s1 → x ∉ s2) : Disjoint s1 s2 := by
+  exact Set.disjoint_left.mpr h
+example (s1 s2: Set X) {x: X} (h1: x ∈ s1) (h2: x ∈ s2) (h: Disjoint s1 s2) : False := by
+  apply Set.disjoint_left.mp h h1 h2
 #check Set.left_eq_inter
 end
 
