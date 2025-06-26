@@ -680,6 +680,16 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
     rcases x_in_Z1 with ⟨m, hm⟩
     rcases x_in_Z2 with ⟨n, hn⟩
     apply Set.disjoint_left.mp (aux_f_disjoint m n) hm hn
+  have Z1Z2_cover : Z1 ∪ Z2 = Set.univ := by
+    ext x
+    constructor
+    case h.mp => intro hx; trivial
+    case h.mpr =>
+      intro hx
+      rw [←skeleton_cover, Set.mem_iUnion] at hx
+      rcases hx with ⟨n₀, h_skn₀⟩
+      have h_skn₀p1 : x ∈ Skeleton X (n₀ + 1) := skeleton_mono n₀ (n₀ + 1) (Nat.le_succ n₀) h_skn₀
+      sorry
   sorry
 
 end Chp5

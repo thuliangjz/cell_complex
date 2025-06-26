@@ -150,6 +150,15 @@ theorem cell_boundary_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: Cell
     intro x hx
     apply C.characteristic_map_boundary s (aux hx)
 
+section
+variable {X: Type*} [TopologicalSpace X] [T2Space X] [C:CellComplexClass X]
+theorem exists_mem_of_cell : ∀ x: X, ∃ e ∈ C.sets, x ∈ e := by
+    intro x
+    have : x ∈ Set.univ := trivial
+    rw [←C.cover] at this
+    simp at this
+    exact this
+end
 end CellComplexClass
 
 
@@ -1046,6 +1055,24 @@ theorem mem_sub_complex_iff {x : X} {S: SubCellComplex X} : x ∈ S ↔ ∃ e �
         rintro ⟨e, e_in_sets, ⟨x_in_e, e_sub_s⟩⟩
         exact e_sub_s x_in_e
 
+theorem skeleton_mono : ∀ (m n : ℕ), m ≤ n → ((Skeleton X m): Set X) ⊆ (Skeleton X n) := by
+    intro m n m_le_n x hx
+    have : x ∈ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ m), s.val := by exact hx
+    rw [Set.mem_iUnion₂] at this
+    rcases this with ⟨s0, hs0, hxs0⟩
+    show x ∈ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ n), s.val
+    rw [Set.mem_iUnion₂]
+    use s0, (le_trans hs0 m_le_n)
+theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
+    ext x
+    simp
+    rcases exists_mem_of_cell x with ⟨e, e_in_sets, x_in_e⟩
+    let n := C.dim_map ⟨e, e_in_sets⟩
+    use n
+    show x ∈ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ n), s.val
+    simp
+    have : C.dim_map ⟨e, e_in_sets⟩ ≤ n := by exact Nat.le_refl (dim_map ⟨e, e_in_sets⟩)
+    use e, ⟨e_in_sets, this⟩
 end
 
 end CellComplexClass
