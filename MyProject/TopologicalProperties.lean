@@ -689,8 +689,109 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
       rw [←skeleton_cover, Set.mem_iUnion] at hx
       rcases hx with ⟨n₀, h_skn₀⟩
       have h_skn₀p1 : x ∈ Skeleton X (n₀ + 1) := skeleton_mono n₀ (n₀ + 1) (Nat.le_succ n₀) h_skn₀
-      sorry
-  sorry
+      match (hf n₀).1.cover h_skn₀p1 with
+      | Or.inl x_in_first => left; simp [Z1_def]; use n₀
+      | Or.inr x_in_second => right; simp [Z2_def]; use n₀
+  have Z1Z2Open : IsOpen Z1 ∧ IsOpen Z2 := by
+    have aux_ce_sub_only_one: ∀ e ∈ C.sets, (closure e) ⊆ Z1 ∨ (closure e) ⊆ Z2 := by
+      intro e e_in_sets
+      let n := C.dim_map ⟨e, e_in_sets⟩
+      have e_in_skn : e ⊆ (Skeleton X (n + 1)) := by
+        intro x x_in_e
+        show x ∈ ⋃s:C.sets, ⋃_:(C.dim_map s ≤ (n + 1)), s.val
+        rw [Set.mem_iUnion₂]
+        use ⟨e, e_in_sets⟩, Nat.le_succ n
+      have ce_in_skn : closure e ⊆ (Skeleton X (n + 1)) := (Skeleton X (n + 1)).cell_closure_incl e e_in_sets e_in_skn
+      rcases hf n with ⟨h_disconnection, hfn1, hfn2, hfnnp1⟩
+      have : (closure e) ⊆ (f n).1 ∨ (closure e) ⊆ (f n).2 := by apply aux_sub_one_partition_of_connected h_disconnection ce_in_skn (IsConnected.isPreconnected (cell_closure_connected e e_in_sets))
+      match aux_sub_one_partition_of_connected h_disconnection ce_in_skn (IsConnected.isPreconnected (cell_closure_connected e e_in_sets)) with
+      | Or.inl ce_in_fn1 =>
+        left
+        rw [Z1_def]
+        intro x hx
+        rw [Set.mem_iUnion]
+        use n
+        exact ce_in_fn1 hx
+      | Or.inr ce_in_fn2 =>
+        right
+        rw [Z2_def]
+        intro x hx
+        rw [Set.mem_iUnion]
+        use n
+        exact ce_in_fn2 hx
+    have Z1Closed: IsClosed Z1 := by
+      have sub_Z1_or_disjoint: ∀ e ∈ C.sets, (closure e) ∩ Z1 = (closure e) ∨ (closure e) ∩ Z1 = ∅ := by
+        intro e e_in_sets
+        match aux_ce_sub_only_one e e_in_sets with
+        | Or.inl e_sub_Z1 =>
+          left
+          rw [eq_comm, Set.left_eq_inter]
+          exact e_sub_Z1
+        | Or.inr e_sub_Z2 =>
+          right
+          rw [←Set.disjoint_iff_inter_eq_empty, disjoint_comm]
+          exact Set.disjoint_of_subset (fun x hx ↦ hx) e_sub_Z2 Z1Z2_disjoint
+      apply closed_crit_of_coeherent CWComplexClass.coeherent
+      rintro _ ⟨e₀, e₀_in_sets, rfl⟩
+      rw [←Set.preimage_inter_range, Subtype.range_val]
+      let g : (closure e₀) → X := (↑)
+      have ce₀_eq_range : closure e₀ = Set.range g := by
+        exact Eq.symm Subtype.range_coe
+      show IsClosed (g ⁻¹' (Z1 ∩ closure e₀))
+      match sub_Z1_or_disjoint e₀ e₀_in_sets with
+      | Or.inl ce₀_in_Z1 =>
+        rw [Set.inter_comm, ce₀_in_Z1]
+        simp [ce₀_eq_range]
+      | Or.inr ce₀_not_in_Z1 =>
+        rw [Set.inter_comm, ce₀_not_in_Z1]
+        simp
+    have Z2Closed: IsClosed Z2 := by
+      have sub_Z2_or_disjoint: ∀ e ∈ C.sets, (closure e) ∩ Z2 = (closure e) ∨ (closure e) ∩ Z2 = ∅ := by
+        intro e e_in_sets
+        match aux_ce_sub_only_one e e_in_sets with
+        | Or.inr e_sub_Z2 =>
+          left
+          rw [eq_comm, Set.left_eq_inter]
+          exact e_sub_Z2
+        | Or.inl e_sub_Z1 =>
+          right
+          rw [←Set.disjoint_iff_inter_eq_empty, disjoint_comm]
+          exact Set.disjoint_of_subset (fun x hx ↦ hx) e_sub_Z1 Z1Z2_disjoint.symm
+      apply closed_crit_of_coeherent CWComplexClass.coeherent
+      rintro _ ⟨e₀, e₀_in_sets, rfl⟩
+      rw [←Set.preimage_inter_range, Subtype.range_val]
+      let g : (closure e₀) → X := (↑)
+      have ce₀_eq_range : closure e₀ = Set.range g := by
+        exact Eq.symm Subtype.range_coe
+      show IsClosed (g ⁻¹' (Z2 ∩ closure e₀))
+      match sub_Z2_or_disjoint e₀ e₀_in_sets with
+      | Or.inl ce₀_in_Z2 =>
+        rw [Set.inter_comm, ce₀_in_Z2]
+        simp [ce₀_eq_range]
+      | Or.inr ce₀_not_in_Z2 =>
+        rw [Set.inter_comm, ce₀_not_in_Z2]
+        simp
+    have Z1Z2_compl : Z1ᶜ = Z2 := by
+      refine compl_unique ?disj ?union
+      case disj =>
+        show Z1 ∩ Z2 = ∅
+        rw [←Set.disjoint_iff_inter_eq_empty]
+        exact Z1Z2_disjoint
+      case union => exact Z1Z2_cover
+    have Z1Open: IsOpen Z1 := by
+      rw [←isClosed_compl_iff, Z1Z2_compl]
+      exact Z2Closed
+    have Z2Open: IsOpen Z2 := by
+      rw [← Z1Z2_compl]
+      apply IsClosed.isOpen_compl
+    tauto
+  have univ_preconnected: @IsPreconnected X _ Set.univ := isPreconnected_univ
+  have univ_not_preconnected: ¬(@IsPreconnected X _ Set.univ) := by
+    simp [IsPreconnected]
+    use Z1, Z1Z2Open.1, Z2, Z1Z2Open.2, Z1Z2_cover, Z1_nonempty, Z2_nonempty
+    rw [Set.not_nonempty_iff_eq_empty, ←Set.disjoint_iff_inter_eq_empty]
+    exact Z1Z2_disjoint
+  contradiction
 
 end Chp5
 
@@ -725,7 +826,8 @@ example (s1 s2: Set X) (h: ∀ x, x ∈ s1 → x ∉ s2) : Disjoint s1 s2 := by
   exact Set.disjoint_left.mpr h
 example (s1 s2: Set X) {x: X} (h1: x ∈ s1) (h2: x ∈ s2) (h: Disjoint s1 s2) : False := by
   apply Set.disjoint_left.mp h h1 h2
-#check Set.left_eq_inter
+example {s1 :Set X} (h: ¬s1.Nonempty) : s1 = ∅ := by
+  exact Set.not_nonempty_iff_eq_empty.mp h
 end
 
 -- example of dependent arrow notation
