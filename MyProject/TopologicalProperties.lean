@@ -1,4 +1,5 @@
 import MyProject.CellComplex
+import Mathlib.Topology.Connected.PathConnected
 open Topology
 open BigOperators
 namespace Chp5
@@ -813,8 +814,6 @@ example {s1 s2 s3: Set X} (h0: s1 = s2 ∪ s3) (h1: s2 ∩ s3 = ∅) : s1 \ s2 =
 example {s: Set X} : closure s = s ∪ (closure s \ s) := by
   exact Eq.symm (Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)
 example {f: X → Y}: f ⁻¹' ∅ = ∅ := by exact rfl
-example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) (h': s1 ∪ s2 = Set.univ) : s1 = s2ᶜ ↔ s2 = s1ᶜ := by
-  exact eq_compl_comm
 example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
 example (s1 s2 s3: Set X) : (s1 ∩ s3) ∩ (s2 ∩ s3) = (s1 ∩ s2) ∩ s3 := by
   exact Eq.symm (Set.inter_inter_distrib_right s1 s2 s3)
@@ -828,6 +827,19 @@ example (s1 s2: Set X) {x: X} (h1: x ∈ s1) (h2: x ∈ s2) (h: Disjoint s1 s2) 
   apply Set.disjoint_left.mp h h1 h2
 example {s1 :Set X} (h: ¬s1.Nonempty) : s1 = ∅ := by
   exact Set.not_nonempty_iff_eq_empty.mp h
+#check Path
+#check IsPathConnected.union
+example {ι : Type*} {f: ι → Set X} {s₀: Set X} (i₀: ι) (hs₀: s₀.Nonempty) (hf_pc: ∀ i:ι, IsPathConnected (f i)) (hf_incl: ∀ i:ι, s₀ ⊆ f i) : IsPathConnected (⋃ i:ι, f i) := by
+  rcases hs₀ with ⟨x, hx⟩
+  have : x ∈ ⋃ i:ι, f i := by
+    rw [Set.mem_iUnion]
+    use i₀
+    exact hf_incl i₀ hx
+  use x, this
+  intro y hy
+  rw [Set.mem_iUnion] at hy
+  rcases hy with ⟨i₁, y_in_fi₁⟩
+  exact ((hf_pc i₁).joinedIn x (hf_incl i₁ hx) y y_in_fi₁).mono (Set.subset_iUnion f i₁)
 end
 
 -- example of dependent arrow notation
