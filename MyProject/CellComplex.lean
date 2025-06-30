@@ -1073,7 +1073,17 @@ theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
     simp
     have : C.dim_map ⟨e, e_in_sets⟩ ≤ n := by exact Nat.le_refl (dim_map ⟨e, e_in_sets⟩)
     use e, ⟨e_in_sets, this⟩
+theorem cell_singleton_of_dim0 : ∀ e : C.sets, C.dim_map e = 0 ↔ ∃ x : X, e.val = {x} := by
+    rintro ⟨e, e_in_sets⟩
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        intro d0
+        sorry
+    case mpr =>
+        sorry
 end
 
 end CellComplexClass
 end Chp5
+example {X Y: Type*} {x: X} {f: X → Y} : f '' {x} = {f x} := by
+    exact Set.image_singleton
