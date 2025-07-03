@@ -399,7 +399,7 @@ theorem open_cell_of_finite_dim {X: Type*} [TopologicalSpace X] [T2Space X] [C: 
                 have : x ∈ e₀.val := Set.mem_of_mem_inter_left hx
                 rw [←e₀_eq_diff_e] at this
                 contrapose! x_in_e
-                apply Set.not_mem_of_mem_diff this
+                apply Set.notMem_of_mem_diff this
         have e₀_inter_ce_cover : e₀.val ∩ ce ⊆ ⋃ p:C.sets, ⋃ _ :(C.dim_map p < C.dim_map ⟨e, he_in_sets⟩), p.val := by
             trans ce \ e
             exact e₀_inter_ce_sub_e_boundary
@@ -851,7 +851,7 @@ instance cw_sub_cell_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: Cel
             have hs'₂: s'₁ ∩ Y.carrier ≠ ∅ := by
                 have hle: s'₁ ∩ closure s' ≤ s'₁ ∩ Y.carrier := by intro x; simp [Set.mem_inter_iff]; tauto
                 have hlt: ⊥ < s'₁ ∩ closure s' := by simpa [Set.nonempty_iff_ne_empty] using hs'₁.2
-                have : ⊥ < s'₁ ∩ Y.carrier := by exact gt_of_ge_of_gt hle hlt
+                have : ⊥ < s'₁ ∩ Y.carrier := by exact lt_of_le_of_lt' hle hlt
                 exact Ne.symm (ne_of_lt this)
             have hs'₃: s'₁ ∈ C.sets := by exact hss'_sub_sets hs'₁.1
             exact SubCellComplex.subset_of_intersect Y hs'₃ hs'₂
@@ -939,7 +939,7 @@ theorem sub_cw_cell_complex_closed {X: Type*} [TopologicalSpace X] [T2Space X] [
     have : Y.carrier = g '' Set.univ := by
         ext x
         simp [g]
-        exact Set.mem_def
+        rfl
     rw [this]
     apply aux_closed_of_sub_complex_coeherent Y
     rintro b ⟨e', he', rfl⟩
@@ -949,8 +949,8 @@ def Skeleton (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
     carrier := ⋃ s : C.sets, ⋃ _:(C.dim_map s ≤ n), s.val
     cell_incl_or_disjoint := by
         intro e he
-        have : C.dim_map ⟨e, he⟩ ≤ n ∨ C.dim_map ⟨e, he⟩ > n := by exact le_or_lt (dim_map ⟨e, he⟩) n
-        match le_or_lt (dim_map ⟨e, he⟩) n with
+        have : C.dim_map ⟨e, he⟩ ≤ n ∨ C.dim_map ⟨e, he⟩ > n := by exact le_or_gt (dim_map ⟨e, he⟩) n
+        match le_or_gt (dim_map ⟨e, he⟩) n with
         | Or.inl h =>
             left
             intro x hx
@@ -1099,36 +1099,41 @@ theorem cell_singleton_of_dim0 : ∀ e : C.sets, C.dim_map e = 0 ↔ ∃ x : X, 
         use x0
         exact Eq.symm hy
     case mpr =>
-        sorry
+        rintro ⟨x, hx⟩
+        simp at hx
+        let f := cb_inner_map (C.characteristic_map ⟨e, e_in_sets⟩)
+        have f_inj: Function.Injective f := by
+            apply IsEmbedding.injective
+            exact characteristic_map_inner_embd ⟨e, e_in_sets⟩
+        have f_range_singleton : Set.range f = {x} := by
+            rw [←hx]
+            apply C.characteristic_map_inner_range
+        have domain_singleton: ∃ y, b (C.dim_map ⟨e, e_in_sets⟩) = {y} := by
+            have : x ∈ Set.range f := by rw [f_range_singleton]; rfl
+            rcases this with ⟨y, hy⟩
+            use y
+            ext y'
+            refine Iff.intro ?mp ?mpr
+            case mp =>
+                intro hy'
+                have : f ⟨y', hy'⟩ = f y := by
+                    trans x
+                    . show f ⟨y', hy'⟩ ∈ ({x}:Set X)
+                      rw [←f_range_singleton]
+                      apply Set.mem_range_self
+                    exact Eq.symm hy
+                have : ⟨y', hy'⟩ = y := by exact f_inj this
+                apply_fun Subtype.val at this
+                exact this
+            case mpr =>
+                intro hy'
+                simp at hy'
+                rw [hy']
+                exact Subtype.coe_prop y
+        rw [b_singleton_iff] at domain_singleton
+        exact domain_singleton
 end
 
 end CellComplexClass
 end Chp5
-example {X Y: Type*} {x: X} {f: X → Y} : f '' {x} = {f x} := by
-    exact Set.image_singleton
-example {X Y: Type*} [Subsingleton X] [Inhabited X] (f: X → Y) : ∃ y: Y, Set.range f = {y} := by
-    let x:X := default
-    use f x
-    ext y
-    refine Iff.intro ?mp ?mpr
-    case mp =>
-        rintro ⟨x', hx', rfl⟩
-        apply Set.mem_singleton_of_eq ?_
-        congr
-        apply Subsingleton.allEq
-    case mpr =>
-        intro hy
-        have : y = f x := by exact hy
-        use x, this.symm
-#check Singleton
 #check DiscreteTopology
-
-def myFun (n: ℕ) : Fin n → ℝ := fun i ↦ if i = (0: Nat) then 0.1 else 0
-def myPt : EuclideanSpace ℝ (Fin 2) := by
-    exact myFun 2
-
-noncomputable instance : Module (ℝ) (EuclideanSpace ℝ (Fin 2)) := by
-    exact WithLp.instModule 2 ℝ ((i : Fin 2) → (fun x ↦ ℝ) i)
-example : (1:ℝ) / 2 < 1 := by
-    exact one_half_lt_one
-#check EuclideanSpace.single

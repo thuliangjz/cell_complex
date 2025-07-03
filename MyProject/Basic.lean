@@ -205,10 +205,46 @@ instance {n: ℕ} : Inhabited (b n) := by
     rw [b, Metric.mem_ball]
     norm_num
 
-theorem b_singleton : b 0 = {0} := by
+theorem b0_singleton : b 0 = {0} := by
     simp [b]
     refine Metric.ball_eq_singleton_of_subsingleton ?_
     norm_num
+
+theorem b_singleton_iff : ∀ n : ℕ, (∃ x, b n = {x}) ↔ n = 0 := by
+    intro n
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        rintro ⟨x, hx⟩
+        by_contra! n_ne_0
+        have n_gt_0 : 0 < n := Nat.zero_lt_of_ne_zero n_ne_0
+        have x_eq_zero: x = 0 := by
+            have aux: 0 ∈ b n := by
+                rw [b, Metric.mem_ball]
+                norm_num
+            rw [hx] at aux
+            exact Eq.symm aux
+        let x₀ := EuclideanSpace.single (⟨0, n_gt_0⟩:Fin n) ((1:ℝ)/2)
+        have x_eq_x₀ : x = x₀ := by
+            have aux: x₀ ∈ b n := by
+                rw [b, Metric.mem_ball]
+                simp [x₀]
+                exact two_inv_lt_one
+            rw [hx] at aux
+            exact Eq.symm aux
+        have x₀_eq_0 : x₀ = 0 := by
+            trans x
+            exact Eq.symm x_eq_x₀
+            exact x_eq_zero
+        rw [EuclideanSpace.single_eq_zero_iff] at x₀_eq_0
+        have : (1:ℝ) / 2 ≠ 0 := by
+            refine one_div_ne_zero ?_
+            exact Ne.symm (NeZero.ne' 2)
+        exact this x₀_eq_0
+    case mpr =>
+        intro hn
+        rw [hn]
+        use 0
+        apply b0_singleton
 end Chp5
 
 -- Coeherent Defs
