@@ -1078,7 +1078,26 @@ theorem cell_singleton_of_dim0 : ∀ e : C.sets, C.dim_map e = 0 ↔ ∃ x : X, 
     refine Iff.intro ?mp ?mpr
     case mp =>
         intro d0
-        sorry
+        let f := C.characteristic_map ⟨e, e_in_sets⟩
+        have : Subsingleton (b (C.dim_map ⟨e, e_in_sets⟩)) := by
+            rw [d0]
+            exact instSubsingletonElemEuclideanSpaceRealFinOfNatNatB
+        have hf: f '' cb_inner = e := by apply C.characteristic_map_inner_image
+        have : f '' cb_inner = Set.range (f ∘ b_to_cb) := by rw [cb_inner, Set.range_comp]
+        rw [this] at hf
+        simp
+        rw [←hf]
+        let x0 : b (C.dim_map ⟨e, e_in_sets⟩) := default
+        use (f ∘ b_to_cb) x0
+        ext y
+        constructor
+        . rintro ⟨x1, hx1, rfl⟩
+          apply Set.mem_singleton_of_eq
+          congr
+          apply Subsingleton.allEq
+        rintro hy
+        use x0
+        exact Eq.symm hy
     case mpr =>
         sorry
 end
@@ -1087,3 +1106,29 @@ end CellComplexClass
 end Chp5
 example {X Y: Type*} {x: X} {f: X → Y} : f '' {x} = {f x} := by
     exact Set.image_singleton
+example {X Y: Type*} [Subsingleton X] [Inhabited X] (f: X → Y) : ∃ y: Y, Set.range f = {y} := by
+    let x:X := default
+    use f x
+    ext y
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        rintro ⟨x', hx', rfl⟩
+        apply Set.mem_singleton_of_eq ?_
+        congr
+        apply Subsingleton.allEq
+    case mpr =>
+        intro hy
+        have : y = f x := by exact hy
+        use x, this.symm
+#check Singleton
+#check DiscreteTopology
+
+def myFun (n: ℕ) : Fin n → ℝ := fun i ↦ if i = (0: Nat) then 0.1 else 0
+def myPt : EuclideanSpace ℝ (Fin 2) := by
+    exact myFun 2
+
+noncomputable instance : Module (ℝ) (EuclideanSpace ℝ (Fin 2)) := by
+    exact WithLp.instModule 2 ℝ ((i : Fin 2) → (fun x ↦ ℝ) i)
+example : (1:ℝ) / 2 < 1 := by
+    exact one_half_lt_one
+#check EuclideanSpace.single

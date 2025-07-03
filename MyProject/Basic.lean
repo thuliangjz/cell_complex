@@ -186,8 +186,24 @@ theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n
         refine continuous_iff_continuousOn_univ.mp ?_
         exact Isometry.continuous fun x1 ↦ congrFun rfl
 
-theorem cb_singleton : cb 0 = {0} := by
-    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
+--theorem cb_singleton : cb 0 = {0} := by
+--    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
+
+instance : Subsingleton (cb 0) := by
+    exact Set.subsingleton_coe_of_subsingleton
+
+instance : Subsingleton (b 0) := by
+    exact Set.subsingleton_coe_of_subsingleton
+
+instance {n: ℕ} : Inhabited (cb n) := by
+    use 0
+    rw [cb, Metric.mem_closedBall]
+    norm_num
+
+instance {n: ℕ} : Inhabited (b n) := by
+    use 0
+    rw [b, Metric.mem_ball]
+    norm_num
 
 theorem b_singleton : b 0 = {0} := by
     simp [b]
