@@ -1132,8 +1132,106 @@ theorem cell_singleton_of_dim0 : ∀ e : C.sets, C.dim_map e = 0 ↔ ∃ x : X, 
                 exact Subtype.coe_prop y
         rw [b_singleton_iff] at domain_singleton
         exact domain_singleton
+
+theorem skeleton_cell_dim {n : ℕ}: ∀ e : sub_cell_complex_sets (Skeleton X n), sub_cell_complex_dim_map (Skeleton X n) e ≤ n := by
+    let g : (Skeleton X n) → X := (↑)
+    intro e
+    let e' := g '' e
+    have e'_in_sets : e' ∈ C.sets := e.2
+    have : C.dim_map ⟨e', e'_in_sets⟩ = sub_cell_complex_dim_map (Skeleton X n) e := rfl
+    rw [←this]
+    have : e' ⊆ (Skeleton X n) := by
+        intro x hx
+        rcases hx with ⟨y, y_in_e, rfl⟩
+        exact y.2
+    rw [←sub_skeleton_iff]
+    simpa using this
+
+instance {n:ℕ}: FiniteDim (Skeleton X n) := by
+    have : (Set.range (sub_cell_complex_dim_map (Skeleton X n))).Finite := by
+        have finite_superset: {x:ℕ | x ≤ n}.Finite := by exact Set.finite_le_nat n
+        have range_subset: (Set.range (sub_cell_complex_dim_map (Skeleton X n))) ⊆ {x:ℕ | x ≤ n} := by
+            rintro m ⟨e, he⟩
+            show m ≤ n
+            rw [←he]
+            apply skeleton_cell_dim
+        exact Set.Finite.subset finite_superset range_subset
+    exact { out := this }
+
+theorem skeleton_dim {n : ℕ}: Dim (Skeleton X n) ≤ n := by
+    simp [Dim]
+    intro b e' e'_in_sets hb
+    let g : (Skeleton X n) → X := (↑)
+    let e := g '' e'
+    have e_in_sets : e ∈ C.sets := e'_in_sets
+    have : C.dim_map ⟨e, e_in_sets⟩ = dim_map ⟨e', e'_in_sets⟩ := rfl
+    rw [←hb, ←this]
+    have : e ⊆ (Skeleton X n) := by
+        intro x hx
+        rcases hx with ⟨y, hy, rfl⟩
+        exact y.2
+    rw [←sub_skeleton_iff]
+    simpa using this
+
+theorem skeleton0_discrete [CWComplexClass X]: DiscreteTopology (Skeleton X 0) := by
+    have singleton_in_sets: ∀ x : (Skeleton X 0), {x} ∈ sub_cell_complex_sets (Skeleton X 0) := by
+        have aux: ∀ x ∈ (Skeleton X 0), {x} ∈ C.sets := by
+            have : ∀ x ∈ (Skeleton X 0), ∃ e : C.sets, x ∈ e.1 ∧ (C.dim_map e = 0) := by
+                intro x hx
+                have: x ∈ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ 0), s.val := hx
+                rw [Set.mem_iUnion₂] at this
+                rcases this with ⟨e, ⟨dim_e, x_in_e⟩⟩
+                use e, x_in_e, Nat.eq_zero_of_le_zero dim_e
+            intro x hx
+            rcases this x hx with ⟨e, x_in_e, dim_e_0⟩
+            rw [cell_singleton_of_dim0] at dim_e_0
+            rcases dim_e_0 with ⟨x₀, hx₀⟩
+            rw [hx₀] at x_in_e
+            have : e.val = {x} := by
+                ext y
+                rw [hx₀]
+                simp
+                exact Iff.symm (Eq.congr_right x_in_e)
+            rw [←this]
+            exact e.2
+        intro x
+        rw [sub_cell_complex_sets]
+        simp
+        exact aux x.val x.prop
+    have singleton_open: ∀ x : (Skeleton X 0), IsOpen {x} := by
+        intro x
+        let x_in_sets := singleton_in_sets x
+        apply open_cell_of_finite_dim ⟨{x}, x_in_sets⟩
+        have dim_skeleton_0 : Dim (Skeleton X 0) = 0 := by
+            apply Nat.eq_zero_of_le_zero
+            exact skeleton_dim
+        have dim_singleton : dim_map ⟨{x}, x_in_sets⟩ = 0 := by
+            rw [cell_singleton_of_dim0]
+            use x
+        linarith
+    rw [←singletons_open_iff_discrete]
+    exact singleton_open
 end
 
 end CellComplexClass
 end Chp5
 #check DiscreteTopology
+#check singletons_open_iff_discrete
+#check Set.Finite.of_injOn
+#check Set.Finite.of_finite_image
+example (s: Set ℕ) (hs: ∀ x ∈ s, x < 16): s.Finite := by
+    let s' := {x| x < 16}
+    have: s'.Finite := by apply Set.finite_lt_nat
+    apply Set.Finite.subset this hs
+
+example : {x:ℕ // x < 16} ≃ Fin 16 := by
+    exact Fin.equivSubtype.symm
+example : ({x| x < 16}).Finite := by
+    exact Set.finite_lt_nat 16
+example (s1 s2: Set ℕ) (hs1: s1.Finite) (h: s2 ⊆ s1) : s2.Finite := by
+    exact Set.Finite.subset hs1 h
+example (s: Set ℕ) (hs: s.Finite) (h: ∀ x ∈ s, x < 18) : hs.toFinset.sup id < 18 := by
+    simp
+    exact h
+example (a: ℕ) (ha: a ≤ 0) : a = 0 := by
+    apply?
