@@ -88,7 +88,7 @@ theorem aux_sub_one_partition_of_connected {X: Type*} [TopologicalSpace X] {s X1
     rcases hx with ⟨x', hx', rfl⟩
     exact hr' hx'
 
-section topo_prop_helper
+section
 variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
 theorem aux_cell_closure_inter_1_partition {n : ℕ} (hn: 1 ≤ n) {X1 X2: Set X} (h: is_disconnection (Skeleton X n) X1 X2) (hX1: X1 ⊆ (Skeleton X n)) (hX2: X2 ⊆ (Skeleton X n)) : ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e ∩ X1).Nonempty ∨ (closure e ∩ X2).Nonempty) ∧ ¬(((closure e ∩ X1).Nonempty ∧ (closure e ∩ X2).Nonempty)) := by
   intro e e_in_sets e_sub_skeleton_np1
@@ -540,7 +540,7 @@ theorem aux_disconnection_induction [CW: CWComplexClass X] {n: ℕ} {X1 X2: Set 
       disjoint := X1'X2'_disjoint_Xnp1
     }
   tauto
-end topo_prop_helper
+end
 
 theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] [PreconnectedSpace X] : IsPreconnected ((Skeleton X 1): Set X) := by
   by_contra! hc
@@ -669,7 +669,7 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
         _                 = ((Skeleton X (n + 1)): Set X) ∩ ((f n).1 ∩ (f n).2) := by rw[Set.inter_comm]
         _                 = ∅ := by rw [←Set.disjoint_iff_inter_eq_empty]; exact h1.disjoint
     intro m n
-    rcases le_or_lt m n with m_le_n | n_lt_m
+    rcases le_or_gt m n with m_le_n | n_lt_m
     case inl => exact Set.disjoint_of_subset (aux_f_mono m n m_le_n).1 (fun x h ↦ h) (aux n)
     case inr => exact Set.disjoint_of_subset (fun x h ↦ h) (aux_f_mono n m (le_of_lt n_lt_m)).2 (aux m)
   have Z1Z2_disjoint : Disjoint Z1 Z2 := by
@@ -794,6 +794,35 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
     exact Z1Z2_disjoint
   contradiction
 
+-- proving d=>a
+section
+-- path connectedness requires set to be nonempty
+theorem path_connected_of_discrete_preconnected {X: Type*} [TopologicalSpace X] {s: Set X} (hs: DiscreteTopology s) (cs: IsConnected s) : IsPathConnected s := by
+  have aux: ∀ x ∈ s, ∀ y ∈ s, x = y := by
+    intro x hx y hy
+    by_contra! x_ne_y
+    let x' : s := ⟨x, hx⟩
+    let y' : s := ⟨y, hy⟩
+    have x'_ne_y': x' ≠ y' := Subtype.coe_ne_coe.mp x_ne_y
+    have univ_preconnected: @IsPreconnected s _ Set.univ := preconnectedSpace_iff_univ.mp (isConnected_iff_connectedSpace.mp cs).toPreconnectedSpace
+    have univ_not_preconnected: ¬(@IsPreconnected s _ Set.univ) := by
+      simp [IsPreconnected]
+      let s1 : Set s := {x'}
+      let s2 : Set s := {z | z ≠ x'}
+      have cover: s1 ∪ s2 = Set.univ := by
+        exact Set.compl_subset_iff_union.mp fun ⦃a⦄ a ↦ a
+      have s1_nonempty : s1.Nonempty := Set.singleton_nonempty x'
+      have s2_nonempty : s2.Nonempty := Set.nonempty_of_mem (id (Ne.symm x'_ne_y'))
+      have s1_inter_s2_empty: s1 ∩ s2 = ∅ := Set.singleton_inter_eq_empty.mpr fun a ↦ a rfl
+      use s1, s2, cover, s1_nonempty, s2_nonempty
+      rwa [Set.not_nonempty_iff_eq_empty]
+    contradiction
+  rw [isPathConnected_iff]
+  use cs.nonempty
+  intro x hx y hy
+  rw [aux x hx y hy]
+  exact JoinedIn.refl hy
+end
 end Chp5
 
 section
