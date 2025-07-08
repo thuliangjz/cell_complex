@@ -797,7 +797,7 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
 -- proving d=>a
 section
 -- path connectedness requires set to be nonempty
-theorem path_connected_of_discrete_preconnected {X: Type*} [TopologicalSpace X] {s: Set X} (hs: DiscreteTopology s) (cs: IsConnected s) : IsPathConnected s := by
+theorem path_connected_of_discrete_connected {X: Type*} [TopologicalSpace X] {s: Set X} (hs: DiscreteTopology s) (cs: IsConnected s) : IsPathConnected s := by
   have aux: ∀ x ∈ s, ∀ y ∈ s, x = y := by
     intro x hx y hy
     by_contra! x_ne_y
@@ -823,6 +823,26 @@ theorem path_connected_of_discrete_preconnected {X: Type*} [TopologicalSpace X] 
   rw [aux x hx y hy]
   exact JoinedIn.refl hy
 end
+
+theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] {n : ℕ} (h: IsConnected ((Skeleton X n):Set X)) : PathConnectedSpace X := by
+  --refine pathConnectedSpace_iff_univ.mpr ?_
+  rw [pathConnectedSpace_iff_univ]
+  have skn_path_connected : IsPathConnected ((Skeleton X n):Set X) := by
+    match Nat.eq_or_lt_of_le (Nat.zero_le n) with
+    | Or.inl n_eq_0 =>
+      rw [←n_eq_0] at h
+      rw [←n_eq_0]
+      apply path_connected_of_discrete_connected skeleton0_discrete h
+    | Or.inr n_gt_0 =>
+      sorry
+  have aux : ∀ m : ℕ, n ≤ m → IsPathConnected ((Skeleton X m):Set X) := by
+    sorry
+  rcases h.nonempty with ⟨x₀, hx₀⟩
+  use x₀, trivial
+  intro y hy
+  rw [←skeleton_cover_any_ge_n n, Set.mem_iUnion₂] at hy
+  rcases hy with ⟨m, n_le_m, y_in_sk_m⟩
+  exact ((aux m n_le_m).joinedIn x₀ (skeleton_mono n m n_le_m hx₀) y y_in_sk_m).mono (fun x hx ↦ trivial)
 end Chp5
 
 section

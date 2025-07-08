@@ -1063,9 +1063,7 @@ theorem skeleton_mono : ∀ (m n : ℕ), m ≤ n → ((Skeleton X m): Set X) ⊆
     show x ∈ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ n), s.val
     rw [Set.mem_iUnion₂]
     use s0, (le_trans hs0 m_le_n)
-theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
-    ext x
-    simp
+theorem exists_mem_of_skeleton (x: X): ∃ n:ℕ, x ∈ (Skeleton X n) := by
     rcases exists_mem_of_cell x with ⟨e, e_in_sets, x_in_e⟩
     let n := C.dim_map ⟨e, e_in_sets⟩
     use n
@@ -1073,6 +1071,18 @@ theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
     simp
     have : C.dim_map ⟨e, e_in_sets⟩ ≤ n := by exact Nat.le_refl (dim_map ⟨e, e_in_sets⟩)
     use e, ⟨e_in_sets, this⟩
+theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
+    ext x
+    simp
+    exact exists_mem_of_skeleton x
+theorem skeleton_cover_any_ge_n : ∀ n : ℕ, ⋃ m:ℕ, ⋃ _:(n ≤ m), ((Skeleton X m): Set X) = Set.univ := by
+    intro n
+    ext x
+    simp
+    rcases exists_mem_of_skeleton x with ⟨n₀, hn₀⟩
+    let m := max n n₀
+    use m, Nat.le_max_left n n₀
+    exact skeleton_mono n₀ m (Nat.le_max_right n n₀) hn₀
 theorem cell_singleton_of_dim0 : ∀ e : C.sets, C.dim_map e = 0 ↔ ∃ x : X, e.val = {x} := by
     rintro ⟨e, e_in_sets⟩
     refine Iff.intro ?mp ?mpr
@@ -1235,3 +1245,4 @@ example (s: Set ℕ) (hs: s.Finite) (h: ∀ x ∈ s, x < 18) : hs.toFinset.sup i
     exact h
 example (a: ℕ) (ha: a ≤ 0) : a = 0 := by
     apply?
+example (m n : ℕ) : n ≤ max m n := by apply?
