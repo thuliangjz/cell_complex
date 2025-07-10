@@ -36,6 +36,14 @@ instance cb_connected {n : ℕ} : ConnectedSpace (cb n) := by
     apply IsConnected.closure
     apply Metric.isConnected_ball
     norm_num
+theorem cb_contractible {n : ℕ} : ContractibleSpace (cb n) := by
+    apply Convex.contractibleSpace
+    apply convex_closedBall
+    use 0
+    rw [cb, Metric.mem_closedBall]
+    norm_num
+theorem cb_path_connected {n : ℕ} : PathConnectedSpace (cb n) := by
+    exact @ContractibleSpace.instPathConnectedSpace _ _ (cb_contractible)
 theorem b_in_cb {n : ℕ}: b n ⊆ cb n := by
     intro x
     rw [b, cb, Metric.mem_ball, Metric.mem_closedBall]
@@ -370,3 +378,6 @@ example : (∀ p : (ℕ → Prop), (p 0 ∧ (∀ n: ℕ, (∀ m : ℕ, m ≤ n �
         apply r
         use hp0
         exact fun n a ↦ hp n (this n)
+
+#check Metric.isPathConnected_ball
+#check convex_closedBall

@@ -1221,6 +1221,36 @@ theorem skeleton0_discrete [CWComplexClass X]: DiscreteTopology (Skeleton X 0) :
         linarith
     rw [←singletons_open_iff_discrete]
     exact singleton_open
+theorem closed_of_cell_empty_or_full_intersection [CWComplexClass X] (s: Set X) (hs: ∀ e ∈ C.sets, closure e ∩ s = ∅ ∨ closure e ∩ s = closure e) : IsClosed s := by
+    apply closed_crit_of_coeherent CWComplexClass.coeherent
+    rintro b ⟨e, e_in_sets, rfl⟩
+    let g : closure e → X := (↑)
+    show IsClosed (g ⁻¹' s)
+    have ce_eq_range : closure e = Set.range g := Eq.symm Subtype.range_coe
+    rw [←Set.preimage_inter_range, Subtype.range_coe]
+    match hs e e_in_sets with
+    | Or.inl ce_not_in_s =>
+        rw [Set.inter_comm, ce_not_in_s]
+        simp
+    | Or.inr ce_in_s =>
+        rw [Set.inter_comm, ce_in_s]
+        simp[ce_eq_range]
+theorem open_closed_of_cell_empty_or_full_intersection [CWComplexClass X] (s: Set X) (hs: ∀ e ∈ C.sets, closure e ∩ s = ∅ ∨ closure e ∩ s = closure e) : IsOpen s ∧ IsClosed s := by
+    rw [and_comm]
+    use closed_of_cell_empty_or_full_intersection s hs
+    have : IsClosed sᶜ := by
+        apply closed_of_cell_empty_or_full_intersection
+        intro e e_in_sets
+        match hs e e_in_sets with
+        | Or.inl ce_not_in_s =>
+            right
+            rw [Set.inter_eq_left]
+            apply Disjoint.subset_compl_right
+            rwa [Set.disjoint_iff_inter_eq_empty]
+        | Or.inr ce_in_s =>
+            left
+            rwa [←Set.disjoint_iff_inter_eq_empty,Set.disjoint_compl_right_iff_subset, ←Set.inter_eq_left]
+    rwa [←isClosed_compl_iff]
 end
 
 end CellComplexClass
@@ -1246,3 +1276,12 @@ example (s: Set ℕ) (hs: s.Finite) (h: ∀ x ∈ s, x < 18) : hs.toFinset.sup i
 example (a: ℕ) (ha: a ≤ 0) : a = 0 := by
     apply?
 example (m n : ℕ) : n ≤ max m n := by apply?
+section
+variable {X: Type*} [TopologicalSpace X]
+example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) : s1 ⊆ s2ᶜ := by
+    apply Disjoint.subset_compl_right
+    rwa [Set.disjoint_iff_inter_eq_empty]
+example {s1 s2: Set X} (h: s1 ⊆ s2) : s1 ∩ s2ᶜ = ∅ := by
+    refine Disjoint.inter_eq ?_
+    exact Set.disjoint_compl_right_iff_subset.mpr h
+end

@@ -395,127 +395,147 @@ theorem aux_disconnection_induction [CW: CWComplexClass X] {n: ℕ} {X1 X2: Set 
       exact Set.union_subset e_in_X2' be_in_X2'
   let g : Skeleton X (n + 1) → X := (↑)
   have X1'X2'_open_in_Xnp1: IsOpen (g ⁻¹' X1') ∧ IsOpen (g ⁻¹' X2') := by
-    have X1'_closed_in_Xnp1 : IsClosed (g ⁻¹' X1') := by
-      have sub_X1'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X1' = closure e) ∨ ((closure e) ∩ X1' = ∅) := by
-        intro e e_in_sets e_sub_Xnp1
-        match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
-        | Or.inl he =>
-          left
-          rw [Set.inter_eq_left]
-          exact he
-        | Or.inr he =>
-          right
-          have :closure e ∩ X1' ⊆ X2' ∩ X1' := Set.inter_subset_inter he fun ⦃a⦄ a ↦ a
-          rw [Set.inter_comm X2', X1'X2'_disjoint] at this
-          exact Set.subset_eq_empty this rfl
-      let Y1 := g ⁻¹' X1'
-      show IsClosed Y1
-      -- note that we implicitly use the fact that Skeleton X (n + 1) is also a CW complex
-      apply closed_crit_of_coeherent CWComplexClass.coeherent
-      rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
-      let φ : closure e → (Skeleton X (n + 1)) := (↑)
-      show IsClosed (φ ⁻¹' Y1)
-      let e₀ := g '' e
-      have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
-      have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
-        rintro x ⟨y, hy, rfl⟩
-        exact Subtype.coe_prop y
-      have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
-        apply IsClosedMap.closure_image_eq_of_continuous
-        case f_closed =>
-          apply IsClosed.isClosedMap_subtype_val
-          apply sub_cw_cell_complex_closed
-        case f_cont =>
-          exact continuous_subtype_val
-      have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
-        rw [ce₀_eq_ce_img, Set.range_comp]
-        congr!
-        exact Subtype.range_coe
-      have : φ ⁻¹' Y1 = (g ∘ φ) ⁻¹' X1' := by ext x;exact Set.mem_preimage
-      rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
-      match sub_X1'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
-      | Or.inl he₀ =>
-        rw [he₀, ←gφ_range, Set.preimage_range]
-        exact isClosed_univ
-      | Or.inr he₀ =>
-        rw [he₀]
-        exact isClosed_empty
-    have X2'_closed_in_Xnp1 : IsClosed (g ⁻¹' X2') := by
-      have sub_X2'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X2' = closure e) ∨ ((closure e) ∩ X2' = ∅) := by
-        intro e e_in_sets e_sub_Xnp1
-        match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
-        | Or.inr he =>
-          left
-          rw [Set.inter_eq_left]
-          exact he
-        | Or.inl he =>
-          right
-          have :closure e ∩ X2' ⊆ X2' ∩ X1' := by
-            rw [Set.inter_comm]
-            exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) he
-          rw [Set.inter_comm X2', X1'X2'_disjoint] at this
-          exact Set.subset_eq_empty this rfl
-      let Y2 := g ⁻¹' X2'
-      show IsClosed Y2
-      apply closed_crit_of_coeherent CWComplexClass.coeherent
-      rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
-      let φ : closure e → (Skeleton X (n + 1)) := (↑)
-      show IsClosed (φ ⁻¹' Y2)
-      let e₀ := g '' e
-      let e₀ := g '' e
-      have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
-      have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
-        rintro x ⟨y, hy, rfl⟩
-        exact Subtype.coe_prop y
-      have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
-        apply IsClosedMap.closure_image_eq_of_continuous
-        case f_closed =>
-          apply IsClosed.isClosedMap_subtype_val
-          apply sub_cw_cell_complex_closed
-        case f_cont =>
-          exact continuous_subtype_val
-      have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
-        rw [ce₀_eq_ce_img, Set.range_comp]
-        congr!
-        exact Subtype.range_coe
-      have : φ ⁻¹' Y2 = (g ∘ φ) ⁻¹' X2' := by ext x;exact Set.mem_preimage
-      rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
-      match sub_X2'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
-      | Or.inl he₀ =>
-        rw [he₀, ←gφ_range, Set.preimage_range]
-        exact isClosed_univ
-      | Or.inr he₀ =>
-        rw [he₀]
-        exact isClosed_empty
-    have g_inv_X1'X2'_rel_compl : g ⁻¹' X1' = (g ⁻¹' X2')ᶜ ∧ g ⁻¹' X2' = (g ⁻¹' X1')ᶜ  := by
-      have sub_X1'X2'_eq_Xnp1: (g ⁻¹' X1') ∪ (g ⁻¹' X2') = Set.univ := by
+    let Y1 := g ⁻¹' X1'
+    let Y2 := g ⁻¹' X2'
+    show IsOpen Y1 ∧ IsOpen Y2
+    have : Y2 = Y1ᶜ := by
+      have union_univ : Y1 ∪ Y2 = Set.univ := by
         rw [←Set.preimage_union, X1'X2'_eq_Xnp1, ←Set.preimage_range g]
         congr!
         exact Eq.symm Subtype.range_coe
-      have sub_X1'X2'_disjoint: (g ⁻¹' X1') ∩ (g ⁻¹' X2') = ∅ := by
-        rw  [←Set.preimage_inter, X1'X2'_disjoint]
+      have inter_empty: Y1 ∩ Y2 = ∅ := by
+        rw [←Set.preimage_inter, X1'X2'_disjoint]
         rfl
-      have : g ⁻¹' X1' = (g ⁻¹' X2')ᶜ := by
-        refine Eq.symm (compl_unique ?disj ?union)
-        case disj =>
-          show (g ⁻¹' X2') ∩ (g ⁻¹' X1') = ∅
-          rw [Set.inter_comm]
-          exact sub_X1'X2'_disjoint
-        case union =>
-          show (g ⁻¹' X2') ∪ (g ⁻¹' X1') = Set.univ
-          rw [Set.union_comm]
-          exact sub_X1'X2'_eq_Xnp1
-      constructor
-      . exact this
-      rw [eq_compl_comm]
-      exact this
-    have X1'_open_in_Xnp1 : IsOpen (g ⁻¹' X1') := by
-      rw [g_inv_X1'X2'_rel_compl.1]
-      exact IsClosed.isOpen_compl
-    have X2'_open_in_Xnp1 : IsOpen (g ⁻¹' X2') := by
-      rw [g_inv_X1'X2'_rel_compl.2]
-      exact IsClosed.isOpen_compl
-    exact ⟨X1'_open_in_Xnp1, X2'_open_in_Xnp1⟩
+      refine Eq.symm (compl_unique ?disj ?union)
+      case disj => exact inter_empty
+      case union => exact union_univ
+    rw [this, isOpen_compl_iff]
+    apply open_closed_of_cell_empty_or_full_intersection
+    rintro e e_in_sets
+    sorry
+    --have X1'_closed_in_Xnp1 : IsClosed (g ⁻¹' X1') := by
+    --  have sub_X1'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X1' = closure e) ∨ ((closure e) ∩ X1' = ∅) := by
+    --    intro e e_in_sets e_sub_Xnp1
+    --    match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
+    --    | Or.inl he =>
+    --      left
+    --      rw [Set.inter_eq_left]
+    --      exact he
+    --    | Or.inr he =>
+    --      right
+    --      have :closure e ∩ X1' ⊆ X2' ∩ X1' := Set.inter_subset_inter he fun ⦃a⦄ a ↦ a
+    --      rw [Set.inter_comm X2', X1'X2'_disjoint] at this
+    --      exact Set.subset_eq_empty this rfl
+    --  let Y1 := g ⁻¹' X1'
+    --  show IsClosed Y1
+    --  have cell_empty_or_full_inter_X1' : ∀ e ∈ sub_cell_complex_sets (Skeleton X (n + 1)), (closure e) ∩ Y1 = ∅ ∨ (closure e) ∩ Y1 = (closure e) := by
+    --    sorry
+    --  -- note that we implicitly use the fact that Skeleton X (n + 1) is also a CW complex
+    --  apply closed_crit_of_coeherent CWComplexClass.coeherent
+    --  rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
+    --  let φ : closure e → (Skeleton X (n + 1)) := (↑)
+    --  show IsClosed (φ ⁻¹' Y1)
+    --  let e₀ := g '' e
+    --  have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
+    --  have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
+    --    rintro x ⟨y, hy, rfl⟩
+    --    exact Subtype.coe_prop y
+    --  have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
+    --    apply IsClosedMap.closure_image_eq_of_continuous
+    --    case f_closed =>
+    --      apply IsClosed.isClosedMap_subtype_val
+    --      apply sub_cw_cell_complex_closed
+    --    case f_cont =>
+    --      exact continuous_subtype_val
+    --  have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
+    --    rw [ce₀_eq_ce_img, Set.range_comp]
+    --    congr!
+    --    exact Subtype.range_coe
+    --  have : φ ⁻¹' Y1 = (g ∘ φ) ⁻¹' X1' := by ext x;exact Set.mem_preimage
+    --  rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
+    --  match sub_X1'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
+    --  | Or.inl he₀ =>
+    --    rw [he₀, ←gφ_range, Set.preimage_range]
+    --    exact isClosed_univ
+    --  | Or.inr he₀ =>
+    --    rw [he₀]
+    --    exact isClosed_empty
+    --have X2'_closed_in_Xnp1 : IsClosed (g ⁻¹' X2') := by
+    --  have sub_X2'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X2' = closure e) ∨ ((closure e) ∩ X2' = ∅) := by
+    --    intro e e_in_sets e_sub_Xnp1
+    --    match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
+    --    | Or.inr he =>
+    --      left
+    --      rw [Set.inter_eq_left]
+    --      exact he
+    --    | Or.inl he =>
+    --      right
+    --      have :closure e ∩ X2' ⊆ X2' ∩ X1' := by
+    --        rw [Set.inter_comm]
+    --        exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) he
+    --      rw [Set.inter_comm X2', X1'X2'_disjoint] at this
+    --      exact Set.subset_eq_empty this rfl
+    --  let Y2 := g ⁻¹' X2'
+    --  show IsClosed Y2
+    --  apply closed_crit_of_coeherent CWComplexClass.coeherent
+    --  rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
+    --  let φ : closure e → (Skeleton X (n + 1)) := (↑)
+    --  show IsClosed (φ ⁻¹' Y2)
+    --  let e₀ := g '' e
+    --  let e₀ := g '' e
+    --  have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
+    --  have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
+    --    rintro x ⟨y, hy, rfl⟩
+    --    exact Subtype.coe_prop y
+    --  have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
+    --    apply IsClosedMap.closure_image_eq_of_continuous
+    --    case f_closed =>
+    --      apply IsClosed.isClosedMap_subtype_val
+    --      apply sub_cw_cell_complex_closed
+    --    case f_cont =>
+    --      exact continuous_subtype_val
+    --  have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
+    --    rw [ce₀_eq_ce_img, Set.range_comp]
+    --    congr!
+    --    exact Subtype.range_coe
+    --  have : φ ⁻¹' Y2 = (g ∘ φ) ⁻¹' X2' := by ext x;exact Set.mem_preimage
+    --  rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
+    --  match sub_X2'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
+    --  | Or.inl he₀ =>
+    --    rw [he₀, ←gφ_range, Set.preimage_range]
+    --    exact isClosed_univ
+    --  | Or.inr he₀ =>
+    --    rw [he₀]
+    --    exact isClosed_empty
+    --have g_inv_X1'X2'_rel_compl : g ⁻¹' X1' = (g ⁻¹' X2')ᶜ ∧ g ⁻¹' X2' = (g ⁻¹' X1')ᶜ  := by
+    --  have sub_X1'X2'_eq_Xnp1: (g ⁻¹' X1') ∪ (g ⁻¹' X2') = Set.univ := by
+    --    rw [←Set.preimage_union, X1'X2'_eq_Xnp1, ←Set.preimage_range g]
+    --    congr!
+    --    exact Eq.symm Subtype.range_coe
+    --  have sub_X1'X2'_disjoint: (g ⁻¹' X1') ∩ (g ⁻¹' X2') = ∅ := by
+    --    rw  [←Set.preimage_inter, X1'X2'_disjoint]
+    --    rfl
+    --  have : g ⁻¹' X1' = (g ⁻¹' X2')ᶜ := by
+    --    refine Eq.symm (compl_unique ?disj ?union)
+    --    case disj =>
+    --      show (g ⁻¹' X2') ∩ (g ⁻¹' X1') = ∅
+    --      rw [Set.inter_comm]
+    --      exact sub_X1'X2'_disjoint
+    --    case union =>
+    --      show (g ⁻¹' X2') ∪ (g ⁻¹' X1') = Set.univ
+    --      rw [Set.union_comm]
+    --      exact sub_X1'X2'_eq_Xnp1
+    --  constructor
+    --  . exact this
+    --  rw [eq_compl_comm]
+    --  exact this
+    --have X1'_open_in_Xnp1 : IsOpen (g ⁻¹' X1') := by
+    --  rw [g_inv_X1'X2'_rel_compl.1]
+    --  exact IsClosed.isOpen_compl
+    --have X2'_open_in_Xnp1 : IsOpen (g ⁻¹' X2') := by
+    --  rw [g_inv_X1'X2'_rel_compl.2]
+    --  exact IsClosed.isOpen_compl
+    --exact ⟨X1'_open_in_Xnp1, X2'_open_in_Xnp1⟩
   have X1'_cap_Xnp1_nonempty: (((Skeleton X (n + 1)): Set X) ∩ X1').Nonempty := by
     have : (((Skeleton X (n + 1)): Set X) ∩ X1') = X1' := by
       simpa [Set.left_eq_inter] using X1'X2'_sub_Xnp1.1
