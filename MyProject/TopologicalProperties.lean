@@ -394,6 +394,7 @@ theorem aux_disconnection_induction [CW: CWComplexClass X] {n: ℕ} {X1 X2: Set 
       rw [←(Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)]
       exact Set.union_subset e_in_X2' be_in_X2'
   let g : Skeleton X (n + 1) → X := (↑)
+  have g_injective: Function.Injective g := by exact Subtype.val_injective
   have X1'X2'_open_in_Xnp1: IsOpen (g ⁻¹' X1') ∧ IsOpen (g ⁻¹' X2') := by
     let Y1 := g ⁻¹' X1'
     let Y2 := g ⁻¹' X2'
@@ -411,131 +412,44 @@ theorem aux_disconnection_induction [CW: CWComplexClass X] {n: ℕ} {X1 X2: Set 
       case union => exact union_univ
     rw [this, isOpen_compl_iff]
     apply open_closed_of_cell_empty_or_full_intersection
-    rintro e e_in_sets
-    sorry
-    --have X1'_closed_in_Xnp1 : IsClosed (g ⁻¹' X1') := by
-    --  have sub_X1'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X1' = closure e) ∨ ((closure e) ∩ X1' = ∅) := by
-    --    intro e e_in_sets e_sub_Xnp1
-    --    match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
-    --    | Or.inl he =>
-    --      left
-    --      rw [Set.inter_eq_left]
-    --      exact he
-    --    | Or.inr he =>
-    --      right
-    --      have :closure e ∩ X1' ⊆ X2' ∩ X1' := Set.inter_subset_inter he fun ⦃a⦄ a ↦ a
-    --      rw [Set.inter_comm X2', X1'X2'_disjoint] at this
-    --      exact Set.subset_eq_empty this rfl
-    --  let Y1 := g ⁻¹' X1'
-    --  show IsClosed Y1
-    --  have cell_empty_or_full_inter_X1' : ∀ e ∈ sub_cell_complex_sets (Skeleton X (n + 1)), (closure e) ∩ Y1 = ∅ ∨ (closure e) ∩ Y1 = (closure e) := by
-    --    sorry
-    --  -- note that we implicitly use the fact that Skeleton X (n + 1) is also a CW complex
-    --  apply closed_crit_of_coeherent CWComplexClass.coeherent
-    --  rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
-    --  let φ : closure e → (Skeleton X (n + 1)) := (↑)
-    --  show IsClosed (φ ⁻¹' Y1)
-    --  let e₀ := g '' e
-    --  have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
-    --  have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
-    --    rintro x ⟨y, hy, rfl⟩
-    --    exact Subtype.coe_prop y
-    --  have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
-    --    apply IsClosedMap.closure_image_eq_of_continuous
-    --    case f_closed =>
-    --      apply IsClosed.isClosedMap_subtype_val
-    --      apply sub_cw_cell_complex_closed
-    --    case f_cont =>
-    --      exact continuous_subtype_val
-    --  have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
-    --    rw [ce₀_eq_ce_img, Set.range_comp]
-    --    congr!
-    --    exact Subtype.range_coe
-    --  have : φ ⁻¹' Y1 = (g ∘ φ) ⁻¹' X1' := by ext x;exact Set.mem_preimage
-    --  rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
-    --  match sub_X1'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
-    --  | Or.inl he₀ =>
-    --    rw [he₀, ←gφ_range, Set.preimage_range]
-    --    exact isClosed_univ
-    --  | Or.inr he₀ =>
-    --    rw [he₀]
-    --    exact isClosed_empty
-    --have X2'_closed_in_Xnp1 : IsClosed (g ⁻¹' X2') := by
-    --  have sub_X2'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X2' = closure e) ∨ ((closure e) ∩ X2' = ∅) := by
-    --    intro e e_in_sets e_sub_Xnp1
-    --    match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
-    --    | Or.inr he =>
-    --      left
-    --      rw [Set.inter_eq_left]
-    --      exact he
-    --    | Or.inl he =>
-    --      right
-    --      have :closure e ∩ X2' ⊆ X2' ∩ X1' := by
-    --        rw [Set.inter_comm]
-    --        exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) he
-    --      rw [Set.inter_comm X2', X1'X2'_disjoint] at this
-    --      exact Set.subset_eq_empty this rfl
-    --  let Y2 := g ⁻¹' X2'
-    --  show IsClosed Y2
-    --  apply closed_crit_of_coeherent CWComplexClass.coeherent
-    --  rintro _ ⟨e, e_in_Xnp1_sets, rfl⟩
-    --  let φ : closure e → (Skeleton X (n + 1)) := (↑)
-    --  show IsClosed (φ ⁻¹' Y2)
-    --  let e₀ := g '' e
-    --  let e₀ := g '' e
-    --  have e₀_in_sets : e₀ ∈ C.sets := e_in_Xnp1_sets
-    --  have e₀_sub_Xnp1 : e₀ ⊆ (Skeleton X (n + 1)) := by
-    --    rintro x ⟨y, hy, rfl⟩
-    --    exact Subtype.coe_prop y
-    --  have ce₀_eq_ce_img : closure e₀ = g '' (closure e) := by
-    --    apply IsClosedMap.closure_image_eq_of_continuous
-    --    case f_closed =>
-    --      apply IsClosed.isClosedMap_subtype_val
-    --      apply sub_cw_cell_complex_closed
-    --    case f_cont =>
-    --      exact continuous_subtype_val
-    --  have gφ_range : Set.range (g ∘ φ) = closure e₀ := by
-    --    rw [ce₀_eq_ce_img, Set.range_comp]
-    --    congr!
-    --    exact Subtype.range_coe
-    --  have : φ ⁻¹' Y2 = (g ∘ φ) ⁻¹' X2' := by ext x;exact Set.mem_preimage
-    --  rw [this, ←Set.preimage_inter_range, gφ_range, Set.inter_comm]
-    --  match sub_X2'_or_disjoint e₀ e₀_in_sets e₀_sub_Xnp1 with
-    --  | Or.inl he₀ =>
-    --    rw [he₀, ←gφ_range, Set.preimage_range]
-    --    exact isClosed_univ
-    --  | Or.inr he₀ =>
-    --    rw [he₀]
-    --    exact isClosed_empty
-    --have g_inv_X1'X2'_rel_compl : g ⁻¹' X1' = (g ⁻¹' X2')ᶜ ∧ g ⁻¹' X2' = (g ⁻¹' X1')ᶜ  := by
-    --  have sub_X1'X2'_eq_Xnp1: (g ⁻¹' X1') ∪ (g ⁻¹' X2') = Set.univ := by
-    --    rw [←Set.preimage_union, X1'X2'_eq_Xnp1, ←Set.preimage_range g]
-    --    congr!
-    --    exact Eq.symm Subtype.range_coe
-    --  have sub_X1'X2'_disjoint: (g ⁻¹' X1') ∩ (g ⁻¹' X2') = ∅ := by
-    --    rw  [←Set.preimage_inter, X1'X2'_disjoint]
-    --    rfl
-    --  have : g ⁻¹' X1' = (g ⁻¹' X2')ᶜ := by
-    --    refine Eq.symm (compl_unique ?disj ?union)
-    --    case disj =>
-    --      show (g ⁻¹' X2') ∩ (g ⁻¹' X1') = ∅
-    --      rw [Set.inter_comm]
-    --      exact sub_X1'X2'_disjoint
-    --    case union =>
-    --      show (g ⁻¹' X2') ∪ (g ⁻¹' X1') = Set.univ
-    --      rw [Set.union_comm]
-    --      exact sub_X1'X2'_eq_Xnp1
-    --  constructor
-    --  . exact this
-    --  rw [eq_compl_comm]
-    --  exact this
-    --have X1'_open_in_Xnp1 : IsOpen (g ⁻¹' X1') := by
-    --  rw [g_inv_X1'X2'_rel_compl.1]
-    --  exact IsClosed.isOpen_compl
-    --have X2'_open_in_Xnp1 : IsOpen (g ⁻¹' X2') := by
-    --  rw [g_inv_X1'X2'_rel_compl.2]
-    --  exact IsClosed.isOpen_compl
-    --exact ⟨X1'_open_in_Xnp1, X2'_open_in_Xnp1⟩
+    have sub_X1'_or_disjoint: ∀ e ∈ C.sets, e ⊆ (Skeleton X (n + 1)) → ((closure e) ∩ X1' = closure e) ∨ ((closure e) ∩ X1' = ∅) := by
+      intro e e_in_sets e_sub_Xnp1
+      match aux_sub_only_1 e e_in_sets e_sub_Xnp1 with
+      | Or.inl he =>
+        left
+        rw [Set.inter_eq_left]
+        exact he
+      | Or.inr he =>
+        right
+        have :closure e ∩ X1' ⊆ X2' ∩ X1' := Set.inter_subset_inter he fun ⦃a⦄ a ↦ a
+        rw [Set.inter_comm X2', X1'X2'_disjoint] at this
+        exact Set.subset_eq_empty this rfl
+    rintro e' e'_in_sets
+    let e := g ''  e'
+    have e_in_sets : e ∈ C.sets := e'_in_sets
+    have e_sub_Xnp1 : e ⊆ (Skeleton X (n + 1)) := by
+      rintro x ⟨y, hy, rfl⟩
+      exact Subtype.coe_prop y
+    have range_Y1: g '' Y1 = X1' := by
+      apply Set.image_preimage_eq_of_subset
+      rw [Subtype.range_coe]
+      exact X1'X2'_sub_Xnp1.1
+    have ce_eq_gce': closure e = g '' (closure e') := by
+      apply IsClosedMap.closure_image_eq_of_continuous
+      case f_closed =>
+        apply IsClosed.isClosedMap_subtype_val
+        apply sub_cw_cell_complex_closed
+      case f_cont =>
+        exact continuous_subtype_val
+    match sub_X1'_or_disjoint e e_in_sets e_sub_Xnp1 with
+    | Or.inr h1 =>
+      left
+      rw [←Set.image_eq_image g_injective, Set.image_empty, Set.image_inter g_injective, ←ce_eq_gce', range_Y1]
+      exact h1
+    | Or.inl h2 =>
+      right
+      rw [←Set.image_eq_image g_injective, Set.image_inter g_injective, ←ce_eq_gce', range_Y1]
+      exact h2
   have X1'_cap_Xnp1_nonempty: (((Skeleton X (n + 1)): Set X) ∩ X1').Nonempty := by
     have : (((Skeleton X (n + 1)): Set X) ∩ X1') = X1' := by
       simpa [Set.left_eq_inter] using X1'X2'_sub_Xnp1.1
@@ -714,6 +628,12 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
       | Or.inl x_in_first => left; simp [Z1_def]; use n₀
       | Or.inr x_in_second => right; simp [Z2_def]; use n₀
   have Z1Z2Open : IsOpen Z1 ∧ IsOpen Z2 := by
+    have : Z2 = Z1ᶜ := by
+      refine Eq.symm (compl_unique ?disj ?union)
+      case disj => exact Z1Z2_disjoint.inter_eq
+      case union => exact Z1Z2_cover
+    rw [this, isOpen_compl_iff]
+    apply open_closed_of_cell_empty_or_full_intersection
     have aux_ce_sub_only_one: ∀ e ∈ C.sets, (closure e) ⊆ Z1 ∨ (closure e) ⊆ Z2 := by
       intro e e_in_sets
       let n := C.dim_map ⟨e, e_in_sets⟩
@@ -740,72 +660,16 @@ theorem connected_1_skeleton_of_connected {X: Type*} [TopologicalSpace X] [T2Spa
         rw [Set.mem_iUnion]
         use n
         exact ce_in_fn2 hx
-    have Z1Closed: IsClosed Z1 := by
-      have sub_Z1_or_disjoint: ∀ e ∈ C.sets, (closure e) ∩ Z1 = (closure e) ∨ (closure e) ∩ Z1 = ∅ := by
-        intro e e_in_sets
-        match aux_ce_sub_only_one e e_in_sets with
-        | Or.inl e_sub_Z1 =>
-          left
-          rw [eq_comm, Set.left_eq_inter]
-          exact e_sub_Z1
-        | Or.inr e_sub_Z2 =>
-          right
-          rw [←Set.disjoint_iff_inter_eq_empty, disjoint_comm]
-          exact Set.disjoint_of_subset (fun x hx ↦ hx) e_sub_Z2 Z1Z2_disjoint
-      apply closed_crit_of_coeherent CWComplexClass.coeherent
-      rintro _ ⟨e₀, e₀_in_sets, rfl⟩
-      rw [←Set.preimage_inter_range, Subtype.range_val]
-      let g : (closure e₀) → X := (↑)
-      have ce₀_eq_range : closure e₀ = Set.range g := by
-        exact Eq.symm Subtype.range_coe
-      show IsClosed (g ⁻¹' (Z1 ∩ closure e₀))
-      match sub_Z1_or_disjoint e₀ e₀_in_sets with
-      | Or.inl ce₀_in_Z1 =>
-        rw [Set.inter_comm, ce₀_in_Z1]
-        simp [ce₀_eq_range]
-      | Or.inr ce₀_not_in_Z1 =>
-        rw [Set.inter_comm, ce₀_not_in_Z1]
-        simp
-    have Z2Closed: IsClosed Z2 := by
-      have sub_Z2_or_disjoint: ∀ e ∈ C.sets, (closure e) ∩ Z2 = (closure e) ∨ (closure e) ∩ Z2 = ∅ := by
-        intro e e_in_sets
-        match aux_ce_sub_only_one e e_in_sets with
-        | Or.inr e_sub_Z2 =>
-          left
-          rw [eq_comm, Set.left_eq_inter]
-          exact e_sub_Z2
-        | Or.inl e_sub_Z1 =>
-          right
-          rw [←Set.disjoint_iff_inter_eq_empty, disjoint_comm]
-          exact Set.disjoint_of_subset (fun x hx ↦ hx) e_sub_Z1 Z1Z2_disjoint.symm
-      apply closed_crit_of_coeherent CWComplexClass.coeherent
-      rintro _ ⟨e₀, e₀_in_sets, rfl⟩
-      rw [←Set.preimage_inter_range, Subtype.range_val]
-      let g : (closure e₀) → X := (↑)
-      have ce₀_eq_range : closure e₀ = Set.range g := by
-        exact Eq.symm Subtype.range_coe
-      show IsClosed (g ⁻¹' (Z2 ∩ closure e₀))
-      match sub_Z2_or_disjoint e₀ e₀_in_sets with
-      | Or.inl ce₀_in_Z2 =>
-        rw [Set.inter_comm, ce₀_in_Z2]
-        simp [ce₀_eq_range]
-      | Or.inr ce₀_not_in_Z2 =>
-        rw [Set.inter_comm, ce₀_not_in_Z2]
-        simp
-    have Z1Z2_compl : Z1ᶜ = Z2 := by
-      refine compl_unique ?disj ?union
-      case disj =>
-        show Z1 ∩ Z2 = ∅
-        rw [←Set.disjoint_iff_inter_eq_empty]
-        exact Z1Z2_disjoint
-      case union => exact Z1Z2_cover
-    have Z1Open: IsOpen Z1 := by
-      rw [←isClosed_compl_iff, Z1Z2_compl]
-      exact Z2Closed
-    have Z2Open: IsOpen Z2 := by
-      rw [← Z1Z2_compl]
-      apply IsClosed.isOpen_compl
-    tauto
+    intro e e_in_sets
+    match aux_ce_sub_only_one e e_in_sets with
+    | Or.inl e_sub_Z1 =>
+      right
+      rw [eq_comm, Set.left_eq_inter]
+      exact e_sub_Z1
+    | Or.inr e_sub_Z2 =>
+      left
+      rw [←Set.disjoint_iff_inter_eq_empty, disjoint_comm]
+      exact Set.disjoint_of_subset (fun x hx ↦ hx) e_sub_Z2 Z1Z2_disjoint
   have univ_preconnected: @IsPreconnected X _ Set.univ := isPreconnected_univ
   have univ_not_preconnected: ¬(@IsPreconnected X _ Set.univ) := by
     simp [IsPreconnected]
@@ -909,6 +773,10 @@ example {ι : Type*} {f: ι → Set X} {s₀: Set X} (i₀: ι) (hs₀: s₀.Non
   rw [Set.mem_iUnion] at hy
   rcases hy with ⟨i₁, y_in_fi₁⟩
   exact ((hf_pc i₁).joinedIn x (hf_incl i₁ hx) y y_in_fi₁).mono (Set.subset_iUnion f i₁)
+example {s1 s2: Set X} {f: X → Y} (hf: Function.Injective f) (h: f '' s1 = f '' s2) : s1 = s2 := by
+  exact (Set.image_eq_image hf).mp h
+example {s : Set Y} {f : X → Y} (hs: s ⊆ Set.range f) (hf: Function.Injective f) : f '' (f ⁻¹' s) = s := by
+  exact Set.image_preimage_eq_of_subset hs
 end
 
 -- example of dependent arrow notation
