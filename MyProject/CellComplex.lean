@@ -95,6 +95,16 @@ theorem cell_closure_connected : ∀ s ∈ C.sets, IsConnected (closure s) := by
     apply IsConnected.image
     case H => exact isConnected_univ
     case hf => exact continuous_iff_continuousOn_univ.mp (characteristic_map_continuous ⟨s, hs⟩)
+theorem cell_closure_path_connected: ∀ s ∈ C.sets, IsPathConnected (closure s) := by
+    intro s hs
+    rw [←characteristic_map_range ⟨s, hs⟩]
+    let f := C.characteristic_map ⟨s, hs⟩
+    rw [←Set.image_univ]
+    apply IsPathConnected.image
+    case hF =>
+        rw [←pathConnectedSpace_iff_univ]
+        exact cb_path_connected
+    case hf => exact characteristic_map_continuous ⟨s, hs⟩
 theorem same_cell_of_mem {x: X} {e1 e2: Set X} (he1: e1 ∈ C.sets) (he2: e2 ∈ C.sets) (x_in_e1: x ∈ e1) (x_in_e2: x ∈ e2) : e1 = e2 := by
     by_contra! h
     have : Disjoint e1 e2 := C.disjoint he1 he2 h

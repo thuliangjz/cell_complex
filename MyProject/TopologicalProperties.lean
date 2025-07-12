@@ -706,6 +706,20 @@ theorem path_connected_of_discrete_connected {X: Type*} [TopologicalSpace X] {s:
   intro x hx y hy
   rw [aux x hx y hy]
   exact JoinedIn.refl hy
+theorem subset_eq_univ_of_open_closed {X: Type*} [TopologicalSpace X] [ConnectedSpace X] {s : Set X} (s_nonempty: s.Nonempty) (s_open_closed: IsOpen s ∧ IsClosed s) : s = Set.univ := by
+  suffices compl_empty: sᶜ = ∅ by
+    exact Set.compl_empty_iff.mp compl_empty
+  by_contra! compl_nonempty
+  have compl_open: IsOpen sᶜ := by
+    rw [isOpen_compl_iff]
+    exact s_open_closed.2
+  have : ¬ (IsPreconnected (Set.univ:Set X)) := by
+    simp [IsPreconnected]
+    use s, s_open_closed.1, sᶜ, compl_open, Set.union_compl_self s, s_nonempty, compl_nonempty
+    simp
+  have : IsPreconnected ((Set.univ:Set X)) := by
+    exact isPreconnected_univ
+  contradiction
 end
 
 theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] {n : ℕ} (h: IsConnected ((Skeleton X n):Set X)) : PathConnectedSpace X := by
@@ -718,7 +732,23 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
       rw [←n_eq_0]
       apply path_connected_of_discrete_connected skeleton0_discrete h
     | Or.inr n_gt_0 =>
-      sorry
+      rw [isPathConnected_iff_pathConnectedSpace]
+      show PathConnectedSpace ((Skeleton X n):Set X)
+      rcases h.nonempty with ⟨x, hx⟩
+      let x₀ : (Skeleton X n) := ⟨x, hx⟩
+      let S : (Set (Skeleton X n)) := pathComponent x₀
+      suffices S_eq_univ: S = Set.univ by
+        rw [pathConnectedSpace_iff_univ, ←S_eq_univ]
+        exact isPathConnected_pathComponent
+      have : ConnectedSpace ((Skeleton X n):Set X) := by
+        rw [←isConnected_iff_connectedSpace]
+        exact h
+      refine subset_eq_univ_of_open_closed ?nonempty ?open_closed
+      case nonempty => exact pathComponent.nonempty x₀
+      case open_closed =>
+        apply open_closed_of_cell_empty_or_full_intersection
+        intro e₀ he₀
+        sorry
   have aux : ∀ m : ℕ, n ≤ m → IsPathConnected ((Skeleton X m):Set X) := by
     sorry
   rcases h.nonempty with ⟨x₀, hx₀⟩
