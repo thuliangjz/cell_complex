@@ -732,6 +732,7 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
       rw [←n_eq_0]
       apply path_connected_of_discrete_connected skeleton0_discrete h
     | Or.inr n_gt_0 =>
+      -- it seems not necessary to assume n > 0
       rw [isPathConnected_iff_pathConnectedSpace]
       show PathConnectedSpace ((Skeleton X n):Set X)
       rcases h.nonempty with ⟨x, hx⟩
@@ -748,9 +749,33 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
       case open_closed =>
         apply open_closed_of_cell_empty_or_full_intersection
         intro e₀ he₀
-        sorry
+        match eq_or_ne (closure e₀ ∩ S) ∅ with
+        | Or.inl inter_empty => left; exact inter_empty
+        | Or.inr inter_nonempty =>
+          rw [←Set.nonempty_iff_ne_empty] at inter_nonempty
+          rcases inter_nonempty with ⟨y₀, hy₀⟩
+          have : closure e₀ ⊆ S := by
+            intro z hz
+            have zy₀_joined: Joined z y₀  := JoinedIn.joined (IsPathConnected.joinedIn (cell_closure_path_connected e₀ he₀) z hz y₀ hy₀.1)
+            have y₀x₀_joined: Joined y₀ x₀ := by
+              apply Joined.symm
+              rw [←mem_pathComponent_iff]
+              exact hy₀.2
+            rw [mem_pathComponent_iff]
+            exact Joined.trans (id (Joined.symm y₀x₀_joined)) (id (Joined.symm zy₀_joined))
+          right; apply Eq.symm;
+          rwa [Set.left_eq_inter]
   have aux : ∀ m : ℕ, n ≤ m → IsPathConnected ((Skeleton X m):Set X) := by
-    sorry
+    intro m hm
+    rcases Nat.exists_eq_add_of_le hm with ⟨k, rfl⟩
+    induction' k with k ihk
+    case zero => simpa using skn_path_connected
+    case succ =>
+      have sk_npk_path_connected: IsPathConnected ((Skeleton X (n + k)): Set X) := by
+        apply ihk
+        exact Nat.le_add_right n k
+
+      sorry
   rcases h.nonempty with ⟨x₀, hx₀⟩
   use x₀, trivial
   intro y hy
