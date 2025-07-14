@@ -1,6 +1,7 @@
 import MyProject.CellComplex
 import Mathlib.Topology.Connected.PathConnected
-open Topology
+import Mathlib.Topology.UnitInterval
+open Topology unitInterval
 open BigOperators
 namespace Chp5
 open CellComplexClass
@@ -774,7 +775,8 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
       have sk_npk_path_connected: IsPathConnected ((Skeleton X (n + k)): Set X) := by
         apply ihk
         exact Nat.le_add_right n k
-
+      rw [isPathConnected_iff_pathConnectedSpace]
+      show PathConnectedSpace (Skeleton X (n + (k + 1)):Set X)
       sorry
   rcases h.nonempty with ⟨x₀, hx₀⟩
   use x₀, trivial
@@ -832,6 +834,20 @@ example {s1 s2: Set X} {f: X → Y} (hf: Function.Injective f) (h: f '' s1 = f '
   exact (Set.image_eq_image hf).mp h
 example {s : Set Y} {f : X → Y} (hs: s ⊆ Set.range f) (hf: Function.Injective f) : f '' (f ⁻¹' s) = s := by
   exact Set.image_preimage_eq_of_subset hs
+example {s1 s2: Set X} (hs1: IsPathConnected s1) (hs1s2: s1 ⊆ s2) : IsPathConnected {y:s2 | y.1 ∈ s1} := by
+  let s1' := {y:s2 | y.1 ∈ s1}
+  show IsPathConnected s1'
+  rcases hs1 with ⟨x, x_in_s1, hx⟩
+  let x':s2 := ⟨x, hs1s2 x_in_s1⟩
+  use x', x_in_s1
+  intro y' hy'
+  rcases hx hy' with ⟨γ, hγ⟩
+  let γ' : I → s2 := fun t ↦ ⟨γ t, hs1s2 (hγ t)⟩
+  have cont: Continuous γ' := by continuity
+  have sub: ∀ t:I, γ' t ∈ s1' := by exact hγ
+  have hγ'₀ : γ' 0 = x' := SetCoe.ext γ.source
+  have hγ'₁ : γ' 1 = y' := SetCoe.ext γ.target
+  exact ⟨⟨⟨γ', cont⟩, hγ'₀, hγ'₁⟩, sub⟩
 end
 
 -- example of dependent arrow notation
