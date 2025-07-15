@@ -1265,33 +1265,3 @@ end
 
 end CellComplexClass
 end Chp5
-#check DiscreteTopology
-#check singletons_open_iff_discrete
-#check Set.Finite.of_injOn
-#check Set.Finite.of_finite_image
-example (s: Set ℕ) (hs: ∀ x ∈ s, x < 16): s.Finite := by
-    let s' := {x| x < 16}
-    have: s'.Finite := by apply Set.finite_lt_nat
-    apply Set.Finite.subset this hs
-
-example : {x:ℕ // x < 16} ≃ Fin 16 := by
-    exact Fin.equivSubtype.symm
-example : ({x| x < 16}).Finite := by
-    exact Set.finite_lt_nat 16
-example (s1 s2: Set ℕ) (hs1: s1.Finite) (h: s2 ⊆ s1) : s2.Finite := by
-    exact Set.Finite.subset hs1 h
-example (s: Set ℕ) (hs: s.Finite) (h: ∀ x ∈ s, x < 18) : hs.toFinset.sup id < 18 := by
-    simp
-    exact h
-example (a: ℕ) (ha: a ≤ 0) : a = 0 := by
-    apply?
-example (m n : ℕ) : n ≤ max m n := by apply?
-section
-variable {X: Type*} [TopologicalSpace X]
-example {s1 s2: Set X} (h: s1 ∩ s2 = ∅) : s1 ⊆ s2ᶜ := by
-    apply Disjoint.subset_compl_right
-    rwa [Set.disjoint_iff_inter_eq_empty]
-example {s1 s2: Set X} (h: s1 ⊆ s2) : s1 ∩ s2ᶜ = ∅ := by
-    refine Disjoint.inter_eq ?_
-    exact Set.disjoint_compl_right_iff_subset.mpr h
-end

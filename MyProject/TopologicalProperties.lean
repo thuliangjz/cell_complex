@@ -721,6 +721,20 @@ theorem subset_eq_univ_of_open_closed {X: Type*} [TopologicalSpace X] [Connected
   have : IsPreconnected ((Set.univ:Set X)) := by
     exact isPreconnected_univ
   contradiction
+theorem path_connected_in_subtype_of_path_connected {X: Type*} [TopologicalSpace X] {s1 s2: Set X} (hs1: IsPathConnected s1) (hs1s2: s1 ⊆ s2) : IsPathConnected {y:s2 | y.1 ∈ s1} := by
+  let s1' := {y:s2 | y.1 ∈ s1}
+  show IsPathConnected s1'
+  rcases hs1 with ⟨x, x_in_s1, hx⟩
+  let x':s2 := ⟨x, hs1s2 x_in_s1⟩
+  use x', x_in_s1
+  intro y' hy'
+  rcases hx hy' with ⟨γ, hγ⟩
+  let γ' : I → s2 := fun t ↦ ⟨γ t, hs1s2 (hγ t)⟩
+  have cont: Continuous γ' := by continuity
+  have sub: ∀ t:I, γ' t ∈ s1' := by exact hγ
+  have hγ'₀ : γ' 0 = x' := SetCoe.ext γ.source
+  have hγ'₁ : γ' 1 = y' := SetCoe.ext γ.target
+  exact ⟨⟨⟨γ', cont⟩, hγ'₀, hγ'₁⟩, sub⟩
 end
 
 theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] {n : ℕ} (h: IsConnected ((Skeleton X n):Set X)) : PathConnectedSpace X := by
@@ -776,7 +790,40 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
         apply ihk
         exact Nat.le_add_right n k
       rw [isPathConnected_iff_pathConnectedSpace]
-      show PathConnectedSpace (Skeleton X (n + (k + 1)):Set X)
+      let Xnk1 := Skeleton X (n + (k + 1))
+      show PathConnectedSpace (Xnk1:Set X)
+      let S := {x: Xnk1 | x.1 ∈ (Skeleton X (n + k))}
+      have S_path_connected : IsPathConnected S := by
+        apply path_connected_in_subtype_of_path_connected sk_npk_path_connected
+        apply skeleton_mono
+        norm_num
+      obtain ⟨x, hx⟩ := S_path_connected
+      let S₁ := pathComponent x
+      suffices S₁_eq_univ : S₁ = Set.univ by
+        rw [pathConnectedSpace_iff_univ, ←S₁_eq_univ]
+        exact isPathConnected_pathComponent
+      suffices cell_closure_subset : ∀ e ∈ sets, (closure e) ⊆ S₁ by
+        ext x
+        refine Iff.intro ?mp ?mpr
+        case mp => exact fun x ↦ trivial
+        case mpr =>
+          intro _
+          rcases exists_mem_of_cell x with ⟨e, e_in_sets, x_in_e⟩
+          have : e ⊆ closure e := by exact subset_closure
+          apply cell_closure_subset e e_in_sets
+          apply subset_closure x_in_e
+      intro e he
+      let g: Xnk1 → X := (↑)
+      have : dim_map ⟨e, he⟩ ≤ (n + k + 1) := by
+        let e₀ := g '' e
+        have e₀_in_sets : e₀ ∈ sets := he
+        have e₀_sub_Xnk1 : e₀ ⊆ Xnk1 := by
+          rintro x ⟨y, y_in_e, rfl⟩
+          exact y.2
+        rw [sub_skeleton_iff ⟨e₀, he⟩] at e₀_sub_Xnk1
+        have dim_map_eq: dim_map ⟨e, he⟩ = dim_map ⟨e₀, he⟩ := rfl
+        rw [dim_map_eq]
+        linarith
       sorry
   rcases h.nonempty with ⟨x₀, hx₀⟩
   use x₀, trivial
@@ -834,21 +881,7 @@ example {s1 s2: Set X} {f: X → Y} (hf: Function.Injective f) (h: f '' s1 = f '
   exact (Set.image_eq_image hf).mp h
 example {s : Set Y} {f : X → Y} (hs: s ⊆ Set.range f) (hf: Function.Injective f) : f '' (f ⁻¹' s) = s := by
   exact Set.image_preimage_eq_of_subset hs
-example {s1 s2: Set X} (hs1: IsPathConnected s1) (hs1s2: s1 ⊆ s2) : IsPathConnected {y:s2 | y.1 ∈ s1} := by
-  let s1' := {y:s2 | y.1 ∈ s1}
-  show IsPathConnected s1'
-  rcases hs1 with ⟨x, x_in_s1, hx⟩
-  let x':s2 := ⟨x, hs1s2 x_in_s1⟩
-  use x', x_in_s1
-  intro y' hy'
-  rcases hx hy' with ⟨γ, hγ⟩
-  let γ' : I → s2 := fun t ↦ ⟨γ t, hs1s2 (hγ t)⟩
-  have cont: Continuous γ' := by continuity
-  have sub: ∀ t:I, γ' t ∈ s1' := by exact hγ
-  have hγ'₀ : γ' 0 = x' := SetCoe.ext γ.source
-  have hγ'₁ : γ' 1 = y' := SetCoe.ext γ.target
-  exact ⟨⟨⟨γ', cont⟩, hγ'₀, hγ'₁⟩, sub⟩
-end
+  end
 
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
