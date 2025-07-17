@@ -735,6 +735,15 @@ theorem path_connected_in_subtype_of_path_connected {X: Type*} [TopologicalSpace
   have hγ'₀ : γ' 0 = x' := SetCoe.ext γ.source
   have hγ'₁ : γ' 1 = y' := SetCoe.ext γ.target
   exact ⟨⟨⟨γ', cont⟩, hγ'₀, hγ'₁⟩, sub⟩
+theorem cell_closure_sub_component_of_inter {X: Type*} [TopologicalSpace X] [T2Space X] [CellComplexClass X] {x: X} {e: Set X} (e_in_sets: e ∈ sets) {y: X} (hy: y ∈ closure e ∩ pathComponent x) : closure e ⊆ pathComponent x := by
+  intro z hz
+  have zy_joined : Joined z y := JoinedIn.joined (IsPathConnected.joinedIn (cell_closure_path_connected e e_in_sets) z hz y hy.1)
+  have yx_joined : Joined y x := by
+    apply Joined.symm
+    rw [←mem_pathComponent_iff]
+    exact hy.2
+  rw [mem_pathComponent_iff]
+  exact Joined.trans (id (Joined.symm yx_joined)) (id (Joined.symm zy_joined))
 end
 
 theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] {n : ℕ} (h: IsConnected ((Skeleton X n):Set X)) : PathConnectedSpace X := by
@@ -769,15 +778,7 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
         | Or.inr inter_nonempty =>
           rw [←Set.nonempty_iff_ne_empty] at inter_nonempty
           rcases inter_nonempty with ⟨y₀, hy₀⟩
-          have : closure e₀ ⊆ S := by
-            intro z hz
-            have zy₀_joined: Joined z y₀  := JoinedIn.joined (IsPathConnected.joinedIn (cell_closure_path_connected e₀ he₀) z hz y₀ hy₀.1)
-            have y₀x₀_joined: Joined y₀ x₀ := by
-              apply Joined.symm
-              rw [←mem_pathComponent_iff]
-              exact hy₀.2
-            rw [mem_pathComponent_iff]
-            exact Joined.trans (id (Joined.symm y₀x₀_joined)) (id (Joined.symm zy₀_joined))
+          have : closure e₀ ⊆ S := by apply cell_closure_sub_component_of_inter he₀ hy₀
           right; apply Eq.symm;
           rwa [Set.left_eq_inter]
   have aux : ∀ m : ℕ, n ≤ m → IsPathConnected ((Skeleton X m):Set X) := by
@@ -797,8 +798,9 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
         apply path_connected_in_subtype_of_path_connected sk_npk_path_connected
         apply skeleton_mono
         norm_num
-      obtain ⟨x, hx⟩ := S_path_connected
+      have ⟨x, x_in_S, hx⟩ := S_path_connected
       let S₁ := pathComponent x
+      have S_sub_S₁ : S ⊆ S₁ := S_path_connected.subset_pathComponent x_in_S
       suffices S₁_eq_univ : S₁ = Set.univ by
         rw [pathConnectedSpace_iff_univ, ←S₁_eq_univ]
         exact isPathConnected_pathComponent
@@ -824,7 +826,21 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
         have dim_map_eq: dim_map ⟨e, he⟩ = dim_map ⟨e₀, he⟩ := rfl
         rw [dim_map_eq]
         linarith
-      sorry
+      rw [Nat.le_succ_iff_eq_or_le] at this
+      match this with
+      | Or.inr dim_le_npk =>
+        have e_sub_S : e ⊆ S := by
+          let e₀ := g '' e
+          have : dim_map ⟨e₀, he⟩ ≤ n + k := dim_le_npk
+          rw [←sub_skeleton_iff] at this
+          intro x₀ hx₀
+          have gx₀_mem_e₀: g x₀ ∈ e₀ := by exact Set.mem_image_of_mem g hx₀
+          exact this gx₀_mem_e₀
+        rcases nonempty e he with ⟨y, hy⟩
+        have y_in_ce_inter_S₁ : y ∈ closure e ∩ S₁ := ⟨subset_closure hy, S_sub_S₁ (e_sub_S hy)⟩
+        apply cell_closure_sub_component_of_inter he y_in_ce_inter_S₁
+      | Or.inl dim_eq_npkp1 =>
+        sorry
   rcases h.nonempty with ⟨x₀, hx₀⟩
   use x₀, trivial
   intro y hy
@@ -881,8 +897,11 @@ example {s1 s2: Set X} {f: X → Y} (hf: Function.Injective f) (h: f '' s1 = f '
   exact (Set.image_eq_image hf).mp h
 example {s : Set Y} {f : X → Y} (hs: s ⊆ Set.range f) (hf: Function.Injective f) : f '' (f ⁻¹' s) = s := by
   exact Set.image_preimage_eq_of_subset hs
-  end
-
+example {s1 s2: Set X} (hs2: IsPathConnected s2) {x: X} (hx: x ∈ s2) : s2 ⊆ pathComponent x := by
+  exact IsPathConnected.subset_pathComponent hs2 hx
+example {n k: ℕ} (h: k ≤ n + 1) : k = n + 1 ∨ k ≤ n := by
+  exact Nat.le_succ_iff_eq_or_le.mp h
+end
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
 example {X: Type*} (p : ℕ → X → Prop) (f0: (n: ℕ) →  (x: X) → p n x → X) (hf0: (n : ℕ) → (x : X) → (h: p n x) → p (n+1) (f0 n x h)) (x₀ : X) (hx₀: p 0 x₀): ∃ f: ℕ → X, ∀ n, p n (f n) := by

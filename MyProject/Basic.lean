@@ -26,6 +26,15 @@ instance sph_connected {n : ℕ} (hn: 1 < n) : ConnectedSpace (sph n) := by
         exact Nat.one_lt_cast.mpr hn
     case hr=>
         norm_num
+theorem sph_nonempty {n : ℕ} (hn: 1 ≤ n) : (sph n).Nonempty := by
+    have : Nontrivial (EuclideanSpace ℝ (Fin n)) := by
+        rw [nontrivial_iff]
+        use EuclideanSpace.single (⟨0, hn⟩) (1:ℝ), 0
+        by_contra! eq_zero
+        rw [EuclideanSpace.single_eq_zero_iff] at eq_zero
+        linarith
+    rw [sph, NormedSpace.sphere_nonempty]
+    norm_num
 theorem b_closure_eq_cb {n : ℕ} : closure (b n) = cb n := by
     rw [b, cb]
     refine closure_ball 0 ?_

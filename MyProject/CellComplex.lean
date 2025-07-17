@@ -1261,6 +1261,11 @@ theorem open_closed_of_cell_empty_or_full_intersection [CWComplexClass X] (s: Se
             left
             rwa [←Set.disjoint_iff_inter_eq_empty,Set.disjoint_compl_right_iff_subset, ←Set.inter_eq_left]
     rwa [←isClosed_compl_iff]
+theorem boundary_nonempty : ∀ s : sets, 1 ≤ dim_map s → (Set.range (cb_boundary_map (C.characteristic_map s))).Nonempty := by
+    intro s hs
+    rw [boundary_map_range, cb_boundary, ←Set.range_comp, Set.range_nonempty_iff_nonempty]
+    apply Set.Nonempty.to_subtype
+    exact sph_nonempty hs
 end
 
 end CellComplexClass
