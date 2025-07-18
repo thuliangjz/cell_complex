@@ -95,6 +95,16 @@ theorem cell_closure_connected : ∀ s ∈ C.sets, IsConnected (closure s) := by
     apply IsConnected.image
     case H => exact isConnected_univ
     case hf => exact continuous_iff_continuousOn_univ.mp (characteristic_map_continuous ⟨s, hs⟩)
+theorem cell_closure_path_connected: ∀ s ∈ C.sets, IsPathConnected (closure s) := by
+    intro s hs
+    rw [←characteristic_map_range ⟨s, hs⟩]
+    let f := C.characteristic_map ⟨s, hs⟩
+    rw [←Set.image_univ]
+    apply IsPathConnected.image
+    case hF =>
+        rw [←pathConnectedSpace_iff_univ]
+        exact cb_path_connected
+    case hf => exact characteristic_map_continuous ⟨s, hs⟩
 theorem same_cell_of_mem {x: X} {e1 e2: Set X} (he1: e1 ∈ C.sets) (he2: e2 ∈ C.sets) (x_in_e1: x ∈ e1) (x_in_e2: x ∈ e2) : e1 = e2 := by
     by_contra! h
     have : Disjoint e1 e2 := C.disjoint he1 he2 h
@@ -399,7 +409,7 @@ theorem open_cell_of_finite_dim {X: Type*} [TopologicalSpace X] [T2Space X] [C: 
                 have : x ∈ e₀.val := Set.mem_of_mem_inter_left hx
                 rw [←e₀_eq_diff_e] at this
                 contrapose! x_in_e
-                apply Set.not_mem_of_mem_diff this
+                apply Set.notMem_of_mem_diff this
         have e₀_inter_ce_cover : e₀.val ∩ ce ⊆ ⋃ p:C.sets, ⋃ _ :(C.dim_map p < C.dim_map ⟨e, he_in_sets⟩), p.val := by
             trans ce \ e
             exact e₀_inter_ce_sub_e_boundary
@@ -851,7 +861,7 @@ instance cw_sub_cell_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: Cel
             have hs'₂: s'₁ ∩ Y.carrier ≠ ∅ := by
                 have hle: s'₁ ∩ closure s' ≤ s'₁ ∩ Y.carrier := by intro x; simp [Set.mem_inter_iff]; tauto
                 have hlt: ⊥ < s'₁ ∩ closure s' := by simpa [Set.nonempty_iff_ne_empty] using hs'₁.2
-                have : ⊥ < s'₁ ∩ Y.carrier := by exact gt_of_ge_of_gt hle hlt
+                have : ⊥ < s'₁ ∩ Y.carrier := by exact lt_of_le_of_lt' hle hlt
                 exact Ne.symm (ne_of_lt this)
             have hs'₃: s'₁ ∈ C.sets := by exact hss'_sub_sets hs'₁.1
             exact SubCellComplex.subset_of_intersect Y hs'₃ hs'₂
@@ -939,7 +949,7 @@ theorem sub_cw_cell_complex_closed {X: Type*} [TopologicalSpace X] [T2Space X] [
     have : Y.carrier = g '' Set.univ := by
         ext x
         simp [g]
-        exact Set.mem_def
+        rfl
     rw [this]
     apply aux_closed_of_sub_complex_coeherent Y
     rintro b ⟨e', he', rfl⟩
@@ -949,8 +959,8 @@ def Skeleton (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
     carrier := ⋃ s : C.sets, ⋃ _:(C.dim_map s ≤ n), s.val
     cell_incl_or_disjoint := by
         intro e he
-        have : C.dim_map ⟨e, he⟩ ≤ n ∨ C.dim_map ⟨e, he⟩ > n := by exact le_or_lt (dim_map ⟨e, he⟩) n
-        match le_or_lt (dim_map ⟨e, he⟩) n with
+        have : C.dim_map ⟨e, he⟩ ≤ n ∨ C.dim_map ⟨e, he⟩ > n := by exact le_or_gt (dim_map ⟨e, he⟩) n
+        match le_or_gt (dim_map ⟨e, he⟩) n with
         | Or.inl h =>
             left
             intro x hx
@@ -1063,9 +1073,7 @@ theorem skeleton_mono : ∀ (m n : ℕ), m ≤ n → ((Skeleton X m): Set X) ⊆
     show x ∈ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ n), s.val
     rw [Set.mem_iUnion₂]
     use s0, (le_trans hs0 m_le_n)
-theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
-    ext x
-    simp
+theorem exists_mem_of_skeleton (x: X): ∃ n:ℕ, x ∈ (Skeleton X n) := by
     rcases exists_mem_of_cell x with ⟨e, e_in_sets, x_in_e⟩
     let n := C.dim_map ⟨e, e_in_sets⟩
     use n
@@ -1073,6 +1081,191 @@ theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
     simp
     have : C.dim_map ⟨e, e_in_sets⟩ ≤ n := by exact Nat.le_refl (dim_map ⟨e, e_in_sets⟩)
     use e, ⟨e_in_sets, this⟩
+theorem skeleton_cover : ⋃ n:ℕ, ((Skeleton X n): Set X) = Set.univ := by
+    ext x
+    simp
+    exact exists_mem_of_skeleton x
+theorem skeleton_cover_any_ge_n : ∀ n : ℕ, ⋃ m:ℕ, ⋃ _:(n ≤ m), ((Skeleton X m): Set X) = Set.univ := by
+    intro n
+    ext x
+    simp
+    rcases exists_mem_of_skeleton x with ⟨n₀, hn₀⟩
+    let m := max n n₀
+    use m, Nat.le_max_left n n₀
+    exact skeleton_mono n₀ m (Nat.le_max_right n n₀) hn₀
+theorem cell_singleton_of_dim0 : ∀ e : C.sets, C.dim_map e = 0 ↔ ∃ x : X, e.val = {x} := by
+    rintro ⟨e, e_in_sets⟩
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        intro d0
+        let f := C.characteristic_map ⟨e, e_in_sets⟩
+        have : Subsingleton (b (C.dim_map ⟨e, e_in_sets⟩)) := by
+            rw [d0]
+            exact instSubsingletonElemEuclideanSpaceRealFinOfNatNatB
+        have hf: f '' cb_inner = e := by apply C.characteristic_map_inner_image
+        have : f '' cb_inner = Set.range (f ∘ b_to_cb) := by rw [cb_inner, Set.range_comp]
+        rw [this] at hf
+        simp
+        rw [←hf]
+        let x0 : b (C.dim_map ⟨e, e_in_sets⟩) := default
+        use (f ∘ b_to_cb) x0
+        ext y
+        constructor
+        . rintro ⟨x1, hx1, rfl⟩
+          apply Set.mem_singleton_of_eq
+          congr
+          apply Subsingleton.allEq
+        rintro hy
+        use x0
+        exact Eq.symm hy
+    case mpr =>
+        rintro ⟨x, hx⟩
+        simp at hx
+        let f := cb_inner_map (C.characteristic_map ⟨e, e_in_sets⟩)
+        have f_inj: Function.Injective f := by
+            apply IsEmbedding.injective
+            exact characteristic_map_inner_embd ⟨e, e_in_sets⟩
+        have f_range_singleton : Set.range f = {x} := by
+            rw [←hx]
+            apply C.characteristic_map_inner_range
+        have domain_singleton: ∃ y, b (C.dim_map ⟨e, e_in_sets⟩) = {y} := by
+            have : x ∈ Set.range f := by rw [f_range_singleton]; rfl
+            rcases this with ⟨y, hy⟩
+            use y
+            ext y'
+            refine Iff.intro ?mp ?mpr
+            case mp =>
+                intro hy'
+                have : f ⟨y', hy'⟩ = f y := by
+                    trans x
+                    . show f ⟨y', hy'⟩ ∈ ({x}:Set X)
+                      rw [←f_range_singleton]
+                      apply Set.mem_range_self
+                    exact Eq.symm hy
+                have : ⟨y', hy'⟩ = y := by exact f_inj this
+                apply_fun Subtype.val at this
+                exact this
+            case mpr =>
+                intro hy'
+                simp at hy'
+                rw [hy']
+                exact Subtype.coe_prop y
+        rw [b_singleton_iff] at domain_singleton
+        exact domain_singleton
+
+theorem skeleton_cell_dim {n : ℕ}: ∀ e : sub_cell_complex_sets (Skeleton X n), sub_cell_complex_dim_map (Skeleton X n) e ≤ n := by
+    let g : (Skeleton X n) → X := (↑)
+    intro e
+    let e' := g '' e
+    have e'_in_sets : e' ∈ C.sets := e.2
+    have : C.dim_map ⟨e', e'_in_sets⟩ = sub_cell_complex_dim_map (Skeleton X n) e := rfl
+    rw [←this]
+    have : e' ⊆ (Skeleton X n) := by
+        intro x hx
+        rcases hx with ⟨y, y_in_e, rfl⟩
+        exact y.2
+    rw [←sub_skeleton_iff]
+    simpa using this
+
+instance {n:ℕ}: FiniteDim (Skeleton X n) := by
+    have : (Set.range (sub_cell_complex_dim_map (Skeleton X n))).Finite := by
+        have finite_superset: {x:ℕ | x ≤ n}.Finite := by exact Set.finite_le_nat n
+        have range_subset: (Set.range (sub_cell_complex_dim_map (Skeleton X n))) ⊆ {x:ℕ | x ≤ n} := by
+            rintro m ⟨e, he⟩
+            show m ≤ n
+            rw [←he]
+            apply skeleton_cell_dim
+        exact Set.Finite.subset finite_superset range_subset
+    exact { out := this }
+
+theorem skeleton_dim {n : ℕ}: Dim (Skeleton X n) ≤ n := by
+    simp [Dim]
+    intro b e' e'_in_sets hb
+    let g : (Skeleton X n) → X := (↑)
+    let e := g '' e'
+    have e_in_sets : e ∈ C.sets := e'_in_sets
+    have : C.dim_map ⟨e, e_in_sets⟩ = dim_map ⟨e', e'_in_sets⟩ := rfl
+    rw [←hb, ←this]
+    have : e ⊆ (Skeleton X n) := by
+        intro x hx
+        rcases hx with ⟨y, hy, rfl⟩
+        exact y.2
+    rw [←sub_skeleton_iff]
+    simpa using this
+
+theorem skeleton0_discrete [CWComplexClass X]: DiscreteTopology (Skeleton X 0) := by
+    have singleton_in_sets: ∀ x : (Skeleton X 0), {x} ∈ sub_cell_complex_sets (Skeleton X 0) := by
+        have aux: ∀ x ∈ (Skeleton X 0), {x} ∈ C.sets := by
+            have : ∀ x ∈ (Skeleton X 0), ∃ e : C.sets, x ∈ e.1 ∧ (C.dim_map e = 0) := by
+                intro x hx
+                have: x ∈ ⋃ s:C.sets, ⋃ _:(C.dim_map s ≤ 0), s.val := hx
+                rw [Set.mem_iUnion₂] at this
+                rcases this with ⟨e, ⟨dim_e, x_in_e⟩⟩
+                use e, x_in_e, Nat.eq_zero_of_le_zero dim_e
+            intro x hx
+            rcases this x hx with ⟨e, x_in_e, dim_e_0⟩
+            rw [cell_singleton_of_dim0] at dim_e_0
+            rcases dim_e_0 with ⟨x₀, hx₀⟩
+            rw [hx₀] at x_in_e
+            have : e.val = {x} := by
+                ext y
+                rw [hx₀]
+                simp
+                exact Iff.symm (Eq.congr_right x_in_e)
+            rw [←this]
+            exact e.2
+        intro x
+        rw [sub_cell_complex_sets]
+        simp
+        exact aux x.val x.prop
+    have singleton_open: ∀ x : (Skeleton X 0), IsOpen {x} := by
+        intro x
+        let x_in_sets := singleton_in_sets x
+        apply open_cell_of_finite_dim ⟨{x}, x_in_sets⟩
+        have dim_skeleton_0 : Dim (Skeleton X 0) = 0 := by
+            apply Nat.eq_zero_of_le_zero
+            exact skeleton_dim
+        have dim_singleton : dim_map ⟨{x}, x_in_sets⟩ = 0 := by
+            rw [cell_singleton_of_dim0]
+            use x
+        linarith
+    rw [←singletons_open_iff_discrete]
+    exact singleton_open
+theorem closed_of_cell_empty_or_full_intersection [CWComplexClass X] (s: Set X) (hs: ∀ e ∈ C.sets, closure e ∩ s = ∅ ∨ closure e ∩ s = closure e) : IsClosed s := by
+    apply closed_crit_of_coeherent CWComplexClass.coeherent
+    rintro b ⟨e, e_in_sets, rfl⟩
+    let g : closure e → X := (↑)
+    show IsClosed (g ⁻¹' s)
+    have ce_eq_range : closure e = Set.range g := Eq.symm Subtype.range_coe
+    rw [←Set.preimage_inter_range, Subtype.range_coe]
+    match hs e e_in_sets with
+    | Or.inl ce_not_in_s =>
+        rw [Set.inter_comm, ce_not_in_s]
+        simp
+    | Or.inr ce_in_s =>
+        rw [Set.inter_comm, ce_in_s]
+        simp[ce_eq_range]
+theorem open_closed_of_cell_empty_or_full_intersection [CWComplexClass X] (s: Set X) (hs: ∀ e ∈ C.sets, closure e ∩ s = ∅ ∨ closure e ∩ s = closure e) : IsOpen s ∧ IsClosed s := by
+    rw [and_comm]
+    use closed_of_cell_empty_or_full_intersection s hs
+    have : IsClosed sᶜ := by
+        apply closed_of_cell_empty_or_full_intersection
+        intro e e_in_sets
+        match hs e e_in_sets with
+        | Or.inl ce_not_in_s =>
+            right
+            rw [Set.inter_eq_left]
+            apply Disjoint.subset_compl_right
+            rwa [Set.disjoint_iff_inter_eq_empty]
+        | Or.inr ce_in_s =>
+            left
+            rwa [←Set.disjoint_iff_inter_eq_empty,Set.disjoint_compl_right_iff_subset, ←Set.inter_eq_left]
+    rwa [←isClosed_compl_iff]
+theorem boundary_nonempty : ∀ s : sets, 1 ≤ dim_map s → (Set.range (cb_boundary_map (C.characteristic_map s))).Nonempty := by
+    intro s hs
+    rw [boundary_map_range, cb_boundary, ←Set.range_comp, Set.range_nonempty_iff_nonempty]
+    apply Set.Nonempty.to_subtype
+    exact sph_nonempty hs
 end
 
 end CellComplexClass

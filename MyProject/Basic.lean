@@ -26,6 +26,15 @@ instance sph_connected {n : ℕ} (hn: 1 < n) : ConnectedSpace (sph n) := by
         exact Nat.one_lt_cast.mpr hn
     case hr=>
         norm_num
+theorem sph_nonempty {n : ℕ} (hn: 1 ≤ n) : (sph n).Nonempty := by
+    have : Nontrivial (EuclideanSpace ℝ (Fin n)) := by
+        rw [nontrivial_iff]
+        use EuclideanSpace.single (⟨0, hn⟩) (1:ℝ), 0
+        by_contra! eq_zero
+        rw [EuclideanSpace.single_eq_zero_iff] at eq_zero
+        linarith
+    rw [sph, NormedSpace.sphere_nonempty]
+    norm_num
 theorem b_closure_eq_cb {n : ℕ} : closure (b n) = cb n := by
     rw [b, cb]
     refine closure_ball 0 ?_
@@ -36,6 +45,14 @@ instance cb_connected {n : ℕ} : ConnectedSpace (cb n) := by
     apply IsConnected.closure
     apply Metric.isConnected_ball
     norm_num
+theorem cb_contractible {n : ℕ} : ContractibleSpace (cb n) := by
+    apply Convex.contractibleSpace
+    apply convex_closedBall
+    use 0
+    rw [cb, Metric.mem_closedBall]
+    norm_num
+theorem cb_path_connected {n : ℕ} : PathConnectedSpace (cb n) := by
+    exact @ContractibleSpace.instPathConnectedSpace _ _ (cb_contractible)
 theorem b_in_cb {n : ℕ}: b n ⊆ cb n := by
     intro x
     rw [b, cb, Metric.mem_ball, Metric.mem_closedBall]
@@ -186,6 +203,65 @@ theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n
         refine continuous_iff_continuousOn_univ.mp ?_
         exact Isometry.continuous fun x1 ↦ congrFun rfl
 
+--theorem cb_singleton : cb 0 = {0} := by
+--    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
+
+instance : Subsingleton (cb 0) := by
+    exact Set.subsingleton_coe_of_subsingleton
+
+instance : Subsingleton (b 0) := by
+    exact Set.subsingleton_coe_of_subsingleton
+
+instance {n: ℕ} : Inhabited (cb n) := by
+    use 0
+    rw [cb, Metric.mem_closedBall]
+    norm_num
+
+instance {n: ℕ} : Inhabited (b n) := by
+    use 0
+    rw [b, Metric.mem_ball]
+    norm_num
+
+theorem b0_singleton : b 0 = {0} := by
+    simp [b]
+    refine Metric.ball_eq_singleton_of_subsingleton ?_
+    norm_num
+
+theorem b_singleton_iff : ∀ n : ℕ, (∃ x, b n = {x}) ↔ n = 0 := by
+    intro n
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        rintro ⟨x, hx⟩
+        by_contra! n_ne_0
+        have n_gt_0 : 0 < n := Nat.zero_lt_of_ne_zero n_ne_0
+        have x_eq_zero: x = 0 := by
+            have aux: 0 ∈ b n := by
+                rw [b, Metric.mem_ball]
+                norm_num
+            rw [hx] at aux
+            exact Eq.symm aux
+        let x₀ := EuclideanSpace.single (⟨0, n_gt_0⟩:Fin n) ((1:ℝ)/2)
+        have x_eq_x₀ : x = x₀ := by
+            have aux: x₀ ∈ b n := by
+                rw [b, Metric.mem_ball]
+                simp [x₀]
+                exact two_inv_lt_one
+            rw [hx] at aux
+            exact Eq.symm aux
+        have x₀_eq_0 : x₀ = 0 := by
+            trans x
+            exact Eq.symm x_eq_x₀
+            exact x_eq_zero
+        rw [EuclideanSpace.single_eq_zero_iff] at x₀_eq_0
+        have : (1:ℝ) / 2 ≠ 0 := by
+            refine one_div_ne_zero ?_
+            exact Ne.symm (NeZero.ne' 2)
+        exact this x₀_eq_0
+    case mpr =>
+        intro hn
+        rw [hn]
+        use 0
+        apply b0_singleton
 end Chp5
 
 -- Coeherent Defs
@@ -311,3 +387,6 @@ example : (∀ p : (ℕ → Prop), (p 0 ∧ (∀ n: ℕ, (∀ m : ℕ, m ≤ n �
         apply r
         use hp0
         exact fun n a ↦ hp n (this n)
+
+#check Metric.isPathConnected_ball
+#check convex_closedBall
