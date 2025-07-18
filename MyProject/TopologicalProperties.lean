@@ -840,7 +840,33 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
         have y_in_ce_inter_S₁ : y ∈ closure e ∩ S₁ := ⟨subset_closure hy, S_sub_S₁ (e_sub_S hy)⟩
         apply cell_closure_sub_component_of_inter he y_in_ce_inter_S₁
       | Or.inl dim_eq_npkp1 =>
-        sorry
+        let boundary := Set.range (cb_boundary_map (characteristic_map ⟨e, he⟩))
+        have boundary_sub_S : boundary ⊆ S := by
+          trans ⋃ p:sets, ⋃ _:(dim_map p < dim_map ⟨e, he⟩), p.val
+          . apply characteristic_map_boundary
+          intro x₀ hx₀
+          simp at hx₀
+          rcases hx₀ with ⟨p, ⟨⟨p_in_sets, hp⟩, x₀_in_p⟩⟩
+          rw [dim_eq_npkp1, Nat.lt_succ] at hp
+          suffices g '' p ⊆ Skeleton X (n + k) by
+            simp [S]
+            show g x₀ ∈ Skeleton X (n + k)
+            apply this
+            exact Set.mem_image_of_mem g x₀_in_p
+          rw [sub_skeleton_iff ⟨g '' p, p_in_sets⟩]
+          exact hp
+        have boundary_sub_ce : boundary ⊆ (closure e) := by
+          show Set.range (cb_boundary_map (characteristic_map ⟨e, he⟩)) ⊆ (closure e)
+          rw [boundary_map_range, ←characteristic_map_range ⟨e, he⟩]
+          apply Set.image_subset_range
+        have boundary_nonempty' : boundary.Nonempty := by
+          apply boundary_nonempty
+          rw [dim_eq_npkp1]
+          exact NeZero.one_le
+        rcases boundary_nonempty' with ⟨x₀, hx₀⟩
+        have : x₀ ∈ (closure e) ∩ S₁ := by
+          exact ⟨boundary_sub_ce hx₀, S_sub_S₁ (boundary_sub_S hx₀)⟩
+        exact cell_closure_sub_component_of_inter he this
   rcases h.nonempty with ⟨x₀, hx₀⟩
   use x₀, trivial
   intro y hy
