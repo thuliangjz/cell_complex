@@ -1268,5 +1268,80 @@ theorem boundary_nonempty : ∀ s : sets, 1 ≤ dim_map s → (Set.range (cb_bou
     exact sph_nonempty hs
 end
 
+-- finite cell complex
+class FiniteCellComplex (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] : Prop where
+    out: C.sets.Finite
+
+section
+variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
+def dim0_cell_subcomplex (e : C.sets) (he: C.dim_map e = 0) : SubCellComplex X where
+    carrier := e.1
+    cell_incl_or_disjoint := by
+        intro e' he'
+        match eq_or_ne e' e with
+        | Or.inl eq => left; rw [eq]
+        | Or.inr ne => right; apply C.disjoint he' e.2 ne
+    cell_closure_incl := by
+        intro e' he' e'_in_e
+        rw [cell_singleton_of_dim0] at he
+        rcases he with ⟨x, hx⟩
+        rw [hx, Set.subset_singleton_iff_eq] at e'_in_e
+        match e'_in_e with
+        | Or.inl e'_empty =>
+            rw [e'_empty]
+            simp
+        | Or.inr e'_singleton =>
+            rw [e'_singleton]
+            simp [hx]
+instance (e: C.sets) (he: C.dim_map e = 0) : FiniteCellComplex (dim0_cell_subcomplex e he) := by
+    have : (sub_cell_complex_sets (dim0_cell_subcomplex e he)).Finite := by
+        have : (sub_cell_complex_sets (dim0_cell_subcomplex e he)) = {Set.univ} := by
+            ext e'
+            let g : (dim0_cell_subcomplex e he) → X := (↑)
+            have range_eq_e: g '' (Set.univ) = e.1 := by
+                simp
+                rw [Subtype.range_coe]
+                rfl
+            refine Iff.intro ?mp ?mpr
+            case mp =>
+                intro he'
+                show e' = Set.univ
+                suffices g '' e' = g '' (Set.univ) by
+                    rw [Set.image_eq_image (Subtype.val_injective)] at this
+                    exact this
+                rw [range_eq_e]
+                have e'_image_nonempty : (g '' e') ≠ ∅ := by
+                    rw [←Set.nonempty_iff_ne_empty]
+                    apply nonempty
+                    exact he'
+                have e'_image_sub_e : (g '' e') ⊆ e := by
+                    rw [←range_eq_e]
+                    exact Set.image_mono fun ⦃a⦄ a ↦ trivial
+                rw [cell_singleton_of_dim0] at he
+                rcases he with ⟨x, hx⟩
+                rw [hx, Set.subset_singleton_iff_eq] at e'_image_sub_e
+                rw [hx]
+                tauto
+            case mpr =>
+                intro he'
+                simp at he'
+                rw [he']
+                show g '' (Set.univ) ∈ C.sets
+                rw [range_eq_e]
+                exact e.2
+        rw [this]
+        apply Set.finite_singleton
+    exact { out := this }
+theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e ∈ C.sets, ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ closure e ⊆ SC := by
+    intro e he
+    -- see "induction tactic that doesn't destroy the input from context" on Zulip chat, this usage is interesting
+    -- the cases tactic can also be used in this fashion
+    induction' n: (C.dim_map ⟨e, he⟩) with n₀ ihn
+    case zero =>
+        sorry
+    case succ =>
+        sorry
+end
+
 end CellComplexClass
 end Chp5
