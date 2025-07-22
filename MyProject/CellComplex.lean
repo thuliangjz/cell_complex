@@ -1266,6 +1266,23 @@ theorem boundary_nonempty : ∀ s : sets, 1 ≤ dim_map s → (Set.range (cb_bou
     rw [boundary_map_range, cb_boundary, ←Set.range_comp, Set.range_nonempty_iff_nonempty]
     apply Set.Nonempty.to_subtype
     exact sph_nonempty hs
+theorem boundary_covered_by_finite_cells [CW: CWComplexClass X] : ∀ e₀:C.sets, ∃ ss ⊆ C.sets, ss.Finite ∧ (closure e₀.1) \ e₀.1 ⊆ ⋃₀ ss ∧ ∀ e₁:C.sets, e₁.1 ∈ ss → C.dim_map e₁ < C.dim_map e₀ := by
+    intro e₀
+    rcases CW.closure_finite e₀.1 e₀.2 with ⟨ss₁, ss₁_subset_sets, ss₁_finite, ss₁_cover_ce₀⟩
+    let ss₂' := {e:C.sets | C.dim_map e < C.dim_map e₀}
+    let ss₂ := Subtype.val '' ss₂'
+    let ss := ss₁ ∩ ss₂
+    have all_cell: ss ⊆ C.sets := by
+        intro e he
+        rcases he.2 with ⟨e' ,he', rfl⟩
+        exact e'.2
+    have ss_finite: ss.Finite := by
+        exact Set.Finite.inter_of_left ss₁_finite _
+    have boundary_covered: closure e₀ \ e₀ ⊆ ⋃₀ ss := by
+
+        sorry
+    use ss
+    sorry
 end
 
 -- finite cell complex
@@ -1336,12 +1353,27 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
     intro e he
     -- see "induction tactic that doesn't destroy the input from context" on Zulip chat, this usage is interesting
     -- the cases tactic can also be used in this fashion
-    induction' n: (C.dim_map ⟨e, he⟩) with n₀ ihn
-    case zero =>
+    induction' dim_eq: (C.dim_map ⟨e, he⟩) using Nat.strong_induction_on with n₀ ihn
+    have boundary_covered_by_finite_cell: ∃ ss ⊆ C.sets, ss.Finite ∧ (closure e \ e) ⊆ ⋃₀ ss ∧ ∀ e₁:C.sets, e₁.1 ∈ ss → C.dim_map e₁ < n₀ := by
         sorry
-    case succ =>
-        sorry
+    sorry
+    --case zero =>
+    --    use dim0_cell_subcomplex ⟨e, he⟩ dim_eq
+    --    constructor
+    --    . infer_instance
+    --    have : e ⊆ dim0_cell_subcomplex ⟨e, he⟩ dim_eq := by
+    --        show e ⊆ e
+    --        simp
+    --    exact SubCellComplex.cell_closure_incl _ _ he this
+    --case succ =>
+    --    sorry
 end
 
 end CellComplexClass
 end Chp5
+
+section
+variable {X: Type*}
+example {s1 s2: Set X} (hs1: s1.Finite) : (s1 ∩ s2).Finite := by
+    exact Set.Finite.inter_of_left hs1 s2
+end
