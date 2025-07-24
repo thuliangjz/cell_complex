@@ -1279,10 +1279,28 @@ theorem boundary_covered_by_finite_cells [CW: CWComplexClass X] : ∀ e₀:C.set
     have ss_finite: ss.Finite := by
         exact Set.Finite.inter_of_left ss₁_finite _
     have boundary_covered: closure e₀ \ e₀ ⊆ ⋃₀ ss := by
-
-        sorry
+        intro x hx
+        rcases Set.mem_sUnion.mp (ss₁_cover_ce₀ (hx.1)) with ⟨s₁, s₁_in_ss₁, x_in_s₁⟩
+        have : closure e₀ \ e₀ ⊆ ⋃₀ ss₂ := by rw [Set.sUnion_image Subtype.val ss₂'];apply cell_boundary_cover
+        rcases Set.mem_sUnion.mp (this hx) with ⟨s₂, s₂_in_ss₂, x_in_s₂⟩
+        have s₁_eq_s₂ : s₁ = s₂ := by
+            have s₁_in_sets : s₁ ∈ C.sets := ss₁_subset_sets s₁_in_ss₁
+            have s₂_in_sets : s₂ ∈ C.sets := by
+                rcases s₂_in_ss₂ with ⟨s₂', hs₂, rfl⟩
+                exact s₂'.2
+            apply same_cell_of_mem s₁_in_sets s₂_in_sets x_in_s₁ x_in_s₂
+        rw [←s₁_eq_s₂] at s₂_in_ss₂
+        rw [Set.mem_sUnion]
+        use s₁, ⟨s₁_in_ss₁, s₂_in_ss₂⟩
+    have dim_lt: ∀ e:C.sets, e.1 ∈ ss → C.dim_map e < C.dim_map e₀ := by
+        intro e he
+        show e ∈ ss₂'
+        suffices e.1 ∈ ss₂ by
+            rcases this with ⟨e', e'_in_ss₂', heq⟩
+            have : e' = e := SetCoe.ext heq
+            rwa [←this]
+        exact he.2
     use ss
-    sorry
 end
 
 -- finite cell complex
@@ -1353,20 +1371,27 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
     intro e he
     -- see "induction tactic that doesn't destroy the input from context" on Zulip chat, this usage is interesting
     -- the cases tactic can also be used in this fashion
-    induction' dim_eq: (C.dim_map ⟨e, he⟩) using Nat.strong_induction_on with n₀ ihn
-    have boundary_covered_by_finite_cell: ∃ ss ⊆ C.sets, ss.Finite ∧ (closure e \ e) ⊆ ⋃₀ ss ∧ ∀ e₁:C.sets, e₁.1 ∈ ss → C.dim_map e₁ < n₀ := by
-        sorry
+    induction' dim_eq: (C.dim_map ⟨e, he⟩) using Nat.strong_induction_on with n₀ ihn generalizing e he
+    choose f_to_subcomplex hf_finite hf_cover using ihn
+    rcases boundary_covered_by_finite_cells ⟨e, he⟩ with ⟨ss, ss_sub_sets, ss_finite, ss_cover_boundary, ss_dim_lt⟩
+    --let fss: ss → SubCellComplex X := by
+    --    intro e
+    --    let m := C.dim_map ⟨e.1, ss_sub_sets e.2⟩
+    --    have m_le_n₀: m < n₀ := by
+    --        rw [←dim_eq]
+    --        apply ss_dim_lt _ e.2
+    --    exact f_to_subcomplex m m_le_n₀ e.1 (ss_sub_sets e.2) rfl
+    let fss : ss → SubCellComplex X := fun e ↦ f_to_subcomplex (C.dim_map ⟨e.1, ss_sub_sets e.2⟩) (by rw [←dim_eq]; apply ss_dim_lt _ e.2) e.1 (ss_sub_sets e.2) rfl
+    let SC_carrier : Set X:= (⋃ s:ss, ((fss s):Set X)) ∪ e
+    have SC_carrier_cell_incl_or_disjoint : ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier ∨ Disjoint e₁ SC_carrier := by
+        intro e₁ he₁
+        match eq_or_ne (e₁ ∩ SC_carrier) ∅ with
+        | Or.inl inter_eq_empty =>
+            right
+            rwa [Set.disjoint_iff_inter_eq_empty]
+        | Or.inr inter_ne_empty =>
+            sorry
     sorry
-    --case zero =>
-    --    use dim0_cell_subcomplex ⟨e, he⟩ dim_eq
-    --    constructor
-    --    . infer_instance
-    --    have : e ⊆ dim0_cell_subcomplex ⟨e, he⟩ dim_eq := by
-    --        show e ⊆ e
-    --        simp
-    --    exact SubCellComplex.cell_closure_incl _ _ he this
-    --case succ =>
-    --    sorry
 end
 
 end CellComplexClass
