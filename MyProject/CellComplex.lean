@@ -1390,6 +1390,28 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
             right
             rwa [Set.disjoint_iff_inter_eq_empty]
         | Or.inr inter_ne_empty =>
+            left
+            rw [←Set.nonempty_iff_ne_empty] at inter_ne_empty
+            rcases inter_ne_empty with ⟨x, hx⟩
+            match hx.2 with
+            | Or.inl mem_iunion =>
+                rw [Set.mem_iUnion] at mem_iunion
+                rcases mem_iunion with ⟨i ,hi⟩
+                suffices sub_fss_i : e₁ ⊆ (fss i) by
+                    have : ((fss i):Set X) ⊆ (⋃ s, (fss s):Set X) := Set.subset_iUnion_of_subset i fun ⦃a⦄ a ↦ a
+                    tauto
+                apply (fss i).subset_of_intersect he₁
+                rw [←Set.nonempty_iff_ne_empty]
+                use x, hx.1, hi
+            | Or.inr mem_e =>
+                rw [same_cell_of_mem he₁ he hx.1 mem_e]
+                exact Set.subset_union_right
+    have SC_carrier_cell_closure_incl : ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier → (closure e₁) ⊆ SC_carrier := by
+        intro e₁ e₁_in_sets e₁_sub_carrier
+        match eq_or_ne e₁ e with
+        | Or.inl heq =>
+            sorry
+        | Or.inr hne =>
             sorry
     sorry
 end
