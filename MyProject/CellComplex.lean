@@ -1410,8 +1410,42 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
         intro e₁ e₁_in_sets e₁_sub_carrier
         match eq_or_ne e₁ e with
         | Or.inl heq =>
-            sorry
+            intro x hx
+            rw [←Set.inter_union_diff (closure e₁) e₁, Set.inter_eq_right.mpr subset_closure] at hx
+            match hx with
+            | Or.inl x_in_e₁ =>
+                rw [heq] at x_in_e₁
+                apply Set.subset_union_right x_in_e₁
+            | Or.inr x_in_e₁_boundary =>
+                simp at ss_cover_boundary
+                suffices ⋃₀ ss ⊆ SC_carrier by
+                    rw [heq] at x_in_e₁_boundary
+                    exact this (ss_cover_boundary x_in_e₁_boundary)
+                intro x' hx'
+                simp at hx'
+                left
+                simp
+                rcases hx' with ⟨i, i_in_ss, hi⟩
+                use i, i_in_ss
+                apply hf_cover
+                apply subset_closure hi
         | Or.inr hne =>
+            suffices ∃ s : ss, e₁ ⊆ fss s by
+                rcases this with ⟨s, hs⟩
+                have ce₁_subset: (closure e₁) ⊆ fss s := (fss s).cell_closure_incl e₁ e₁_in_sets hs
+                have fss_s_subset: ((fss s):Set X) ⊆ SC_carrier := by
+                    intro x hx
+                    left
+                    exact Set.mem_iUnion_of_mem s hx
+                exact fun ⦃a⦄ a_1 ↦ fss_s_subset (ce₁_subset a_1)
+            by_contra! not_subset
+            have e₁_e_disjoint : Disjoint e₁ e := C.disjoint e₁_in_sets he hne
+            have e₁_iufss_disjoint: Disjoint e₁ (⋃s:ss, fss s) := by
+                rw [Set.disjoint_iUnion_right]
+                intro s
+                rcases (fss s).cell_incl_or_disjoint e₁ e₁_in_sets with h_incl | h_disj
+                . exact False.elim ((not_subset s) h_incl)
+                exact h_disj
             sorry
     sorry
 end
@@ -1423,4 +1457,17 @@ section
 variable {X: Type*}
 example {s1 s2: Set X} (hs1: s1.Finite) : (s1 ∩ s2).Finite := by
     exact Set.Finite.inter_of_left hs1 s2
+example {s1 s2: Set X} {x: X} (hx: x ∈ s1) : x ∈ (s1 ∩ s2) ∨ x ∈ s1 \ s2 := by
+    have : (s1 ∩ s2) ∪ (s1 \ s2) = s1 := by
+        exact Set.inter_union_diff s1 s2
+    rw [←Set.inter_union_diff s1 s2] at hx
+    exact hx
+example {s1 s2: Set X} : s1 ⊆ s2 ↔ s2 ∩ s1 = s1 := by
+    exact Iff.symm Set.inter_eq_right
+example {s1 s2 s3: Set X} (h12: Disjoint s1 s2) (h13: Disjoint s1 s3) : Disjoint s1 (s2 ∪ s3) := by
+    exact Disjoint.union_right h12 h13
+example {ι : Type*} {f: ι → Set X} {s: Set X} (hs: ∀ i:ι, Disjoint (f i) s) : Disjoint (⋃ i:ι, f i) s := by
+    exact Set.disjoint_iUnion_left.mpr hs
+example {s1 s2: Set X} : Disjoint s1 s2 → (∀ x, x∈ s1 → x ∉ s2) := by
+    exact fun a x a_1 ↦ Disjoint.notMem_of_mem_left a a_1
 end
