@@ -1304,8 +1304,7 @@ theorem boundary_covered_by_finite_cells [CW: CWComplexClass X] : ∀ e₀:C.set
 end
 
 -- finite cell complex
-class FiniteCellComplex (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] : Prop where
-    out: C.sets.Finite
+def FiniteCellComplex (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] : Prop := C.sets.Finite
 
 section
 variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
@@ -1328,7 +1327,7 @@ def dim0_cell_subcomplex (e : C.sets) (he: C.dim_map e = 0) : SubCellComplex X w
         | Or.inr e'_singleton =>
             rw [e'_singleton]
             simp [hx]
-instance (e: C.sets) (he: C.dim_map e = 0) : FiniteCellComplex (dim0_cell_subcomplex e he) := by
+theorem dim0_cell_subcomplex_finite (e: C.sets) (he: C.dim_map e = 0) : FiniteCellComplex (dim0_cell_subcomplex e he) := by
     have : (sub_cell_complex_sets (dim0_cell_subcomplex e he)).Finite := by
         have : (sub_cell_complex_sets (dim0_cell_subcomplex e he)) = {Set.univ} := by
             ext e'
@@ -1366,7 +1365,50 @@ instance (e: C.sets) (he: C.dim_map e = 0) : FiniteCellComplex (dim0_cell_subcom
                 exact e.2
         rw [this]
         apply Set.finite_singleton
-    exact { out := this }
+    exact this
+
+theorem finite_sub_cell_complex_iff (sc: SubCellComplex X) : (FiniteCellComplex sc) ↔ ({e:Set X| e ∈ C.sets ∧ e ⊆ sc}.Finite) := by
+    let g : sc → X := (↑)
+    let s1 := {e: Set X | e ∈ C.sets ∧ e ⊆ sc}
+    have : s1 =  (Set.image g) '' (sub_cell_complex_sets sc) := by
+        ext e
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+            intro he
+            let e' := g ⁻¹' e
+            use e'
+            have : g '' e' = e := by
+                calc
+                    g '' e' = (sc:Set X) ∩ e:= Subtype.image_preimage_coe sc e
+                    _ = e := Set.inter_eq_self_of_subset_right he.2
+            constructor
+            . show g '' e' ∈ C.sets
+              rw [this]
+              exact he.1
+            exact this
+        case mpr =>
+            intro he
+            simp at he
+            rcases he with ⟨e', he', rfl⟩
+            constructor
+            . exact he'
+            apply Subtype.coe_image_subset
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        simp only [s1, this]
+        intro h
+        apply Set.Finite.image
+        exact h
+    case mpr =>
+        simp only [s1, this]
+        intro h
+        apply Set.Finite.of_finite_image h
+        apply Set.injOn_of_injective
+        rw [Set.image_injective]
+        exact Subtype.val_injective
+
+--theorem finite_iunion_of_finite_sub_cell_complex {ι : Type*} [Fintype ι] {f: ι → SubCellComplex X} (hf: ∀ i: ι, FiniteCellComplex (f i))
+
 theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e ∈ C.sets, ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ closure e ⊆ SC := by
     intro e he
     -- see "induction tactic that doesn't destroy the input from context" on Zulip chat, this usage is interesting
@@ -1446,7 +1488,14 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
                 rcases (fss s).cell_incl_or_disjoint e₁ e₁_in_sets with h_incl | h_disj
                 . exact False.elim ((not_subset s) h_incl)
                 exact h_disj
-            sorry
+            have e₁_disjoint_sc: Disjoint e₁ SC_carrier := Disjoint.union_right e₁_iufss_disjoint e₁_e_disjoint
+            have e₁_empty : e₁ = ∅ := by
+                rw [←Set.subset_empty_iff]
+                exact e₁_disjoint_sc (fun _ a ↦ a) e₁_sub_carrier
+            have e₁_nonempty: e₁ ≠ ∅ := by
+                rw [←Set.nonempty_iff_ne_empty]
+                apply C.nonempty _ e₁_in_sets
+            contradiction
     sorry
 end
 
@@ -1454,7 +1503,7 @@ end CellComplexClass
 end Chp5
 
 section
-variable {X: Type*}
+variable {X Y: Type*}
 example {s1 s2: Set X} (hs1: s1.Finite) : (s1 ∩ s2).Finite := by
     exact Set.Finite.inter_of_left hs1 s2
 example {s1 s2: Set X} {x: X} (hx: x ∈ s1) : x ∈ (s1 ∩ s2) ∨ x ∈ s1 \ s2 := by
@@ -1470,4 +1519,13 @@ example {ι : Type*} {f: ι → Set X} {s: Set X} (hs: ∀ i:ι, Disjoint (f i) 
     exact Set.disjoint_iUnion_left.mpr hs
 example {s1 s2: Set X} : Disjoint s1 s2 → (∀ x, x∈ s1 → x ∉ s2) := by
     exact fun a x a_1 ↦ Disjoint.notMem_of_mem_left a a_1
+example {s1 s2: Set X} (h1: Disjoint s1 s2) (h2: s1 ⊆ s2) : s1 = ∅ := by
+    exact Set.subset_empty_iff.mp (h1 (fun ⦃a⦄ a ↦ a) h2)
+example {f: X → Y} {s: Set X} (hs: s.Finite) : (f '' s).Finite := by
+    exact Set.Finite.image f hs
+example {f: X → Y} {s: Set X} (hf: Function.Injective f) (h: (f '' s).Finite): s.Finite := by
+    apply Set.Finite.of_finite_image h
+    apply Set.injOn_of_injective hf
+example {f: X → Y} (hf: Function.Injective f) : Function.Injective (Set.image f) := by
+    exact Set.image_injective.mpr hf
 end
