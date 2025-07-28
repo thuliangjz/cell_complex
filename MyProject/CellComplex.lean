@@ -1448,6 +1448,23 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
             | Or.inr mem_e =>
                 rw [same_cell_of_mem he₁ he hx.1 mem_e]
                 exact Set.subset_union_right
+    have aux_sub_some_fss {e₀: Set X} (e₀_in_sets: e₀ ∈ C.sets) (e₀_sub_SC: e₀ ⊆ SC_carrier) (e₀_ne_e: e₀ ≠ e) : ∃ s:ss, e₀ ⊆ (fss s) := by
+        by_contra! not_subset
+        have e₀_e_disjoint : Disjoint e₀ e := C.disjoint e₀_in_sets he e₀_ne_e
+        have e₀_iufss_disjoint: Disjoint e₀ (⋃s:ss, fss s) := by
+            rw [Set.disjoint_iUnion_right]
+            intro s
+            rcases (fss s).cell_incl_or_disjoint e₀ e₀_in_sets with h_incl | h_disj
+            . exact False.elim ((not_subset s) h_incl)
+            exact h_disj
+        have e₀_disjoint_sc: Disjoint e₀ SC_carrier := Disjoint.union_right e₀_iufss_disjoint e₀_e_disjoint
+        have e₀_empty : e₀ = ∅ := by
+            rw [←Set.subset_empty_iff]
+            exact e₀_disjoint_sc (fun _ a ↦ a) e₀_sub_SC
+        have e₀_nonempty: e₀ ≠ ∅ := by
+            rw [←Set.nonempty_iff_ne_empty]
+            apply C.nonempty _ e₀_in_sets
+        contradiction
     have SC_carrier_cell_closure_incl : ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier → (closure e₁) ⊆ SC_carrier := by
         intro e₁ e₁_in_sets e₁_sub_carrier
         match eq_or_ne e₁ e with
@@ -1480,22 +1497,25 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
                     left
                     exact Set.mem_iUnion_of_mem s hx
                 exact fun ⦃a⦄ a_1 ↦ fss_s_subset (ce₁_subset a_1)
-            by_contra! not_subset
-            have e₁_e_disjoint : Disjoint e₁ e := C.disjoint e₁_in_sets he hne
-            have e₁_iufss_disjoint: Disjoint e₁ (⋃s:ss, fss s) := by
-                rw [Set.disjoint_iUnion_right]
-                intro s
-                rcases (fss s).cell_incl_or_disjoint e₁ e₁_in_sets with h_incl | h_disj
-                . exact False.elim ((not_subset s) h_incl)
-                exact h_disj
-            have e₁_disjoint_sc: Disjoint e₁ SC_carrier := Disjoint.union_right e₁_iufss_disjoint e₁_e_disjoint
-            have e₁_empty : e₁ = ∅ := by
-                rw [←Set.subset_empty_iff]
-                exact e₁_disjoint_sc (fun _ a ↦ a) e₁_sub_carrier
-            have e₁_nonempty: e₁ ≠ ∅ := by
-                rw [←Set.nonempty_iff_ne_empty]
-                apply C.nonempty _ e₁_in_sets
-            contradiction
+            exact aux_sub_some_fss e₁_in_sets e₁_sub_carrier hne
+    have SC_finite : {e₀:Set X | e₀ ∈ C.sets ∧ e₀ ⊆ SC_carrier}.Finite := by
+        let SE := {e₀:Set X | e₀ ∈ C.sets ∧ e₀ ⊆ SC_carrier}
+        let E: ss → Set (Set X) := fun s ↦ {e₀: Set X | e₀ ∈ C.sets ∧ e₀ ⊆ (fss s)}
+        have SE_decomp : SE = (⋃ s:ss, E s) ∪ {e} := by
+            ext e₀
+            refine Iff.intro ?mp ?mpr
+            case mp =>
+                rintro ⟨e₀_in_sets, e₀_sub_SC⟩
+                match eq_or_ne e₀ e with
+                | Or.inl e₀_eq_e => right; exact e₀_eq_e
+                | Or.inr e₀_ne_e =>
+                    rcases aux_sub_some_fss e₀_in_sets e₀_sub_SC e₀_ne_e with ⟨s₀, e₀_sub_fss_s₀⟩
+                    left
+                    simp [E]
+                    use e₀_in_sets, s₀, s₀.2
+            case mpr =>
+                sorry
+        sorry
     sorry
 end
 
