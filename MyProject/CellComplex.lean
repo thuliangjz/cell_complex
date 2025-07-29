@@ -1407,7 +1407,6 @@ theorem finite_sub_cell_complex_iff (sc: SubCellComplex X) : (FiniteCellComplex 
         rw [Set.image_injective]
         exact Subtype.val_injective
 
---theorem finite_iunion_of_finite_sub_cell_complex {ι : Type*} [Fintype ι] {f: ι → SubCellComplex X} (hf: ∀ i: ι, FiniteCellComplex (f i))
 
 theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e ∈ C.sets, ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ closure e ⊆ SC := by
     intro e he
@@ -1465,29 +1464,30 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
             rw [←Set.nonempty_iff_ne_empty]
             apply C.nonempty _ e₀_in_sets
         contradiction
+    have ce_sub_SC : (closure e) ⊆ SC_carrier := by
+        intro x hx
+        rw [←Set.inter_union_diff (closure e) e, Set.inter_eq_right.mpr subset_closure] at hx
+        match hx with
+        | Or.inl x_in_e =>
+            apply Set.subset_union_right x_in_e
+        | Or.inr x_in_e_boundary =>
+            simp at ss_cover_boundary
+            suffices ⋃₀ ss ⊆ SC_carrier by
+                exact this (ss_cover_boundary x_in_e_boundary)
+            intro x' hx'
+            simp at hx'
+            left
+            simp
+            rcases hx' with ⟨i, i_in_ss, hi⟩
+            use i, i_in_ss
+            apply hf_cover
+            apply subset_closure hi
     have SC_carrier_cell_closure_incl : ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier → (closure e₁) ⊆ SC_carrier := by
         intro e₁ e₁_in_sets e₁_sub_carrier
         match eq_or_ne e₁ e with
         | Or.inl heq =>
-            intro x hx
-            rw [←Set.inter_union_diff (closure e₁) e₁, Set.inter_eq_right.mpr subset_closure] at hx
-            match hx with
-            | Or.inl x_in_e₁ =>
-                rw [heq] at x_in_e₁
-                apply Set.subset_union_right x_in_e₁
-            | Or.inr x_in_e₁_boundary =>
-                simp at ss_cover_boundary
-                suffices ⋃₀ ss ⊆ SC_carrier by
-                    rw [heq] at x_in_e₁_boundary
-                    exact this (ss_cover_boundary x_in_e₁_boundary)
-                intro x' hx'
-                simp at hx'
-                left
-                simp
-                rcases hx' with ⟨i, i_in_ss, hi⟩
-                use i, i_in_ss
-                apply hf_cover
-                apply subset_closure hi
+            rw [heq]
+            exact ce_sub_SC
         | Or.inr hne =>
             suffices ∃ s : ss, e₁ ⊆ fss s by
                 rcases this with ⟨s, hs⟩
@@ -1501,6 +1501,7 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
     have SC_finite : {e₀:Set X | e₀ ∈ C.sets ∧ e₀ ⊆ SC_carrier}.Finite := by
         let SE := {e₀:Set X | e₀ ∈ C.sets ∧ e₀ ⊆ SC_carrier}
         let E: ss → Set (Set X) := fun s ↦ {e₀: Set X | e₀ ∈ C.sets ∧ e₀ ⊆ (fss s)}
+        show SE.Finite
         have SE_decomp : SE = (⋃ s:ss, E s) ∪ {e} := by
             ext e₀
             refine Iff.intro ?mp ?mpr
@@ -1514,9 +1515,40 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
                     simp [E]
                     use e₀_in_sets, s₀, s₀.2
             case mpr =>
-                sorry
-        sorry
-    sorry
+                intro he₀
+                match he₀ with
+                | Or.inr mem_singleton =>
+                    rw [mem_singleton]
+                    use he
+                    exact Set.subset_union_right
+                | Or.inl mem_iunion =>
+                    simp [E] at mem_iunion
+                    use mem_iunion.1
+                    rcases mem_iunion.2 with ⟨s₀, s₀_in_ss, hs₀⟩
+                    trans ((fss ⟨s₀, s₀_in_ss⟩):Set X)
+                    . exact hs₀
+                    trans (⋃ s:ss, ((fss s):Set X))
+                    . exact Set.subset_iUnion_of_subset ⟨s₀, s₀_in_ss⟩ fun ⦃a⦄ a ↦ a
+                    exact Set.subset_union_left
+        rw [SE_decomp]
+        apply Set.Finite.union
+        case ht => exact Set.finite_singleton e
+        case hs =>
+            have : Finite ss := ss_finite
+            apply Set.finite_iUnion
+            intro s₀
+            rw [←finite_sub_cell_complex_iff]
+            apply hf_finite
+    let SC: SubCellComplex X := {
+        carrier := SC_carrier
+        cell_closure_incl := SC_carrier_cell_closure_incl
+        cell_incl_or_disjoint:= SC_carrier_cell_incl_or_disjoint
+    }
+    use SC
+    constructor
+    . rw [finite_sub_cell_complex_iff]
+      exact SC_finite
+    exact ce_sub_SC
 end
 
 end CellComplexClass
@@ -1548,4 +1580,8 @@ example {f: X → Y} {s: Set X} (hf: Function.Injective f) (h: (f '' s).Finite):
     apply Set.injOn_of_injective hf
 example {f: X → Y} (hf: Function.Injective f) : Function.Injective (Set.image f) := by
     exact Set.image_injective.mpr hf
+example {s1 s2: Set X} (hs1: s1.Finite) (hs2: s2.Finite) : (s1 ∪ s2).Finite := by
+    exact Set.Finite.union hs1 hs2
+example {ι: Type*} {f: ι → Set X} [Fintype ι] (hf: ∀ i:ι, (f i).Finite) : (⋃ i:ι, f i).Finite := by
+    exact Set.finite_iUnion hf
 end
