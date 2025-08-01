@@ -1549,39 +1549,52 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
     . rw [finite_sub_cell_complex_iff]
       exact SC_finite
     exact ce_sub_SC
+theorem subset_discrete_iff_cell_inter_finite [CW: CWComplexClass X] {S: Set X} : (IsClosed S ∧ (DiscreteTopology S)) ↔ ∀ e ∈ C.sets, (S ∩ e).Finite := by
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        intro hS e e_in_sets
+        suffices (S ∩ (closure e)).Finite by
+            apply Set.Finite.subset this
+            exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) subset_closure
+        refine IsCompact.finite ?hcompact ?hdiscrete
+        case hcompact => exact IsCompact.of_isClosed_subset (cell_compact e e_in_sets) (IsClosed.inter hS.1 isClosed_closure) Set.inter_subset_right
+        case hdiscrete => exact DiscreteTopology.of_subset hS.2 Set.inter_subset_left
+    case mpr =>
+        intro hS
+        have SClosed: IsClosed S := by
+            apply closed_crit_of_coeherent CW.coeherent
+            rintro _ ⟨e, e_in_sets, rfl⟩
+            let g : (closure e) → X := (↑)
+            show IsClosed (g ⁻¹' S)
+            suffices hfinite: (S ∩ closure e).Finite by
+                have : g ⁻¹' S = g ⁻¹' (S ∩ closure e) := by
+                    rw [Subtype.preimage_coe_eq_preimage_coe_iff]
+                    ext x
+                    simp
+                    exact fun a a_1 ↦ a
+                rw [this]
+                exact IsClosed.preimage_val (Set.Finite.isClosed hfinite)
+            rcases CW.closure_finite e e_in_sets with ⟨ss, ss_sub_sets, ss_finite, ss_cover⟩
+            suffices (S ∩ ⋃₀ ss).Finite by
+                apply Set.Finite.subset this
+                exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) ss_cover
+            have : S ∩ ⋃₀ ss = ⋃ s ∈ ss, S ∩ s := by
+                ext x
+                simp
+            rw [this]
+            exact Set.Finite.biUnion' ss_finite fun i hi ↦ hS i (ss_sub_sets hi)
+        sorry
 end
 
 end CellComplexClass
 end Chp5
 
 section
-variable {X Y: Type*}
-example {s1 s2: Set X} (hs1: s1.Finite) : (s1 ∩ s2).Finite := by
-    exact Set.Finite.inter_of_left hs1 s2
-example {s1 s2: Set X} {x: X} (hx: x ∈ s1) : x ∈ (s1 ∩ s2) ∨ x ∈ s1 \ s2 := by
-    have : (s1 ∩ s2) ∪ (s1 \ s2) = s1 := by
-        exact Set.inter_union_diff s1 s2
-    rw [←Set.inter_union_diff s1 s2] at hx
-    exact hx
-example {s1 s2: Set X} : s1 ⊆ s2 ↔ s2 ∩ s1 = s1 := by
-    exact Iff.symm Set.inter_eq_right
-example {s1 s2 s3: Set X} (h12: Disjoint s1 s2) (h13: Disjoint s1 s3) : Disjoint s1 (s2 ∪ s3) := by
-    exact Disjoint.union_right h12 h13
-example {ι : Type*} {f: ι → Set X} {s: Set X} (hs: ∀ i:ι, Disjoint (f i) s) : Disjoint (⋃ i:ι, f i) s := by
-    exact Set.disjoint_iUnion_left.mpr hs
-example {s1 s2: Set X} : Disjoint s1 s2 → (∀ x, x∈ s1 → x ∉ s2) := by
-    exact fun a x a_1 ↦ Disjoint.notMem_of_mem_left a a_1
-example {s1 s2: Set X} (h1: Disjoint s1 s2) (h2: s1 ⊆ s2) : s1 = ∅ := by
-    exact Set.subset_empty_iff.mp (h1 (fun ⦃a⦄ a ↦ a) h2)
-example {f: X → Y} {s: Set X} (hs: s.Finite) : (f '' s).Finite := by
-    exact Set.Finite.image f hs
-example {f: X → Y} {s: Set X} (hf: Function.Injective f) (h: (f '' s).Finite): s.Finite := by
-    apply Set.Finite.of_finite_image h
-    apply Set.injOn_of_injective hf
-example {f: X → Y} (hf: Function.Injective f) : Function.Injective (Set.image f) := by
-    exact Set.image_injective.mpr hf
-example {s1 s2: Set X} (hs1: s1.Finite) (hs2: s2.Finite) : (s1 ∪ s2).Finite := by
-    exact Set.Finite.union hs1 hs2
-example {ι: Type*} {f: ι → Set X} [Fintype ι] (hf: ∀ i:ι, (f i).Finite) : (⋃ i:ι, f i).Finite := by
-    exact Set.finite_iUnion hf
+variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
+example {S T: Set X} (hS: DiscreteTopology S) : DiscreteTopology (((Subtype.val): T → X) ⁻¹' S) := by
+    refine DiscreteTopology.preimage_of_continuous_injective S ?cont ?inj
+    case cont => exact continuous_subtype_val
+    case inj => exact Subtype.val_injective
+
+#check tendsto_cofinite_cocompact_iff
 end
