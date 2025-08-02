@@ -1561,13 +1561,14 @@ theorem subset_discrete_iff_cell_inter_finite [CW: CWComplexClass X] {S: Set X} 
         case hdiscrete => exact DiscreteTopology.of_subset hS.2 Set.inter_subset_left
     case mpr =>
         intro hS
-        have SClosed: IsClosed S := by
+        have aux_closed: ∀ S₀: Set X, (∀ e ∈ C.sets, (S₀ ∩ e).Finite) → IsClosed S₀ := by
+            intro S₀ hS₀
             apply closed_crit_of_coeherent CW.coeherent
             rintro _ ⟨e, e_in_sets, rfl⟩
             let g : (closure e) → X := (↑)
-            show IsClosed (g ⁻¹' S)
-            suffices hfinite: (S ∩ closure e).Finite by
-                have : g ⁻¹' S = g ⁻¹' (S ∩ closure e) := by
+            show IsClosed (g ⁻¹' S₀)
+            suffices hfinite: (S₀ ∩ closure e).Finite by
+                have : g ⁻¹' S₀ = g ⁻¹' (S₀ ∩ closure e) := by
                     rw [Subtype.preimage_coe_eq_preimage_coe_iff]
                     ext x
                     simp
@@ -1575,26 +1576,30 @@ theorem subset_discrete_iff_cell_inter_finite [CW: CWComplexClass X] {S: Set X} 
                 rw [this]
                 exact IsClosed.preimage_val (Set.Finite.isClosed hfinite)
             rcases CW.closure_finite e e_in_sets with ⟨ss, ss_sub_sets, ss_finite, ss_cover⟩
-            suffices (S ∩ ⋃₀ ss).Finite by
+            suffices (S₀ ∩ ⋃₀ ss).Finite by
                 apply Set.Finite.subset this
                 exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) ss_cover
-            have : S ∩ ⋃₀ ss = ⋃ s ∈ ss, S ∩ s := by
+            have : S₀ ∩ ⋃₀ ss = ⋃ s ∈ ss, S₀ ∩ s := by
                 ext x
                 simp
             rw [this]
-            exact Set.Finite.biUnion' ss_finite fun i hi ↦ hS i (ss_sub_sets hi)
-        sorry
+            exact Set.Finite.biUnion' ss_finite fun i hi ↦ hS₀ i (ss_sub_sets hi)
+        have SClosed: IsClosed S := aux_closed S hS
+        have SDiscrete: DiscreteTopology S := by
+            rw [discreteTopology_iff_forall_isClosed]
+            intro s
+            let g : S → X := (↑)
+            suffices s_in_x_closed : IsClosed (g '' s) by
+                have : s = g ⁻¹' (g '' s) := Eq.symm Set.preimage_val_image_val_eq_self
+                rw [this]
+                exact IsClosed.preimage_val s_in_x_closed
+            apply aux_closed
+            intro e e_in_sets
+            apply Set.Finite.subset (hS e e_in_sets)
+            rintro x ⟨⟨b, b_in_s, rfl⟩, x_in_e⟩
+            exact ⟨b.2, x_in_e⟩
+        tauto
 end
 
 end CellComplexClass
 end Chp5
-
-section
-variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-example {S T: Set X} (hS: DiscreteTopology S) : DiscreteTopology (((Subtype.val): T → X) ⁻¹' S) := by
-    refine DiscreteTopology.preimage_of_continuous_injective S ?cont ?inj
-    case cont => exact continuous_subtype_val
-    case inj => exact Subtype.val_injective
-
-#check tendsto_cofinite_cocompact_iff
-end
