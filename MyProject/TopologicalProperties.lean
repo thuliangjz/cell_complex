@@ -873,60 +873,47 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
   rw [←skeleton_cover_any_ge_n n, Set.mem_iUnion₂] at hy
   rcases hy with ⟨m, n_le_m, y_in_sk_m⟩
   exact ((aux m n_le_m).joinedIn x₀ (skeleton_mono n m n_le_m hx₀) y y_in_sk_m).mono (fun x hx ↦ trivial)
+
+section
+variable {X: Type*} [TopologicalSpace X] [T2Space X] [C:CellComplexClass X]
+theorem finite_subcomplex_compact {SC: SubCellComplex X} (hSC: FiniteCellComplex SC) : IsCompact (SC: Set X) := by
+  let g: SC → X := (↑)
+  have iunion_decomp: (SC : Set X) = ⋃ (e:sub_cell_complex_sets SC), closure (g '' e.1) := by
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      intro hx
+      rw [Set.mem_iUnion]
+      rcases exists_mem_of_cell (⟨x, hx⟩:SC) with ⟨e₀, e₀_in_SC_sets, coe_x_in_e₀⟩
+      use ⟨e₀, e₀_in_SC_sets⟩
+      have : x ∈ g '' e₀ := by use ⟨x, hx⟩
+      apply subset_closure this
+    case mpr =>
+      intro hx
+      rw [Set.mem_iUnion] at hx
+      rcases hx with ⟨⟨e₀', e₀'_in_SC_sets⟩, he₀'⟩
+      let e₀ := g '' e₀'
+      have : closure e₀ ⊆ SC := by apply SC.cell_closure_incl e₀ e₀'_in_SC_sets (by apply Subtype.coe_image_subset)
+      exact this he₀'
+  rw [iunion_decomp]
+  have : Fintype (sub_cell_complex_sets SC) := Set.Finite.fintype hSC
+  apply isCompact_iUnion
+  intro e'
+  let e := g '' e'
+  exact cell_compact (g '' e') e'.2
+end
+
+theorem compact_iff_closed_and_subset_finite_sub_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] {S: Set X} : IsCompact S ↔ IsClosed S ∧ ∃ SC: SubCellComplex X, FiniteCellComplex SC ∧ S ⊆ SC := by
+  refine Iff.intro ?mp ?mpr
+  case mpr =>
+    rintro ⟨SClosed, ⟨SC, SC_finite, S_sub_SC⟩⟩
+    exact (finite_subcomplex_compact SC_finite).of_isClosed_subset SClosed S_sub_SC
+  case mp =>
+    sorry
 end Chp5
 
 section
 variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-example {f: X → Y} (hf: IsClosedMap f) (fc: Continuous f) {s: Set X} : f '' (closure s) = closure (f '' s) := by exact Eq.symm (IsClosedMap.closure_image_eq_of_continuous hf fc s)
-example {s : Set X} (hs: IsClosed s) : let g : s → X := (↑); IsClosedMap g := by
-  exact IsClosed.isClosedMap_subtype_val hs
-example {f: X → Y} (t: Set Y) : f ⁻¹' t = f ⁻¹' (t ∩ Set.range f) := by
-  exact Eq.symm Set.preimage_inter_range
-example {f: X → Y} : f ⁻¹' (Set.range f) = Set.univ := by
-  exact Set.preimage_range f
-example {s1 s2 : Set X} (h0: s1 ⊆ s2) (h1: IsClosed s2) : closure s1 ⊆ s2 := by
-  exact (IsClosed.closure_subset_iff h1).mpr h0
-example {s1 s2 s3: Set X} (h0: s1 = s2 ∪ s3) (h1: s2 ∩ s3 = ∅) : s1 \ s2 = s3 := by
-  rw [h0]
-  apply Set.union_diff_cancel_left ?_
-  exact Set.subset_empty_iff.mpr h1
-example {s: Set X} : closure s = s ∪ (closure s \ s) := by
-  exact Eq.symm (Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)
-example {f: X → Y}: f ⁻¹' ∅ = ∅ := by exact rfl
-example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
-example (s1 s2 s3: Set X) : (s1 ∩ s3) ∩ (s2 ∩ s3) = (s1 ∩ s2) ∩ s3 := by
-  exact Eq.symm (Set.inter_inter_distrib_right s1 s2 s3)
-example (s1 s2 s3: Set X) (h23: Disjoint s2 s3) (h112: s1 ⊆ s2) : Disjoint s1 s3 := by
-  exact Set.disjoint_of_subset h112 (fun ⦃a⦄ a ↦ a) h23
-example (s1 s2 s3: Set X) (h23: Disjoint s2 s3) (h112: s1 ⊆ s3) : Disjoint s2 s1 := by
-  exact Set.disjoint_of_subset (fun ⦃a⦄ a ↦ a) h112 h23
-example (s1 s2: Set X) (h: ∀ x, x ∈ s1 → x ∉ s2) : Disjoint s1 s2 := by
-  exact Set.disjoint_left.mpr h
-example (s1 s2: Set X) {x: X} (h1: x ∈ s1) (h2: x ∈ s2) (h: Disjoint s1 s2) : False := by
-  apply Set.disjoint_left.mp h h1 h2
-example {s1 :Set X} (h: ¬s1.Nonempty) : s1 = ∅ := by
-  exact Set.not_nonempty_iff_eq_empty.mp h
-#check Path
-#check IsPathConnected.union
-example {ι : Type*} {f: ι → Set X} {s₀: Set X} (i₀: ι) (hs₀: s₀.Nonempty) (hf_pc: ∀ i:ι, IsPathConnected (f i)) (hf_incl: ∀ i:ι, s₀ ⊆ f i) : IsPathConnected (⋃ i:ι, f i) := by
-  rcases hs₀ with ⟨x, hx⟩
-  have : x ∈ ⋃ i:ι, f i := by
-    rw [Set.mem_iUnion]
-    use i₀
-    exact hf_incl i₀ hx
-  use x, this
-  intro y hy
-  rw [Set.mem_iUnion] at hy
-  rcases hy with ⟨i₁, y_in_fi₁⟩
-  exact ((hf_pc i₁).joinedIn x (hf_incl i₁ hx) y y_in_fi₁).mono (Set.subset_iUnion f i₁)
-example {s1 s2: Set X} {f: X → Y} (hf: Function.Injective f) (h: f '' s1 = f '' s2) : s1 = s2 := by
-  exact (Set.image_eq_image hf).mp h
-example {s : Set Y} {f : X → Y} (hs: s ⊆ Set.range f) (hf: Function.Injective f) : f '' (f ⁻¹' s) = s := by
-  exact Set.image_preimage_eq_of_subset hs
-example {s1 s2: Set X} (hs2: IsPathConnected s2) {x: X} (hx: x ∈ s2) : s2 ⊆ pathComponent x := by
-  exact IsPathConnected.subset_pathComponent hs2 hx
-example {n k: ℕ} (h: k ≤ n + 1) : k = n + 1 ∨ k ≤ n := by
-  exact Nat.le_succ_iff_eq_or_le.mp h
 end
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
