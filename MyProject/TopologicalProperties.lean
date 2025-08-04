@@ -1120,6 +1120,34 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
     . rw [finite_sub_cell_complex_iff]
       exact SC_finite
     exact ce_sub_SC
+theorem finite_cell_closure_subset_finite_sub_complex [CW: CWComplexClass X] {SE: Set C.sets} (hSE: SE.Finite) : ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ (⋃ e ∈ SE, e.1) ⊆ SC := by
+  choose f f_finite f_cover using @cell_colsure_subset_finite_sub_complex X _ _ C CW
+  let SC_carrier : Set X := ⋃ e ∈ SE, (f e.1 e.2)
+  have SC_carrier_cell_incl_or_disjoint: ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier ∨ Disjoint e₁ SC_carrier := by
+    intro e₁ e₁_in_sets
+    match eq_or_ne (e₁ ∩ SC_carrier) ∅ with
+    | Or.inl inter_eq_empty =>
+      right
+      rwa [Set.disjoint_iff_inter_eq_empty]
+    | Or.inr inter_ne_empty =>
+      suffices ∃ e' ∈ SE, e₁ ⊆ (f e'.1 e'.2) by
+        left
+        intro x x_in_e₁
+        rw [Set.mem_iUnion₂]
+        rcases this with ⟨e', e'_in_SE, e₁_sub_fe'⟩
+        use e', e'_in_SE, e₁_sub_fe' x_in_e₁
+      rw [←Set.nonempty_iff_ne_empty] at inter_ne_empty
+      rcases inter_ne_empty with ⟨x, ⟨x_in_e₁, x_in_SC_carrier⟩⟩
+      rw [Set.mem_iUnion₂] at x_in_SC_carrier
+      rcases x_in_SC_carrier with ⟨e₂', e₂'_in_SE, x_in_f_e₂⟩
+      have : e₁ ⊆ f e₂'.1 e₂'.2 := by
+        apply SubCellComplex.subset_of_intersect
+        . exact e₁_in_sets
+        rw [←Set.nonempty_iff_ne_empty]
+        use x
+        tauto
+      use e₂'
+  sorry
 theorem subset_discrete_iff_cell_inter_finite [CW: CWComplexClass X] {S: Set X} : (IsClosed S ∧ (DiscreteTopology S)) ↔ ∀ e ∈ C.sets, (S ∩ e).Finite := by
     refine Iff.intro ?mp ?mpr
     case mp =>
