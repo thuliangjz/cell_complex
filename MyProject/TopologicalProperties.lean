@@ -1147,6 +1147,63 @@ theorem finite_cell_closure_subset_finite_sub_complex [CW: CWComplexClass X] {SE
         use x
         tauto
       use e₂'
+  have aux_subset_some_fe: ∀ e ∈ C.sets, e ⊆ SC_carrier → ∃ e' ∈ SE, e ⊆ (f e'.1 e'.2) := by
+    intro e₁ e₁_in_sets e₁_sub_SC
+    rcases C.nonempty e₁ e₁_in_sets with ⟨x, hx⟩
+    let x_in_SC := e₁_sub_SC hx
+    rw [Set.mem_iUnion₂] at x_in_SC
+    rcases x_in_SC with ⟨e', e'_in_SE, x_in_fe'⟩
+    use e', e'_in_SE
+    have e₁_inter_fe'_nonempty : (e₁ ∩ (f e'.1 e'.2)) ≠ ∅ := by
+      rw [←Set.nonempty_iff_ne_empty]
+      use x
+      exact ⟨hx, x_in_fe'⟩
+    exact (f e'.1 e'.2).subset_of_intersect e₁_in_sets e₁_inter_fe'_nonempty
+  have SC_carrier_cell_closure_incl: ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier → (closure e₁) ⊆ SC_carrier := by
+    intro e₁ e₁_in_sets e₁_sub_SC
+    suffices ∃ e' ∈ SE, e₁ ⊆ (f e'.1 e'.2) by
+      rcases this with ⟨e', e'_in_SE, e₁_sub_fe'⟩
+      trans ((f e'.1 e'.2):Set X)
+      . exact (f e'.1 e'.2).cell_closure_incl _ e₁_in_sets e₁_sub_fe'
+      exact Set.subset_iUnion₂_of_subset e' e'_in_SE fun ⦃a⦄ a ↦ a
+    apply aux_subset_some_fe _ e₁_in_sets e₁_sub_SC
+  have SC_finite : {e: Set X | e ∈ C.sets ∧ e ⊆ SC_carrier}.Finite := by
+    let SE₁ := {e: Set X | e ∈ C.sets ∧ e ⊆ SC_carrier}
+    show SE₁.Finite
+    let E := fun e:C.sets ↦ {e₀: Set X | e₀ ∈ C.sets ∧ e₀ ⊆ (f e.1 e.2)}
+    have SE₁_decomp: SE₁ = ⋃ e ∈ SE, E e := by
+      ext e₀
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        rintro ⟨e₀_in_sets, e₀_sub_SC⟩
+        rw [Set.mem_iUnion₂]
+        rcases aux_subset_some_fe e₀ e₀_in_sets e₀_sub_SC with ⟨e', e'_in_SE, e₀_sub_fe'⟩
+        use e', e'_in_SE
+        exact ⟨e₀_in_sets, e₀_sub_fe'⟩
+      case mpr =>
+        intro e₀_sub_iunion₂
+        rw [Set.mem_iUnion₂] at e₀_sub_iunion₂
+        rcases e₀_sub_iunion₂ with ⟨e', ⟨e'_in_SE, e₀_sub_Ee'⟩⟩
+        have e₀_sub_SC: e₀ ⊆ SC_carrier := by
+          intro x x_in_e₀
+          rw [Set.mem_iUnion₂]
+          use e', e'_in_SE
+          exact e₀_sub_Ee'.2 x_in_e₀
+        exact ⟨e₀_sub_Ee'.1, e₀_sub_SC⟩
+    have : ⋃ e ∈ SE, E e = ⋃ e:SE, E e.1 := by
+      exact Set.biUnion_eq_iUnion SE fun x h ↦ E x
+    rw [SE₁_decomp, this]
+    have : Fintype SE := by exact hSE.fintype
+    apply Set.finite_iUnion
+    rintro ⟨e', e'_in_SE⟩
+    rw [←finite_sub_cell_complex_iff]
+    apply f_finite
+  let SC: SubCellComplex X := {
+      carrier := SC_carrier
+      cell_closure_incl := SC_carrier_cell_closure_incl
+      cell_incl_or_disjoint:= SC_carrier_cell_incl_or_disjoint
+  }
+  use SC
   sorry
 theorem subset_discrete_iff_cell_inter_finite [CW: CWComplexClass X] {S: Set X} : (IsClosed S ∧ (DiscreteTopology S)) ↔ ∀ e ∈ C.sets, (S ∩ e).Finite := by
     refine Iff.intro ?mp ?mpr
@@ -1237,6 +1294,7 @@ end Chp5
 
 section
 variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
+
 end
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
