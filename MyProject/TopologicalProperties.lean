@@ -1204,7 +1204,16 @@ theorem finite_cell_closure_subset_finite_sub_complex [CW: CWComplexClass X] {SE
       cell_incl_or_disjoint:= SC_carrier_cell_incl_or_disjoint
   }
   use SC
-  sorry
+  constructor
+  . rwa [finite_sub_cell_complex_iff]
+  show (⋃ e ∈ SE, e.1) ⊆ SC_carrier
+  intro x hx
+  rw [Set.mem_iUnion₂] at *
+  rcases hx with ⟨e', e'_in_SE, x_in_e'1⟩
+  use e', e'_in_SE
+  apply f_cover
+  apply subset_closure
+  exact x_in_e'1
 theorem subset_discrete_iff_cell_inter_finite [CW: CWComplexClass X] {S: Set X} : (IsClosed S ∧ (DiscreteTopology S)) ↔ ∀ e ∈ C.sets, (S ∩ e).Finite := by
     refine Iff.intro ?mp ?mpr
     case mp =>
@@ -1289,12 +1298,51 @@ theorem compact_iff_closed_and_subset_finite_sub_complex {X: Type*} [Topological
     rintro ⟨SClosed, ⟨SC, SC_finite, S_sub_SC⟩⟩
     exact (finite_subcomplex_compact SC_finite).of_isClosed_subset SClosed S_sub_SC
   case mp =>
+    intro hS
+    let SE : Set C.sets := {e | (e.1 ∩ S).Nonempty}
+    have SE_iunion_cover : S ⊆ ⋃ e ∈ SE, e.1 := by
+      intro x x_in_S
+      rw [Set.mem_iUnion₂]
+      rcases exists_mem_of_cell x with ⟨e₀, e₀_in_sets, x_in_e₀⟩
+      let e₀' : C.sets := ⟨e₀, e₀_in_sets⟩
+      have :e₀' ∈ SE := by
+        use x
+        exact ⟨x_in_e₀, x_in_S⟩
+      use e₀', this
+    have SE_finite : SE.Finite := by
+      have : ∀ e':SE, ∃ x: X, x ∈ e'.1.1 ∩ S := fun e' ↦ e'.2
+      choose f hf using this
+      have f_inj : Function.Injective f := by
+        intro e₁' e₂' heq
+        suffices e₁'.1.1 = e₂'.1.1 by
+          exact SetCoe.ext (SetCoe.ext this)
+        let x := f e₁'
+        have mem1 : x ∈ e₁'.1.1 := (hf e₁').1
+        have mem2 : x ∈ e₂'.1.1 := by
+          simp only [x, heq]
+          exact (hf e₂').1
+        exact same_cell_of_mem e₁'.1.2 e₂'.1.2 mem1 mem2
+      let T := Set.range f
+      have T_sub_S : T ⊆ S := by
+        rintro x ⟨e', rfl⟩
+        exact (hf e').2
+      suffices T.Finite by
+        rw [←Set.finite_coe_iff]
+        have : Finite T := this
+        apply Finite.of_injective_finite_range f_inj
+      suffices (IsClosed T) ∧ DiscreteTopology T by
+        have T_compact: IsCompact T := by
+          apply hS.of_isClosed_subset this.1 T_sub_S
+        apply T_compact.finite this.2
+      rw [subset_discrete_iff_cell_inter_finite]
+      sorry
     sorry
 end Chp5
 
 section
 variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-
+example {S: Set X} (S_compact: IsCompact S) (S_discrete: DiscreteTopology S) : S.Finite := by
+  exact IsCompact.finite S_compact S_discrete
 end
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
