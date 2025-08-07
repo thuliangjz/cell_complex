@@ -873,60 +873,524 @@ theorem path_connected_of_connected_skeleton {X: Type*} [TopologicalSpace X] [T2
   rw [←skeleton_cover_any_ge_n n, Set.mem_iUnion₂] at hy
   rcases hy with ⟨m, n_le_m, y_in_sk_m⟩
   exact ((aux m n_le_m).joinedIn x₀ (skeleton_mono n m n_le_m hx₀) y y_in_sk_m).mono (fun x hx ↦ trivial)
+
+-- finite cell complex
+def FiniteCellComplex (X: Type*) [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] : Prop := C.sets.Finite
+
+section
+variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
+def dim0_cell_subcomplex (e : C.sets) (he: C.dim_map e = 0) : SubCellComplex X where
+    carrier := e.1
+    cell_incl_or_disjoint := by
+        intro e' he'
+        match eq_or_ne e' e with
+        | Or.inl eq => left; rw [eq]
+        | Or.inr ne => right; apply C.disjoint he' e.2 ne
+    cell_closure_incl := by
+        intro e' he' e'_in_e
+        rw [cell_singleton_of_dim0] at he
+        rcases he with ⟨x, hx⟩
+        rw [hx, Set.subset_singleton_iff_eq] at e'_in_e
+        match e'_in_e with
+        | Or.inl e'_empty =>
+            rw [e'_empty]
+            simp
+        | Or.inr e'_singleton =>
+            rw [e'_singleton]
+            simp [hx]
+theorem dim0_cell_subcomplex_finite (e: C.sets) (he: C.dim_map e = 0) : FiniteCellComplex (dim0_cell_subcomplex e he) := by
+    have : (sub_cell_complex_sets (dim0_cell_subcomplex e he)).Finite := by
+        have : (sub_cell_complex_sets (dim0_cell_subcomplex e he)) = {Set.univ} := by
+            ext e'
+            let g : (dim0_cell_subcomplex e he) → X := (↑)
+            have range_eq_e: g '' (Set.univ) = e.1 := by
+                simp
+                rw [Subtype.range_coe]
+                rfl
+            refine Iff.intro ?mp ?mpr
+            case mp =>
+                intro he'
+                show e' = Set.univ
+                suffices g '' e' = g '' (Set.univ) by
+                    rw [Set.image_eq_image (Subtype.val_injective)] at this
+                    exact this
+                rw [range_eq_e]
+                have e'_image_nonempty : (g '' e') ≠ ∅ := by
+                    rw [←Set.nonempty_iff_ne_empty]
+                    apply nonempty
+                    exact he'
+                have e'_image_sub_e : (g '' e') ⊆ e := by
+                    rw [←range_eq_e]
+                    exact Set.image_mono fun ⦃a⦄ a ↦ trivial
+                rw [cell_singleton_of_dim0] at he
+                rcases he with ⟨x, hx⟩
+                rw [hx, Set.subset_singleton_iff_eq] at e'_image_sub_e
+                rw [hx]
+                tauto
+            case mpr =>
+                intro he'
+                simp at he'
+                rw [he']
+                show g '' (Set.univ) ∈ C.sets
+                rw [range_eq_e]
+                exact e.2
+        rw [this]
+        apply Set.finite_singleton
+    exact this
+
+theorem finite_sub_cell_complex_iff (sc: SubCellComplex X) : (FiniteCellComplex sc) ↔ ({e:Set X| e ∈ C.sets ∧ e ⊆ sc}.Finite) := by
+    let g : sc → X := (↑)
+    let s1 := {e: Set X | e ∈ C.sets ∧ e ⊆ sc}
+    have : s1 =  (Set.image g) '' (sub_cell_complex_sets sc) := by
+        ext e
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+            intro he
+            let e' := g ⁻¹' e
+            use e'
+            have : g '' e' = e := by
+                calc
+                    g '' e' = (sc:Set X) ∩ e:= Subtype.image_preimage_coe sc e
+                    _ = e := Set.inter_eq_self_of_subset_right he.2
+            constructor
+            . show g '' e' ∈ C.sets
+              rw [this]
+              exact he.1
+            exact this
+        case mpr =>
+            intro he
+            simp at he
+            rcases he with ⟨e', he', rfl⟩
+            constructor
+            . exact he'
+            apply Subtype.coe_image_subset
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        simp only [s1, this]
+        intro h
+        apply Set.Finite.image
+        exact h
+    case mpr =>
+        simp only [s1, this]
+        intro h
+        apply Set.Finite.of_finite_image h
+        apply Set.injOn_of_injective
+        rw [Set.image_injective]
+        exact Subtype.val_injective
+
+
+theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e ∈ C.sets, ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ closure e ⊆ SC := by
+    intro e he
+    -- see "induction tactic that doesn't destroy the input from context" on Zulip chat, this usage is interesting
+    -- the cases tactic can also be used in this fashion
+    induction' dim_eq: (C.dim_map ⟨e, he⟩) using Nat.strong_induction_on with n₀ ihn generalizing e he
+    choose f_to_subcomplex hf_finite hf_cover using ihn
+    rcases boundary_covered_by_finite_cells ⟨e, he⟩ with ⟨ss, ss_sub_sets, ss_finite, ss_cover_boundary, ss_dim_lt⟩
+    --let fss: ss → SubCellComplex X := by
+    --    intro e
+    --    let m := C.dim_map ⟨e.1, ss_sub_sets e.2⟩
+    --    have m_le_n₀: m < n₀ := by
+    --        rw [←dim_eq]
+    --        apply ss_dim_lt _ e.2
+    --    exact f_to_subcomplex m m_le_n₀ e.1 (ss_sub_sets e.2) rfl
+    let fss : ss → SubCellComplex X := fun e ↦ f_to_subcomplex (C.dim_map ⟨e.1, ss_sub_sets e.2⟩) (by rw [←dim_eq]; apply ss_dim_lt _ e.2) e.1 (ss_sub_sets e.2) rfl
+    let SC_carrier : Set X:= (⋃ s:ss, ((fss s):Set X)) ∪ e
+    have SC_carrier_cell_incl_or_disjoint : ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier ∨ Disjoint e₁ SC_carrier := by
+        intro e₁ he₁
+        match eq_or_ne (e₁ ∩ SC_carrier) ∅ with
+        | Or.inl inter_eq_empty =>
+            right
+            rwa [Set.disjoint_iff_inter_eq_empty]
+        | Or.inr inter_ne_empty =>
+            left
+            rw [←Set.nonempty_iff_ne_empty] at inter_ne_empty
+            rcases inter_ne_empty with ⟨x, hx⟩
+            match hx.2 with
+            | Or.inl mem_iunion =>
+                rw [Set.mem_iUnion] at mem_iunion
+                rcases mem_iunion with ⟨i ,hi⟩
+                suffices sub_fss_i : e₁ ⊆ (fss i) by
+                    have : ((fss i):Set X) ⊆ (⋃ s, (fss s):Set X) := Set.subset_iUnion_of_subset i fun ⦃a⦄ a ↦ a
+                    tauto
+                apply (fss i).subset_of_intersect he₁
+                rw [←Set.nonempty_iff_ne_empty]
+                use x, hx.1, hi
+            | Or.inr mem_e =>
+                rw [same_cell_of_mem he₁ he hx.1 mem_e]
+                exact Set.subset_union_right
+    have aux_sub_some_fss {e₀: Set X} (e₀_in_sets: e₀ ∈ C.sets) (e₀_sub_SC: e₀ ⊆ SC_carrier) (e₀_ne_e: e₀ ≠ e) : ∃ s:ss, e₀ ⊆ (fss s) := by
+        by_contra! not_subset
+        have e₀_e_disjoint : Disjoint e₀ e := C.disjoint e₀_in_sets he e₀_ne_e
+        have e₀_iufss_disjoint: Disjoint e₀ (⋃s:ss, fss s) := by
+            rw [Set.disjoint_iUnion_right]
+            intro s
+            rcases (fss s).cell_incl_or_disjoint e₀ e₀_in_sets with h_incl | h_disj
+            . exact False.elim ((not_subset s) h_incl)
+            exact h_disj
+        have e₀_disjoint_sc: Disjoint e₀ SC_carrier := Disjoint.union_right e₀_iufss_disjoint e₀_e_disjoint
+        have e₀_empty : e₀ = ∅ := by
+            rw [←Set.subset_empty_iff]
+            exact e₀_disjoint_sc (fun _ a ↦ a) e₀_sub_SC
+        have e₀_nonempty: e₀ ≠ ∅ := by
+            rw [←Set.nonempty_iff_ne_empty]
+            apply C.nonempty _ e₀_in_sets
+        contradiction
+    have ce_sub_SC : (closure e) ⊆ SC_carrier := by
+        intro x hx
+        rw [←Set.inter_union_diff (closure e) e, Set.inter_eq_right.mpr subset_closure] at hx
+        match hx with
+        | Or.inl x_in_e =>
+            apply Set.subset_union_right x_in_e
+        | Or.inr x_in_e_boundary =>
+            simp at ss_cover_boundary
+            suffices ⋃₀ ss ⊆ SC_carrier by
+                exact this (ss_cover_boundary x_in_e_boundary)
+            intro x' hx'
+            simp at hx'
+            left
+            simp
+            rcases hx' with ⟨i, i_in_ss, hi⟩
+            use i, i_in_ss
+            apply hf_cover
+            apply subset_closure hi
+    have SC_carrier_cell_closure_incl : ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier → (closure e₁) ⊆ SC_carrier := by
+        intro e₁ e₁_in_sets e₁_sub_carrier
+        match eq_or_ne e₁ e with
+        | Or.inl heq =>
+            rw [heq]
+            exact ce_sub_SC
+        | Or.inr hne =>
+            suffices ∃ s : ss, e₁ ⊆ fss s by
+                rcases this with ⟨s, hs⟩
+                have ce₁_subset: (closure e₁) ⊆ fss s := (fss s).cell_closure_incl e₁ e₁_in_sets hs
+                have fss_s_subset: ((fss s):Set X) ⊆ SC_carrier := by
+                    intro x hx
+                    left
+                    exact Set.mem_iUnion_of_mem s hx
+                exact fun ⦃a⦄ a_1 ↦ fss_s_subset (ce₁_subset a_1)
+            exact aux_sub_some_fss e₁_in_sets e₁_sub_carrier hne
+    have SC_finite : {e₀:Set X | e₀ ∈ C.sets ∧ e₀ ⊆ SC_carrier}.Finite := by
+        let SE := {e₀:Set X | e₀ ∈ C.sets ∧ e₀ ⊆ SC_carrier}
+        let E: ss → Set (Set X) := fun s ↦ {e₀: Set X | e₀ ∈ C.sets ∧ e₀ ⊆ (fss s)}
+        show SE.Finite
+        have SE_decomp : SE = (⋃ s:ss, E s) ∪ {e} := by
+            ext e₀
+            refine Iff.intro ?mp ?mpr
+            case mp =>
+                rintro ⟨e₀_in_sets, e₀_sub_SC⟩
+                match eq_or_ne e₀ e with
+                | Or.inl e₀_eq_e => right; exact e₀_eq_e
+                | Or.inr e₀_ne_e =>
+                    rcases aux_sub_some_fss e₀_in_sets e₀_sub_SC e₀_ne_e with ⟨s₀, e₀_sub_fss_s₀⟩
+                    left
+                    simp [E]
+                    use e₀_in_sets, s₀, s₀.2
+            case mpr =>
+                intro he₀
+                match he₀ with
+                | Or.inr mem_singleton =>
+                    rw [mem_singleton]
+                    use he
+                    exact Set.subset_union_right
+                | Or.inl mem_iunion =>
+                    simp [E] at mem_iunion
+                    use mem_iunion.1
+                    rcases mem_iunion.2 with ⟨s₀, s₀_in_ss, hs₀⟩
+                    trans ((fss ⟨s₀, s₀_in_ss⟩):Set X)
+                    . exact hs₀
+                    trans (⋃ s:ss, ((fss s):Set X))
+                    . exact Set.subset_iUnion_of_subset ⟨s₀, s₀_in_ss⟩ fun ⦃a⦄ a ↦ a
+                    exact Set.subset_union_left
+        rw [SE_decomp]
+        apply Set.Finite.union
+        case ht => exact Set.finite_singleton e
+        case hs =>
+            have : Finite ss := ss_finite
+            apply Set.finite_iUnion
+            intro s₀
+            rw [←finite_sub_cell_complex_iff]
+            apply hf_finite
+    let SC: SubCellComplex X := {
+        carrier := SC_carrier
+        cell_closure_incl := SC_carrier_cell_closure_incl
+        cell_incl_or_disjoint:= SC_carrier_cell_incl_or_disjoint
+    }
+    use SC
+    constructor
+    . rw [finite_sub_cell_complex_iff]
+      exact SC_finite
+    exact ce_sub_SC
+theorem finite_cell_iunion_subset_finite_sub_complex [CW: CWComplexClass X] {SE: Set C.sets} (hSE: SE.Finite) : ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ (⋃ e ∈ SE, e.1) ⊆ SC := by
+  choose f f_finite f_cover using @cell_colsure_subset_finite_sub_complex X _ _ C CW
+  let SC_carrier : Set X := ⋃ e ∈ SE, (f e.1 e.2)
+  have SC_carrier_cell_incl_or_disjoint: ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier ∨ Disjoint e₁ SC_carrier := by
+    intro e₁ e₁_in_sets
+    match eq_or_ne (e₁ ∩ SC_carrier) ∅ with
+    | Or.inl inter_eq_empty =>
+      right
+      rwa [Set.disjoint_iff_inter_eq_empty]
+    | Or.inr inter_ne_empty =>
+      suffices ∃ e' ∈ SE, e₁ ⊆ (f e'.1 e'.2) by
+        left
+        intro x x_in_e₁
+        rw [Set.mem_iUnion₂]
+        rcases this with ⟨e', e'_in_SE, e₁_sub_fe'⟩
+        use e', e'_in_SE, e₁_sub_fe' x_in_e₁
+      rw [←Set.nonempty_iff_ne_empty] at inter_ne_empty
+      rcases inter_ne_empty with ⟨x, ⟨x_in_e₁, x_in_SC_carrier⟩⟩
+      rw [Set.mem_iUnion₂] at x_in_SC_carrier
+      rcases x_in_SC_carrier with ⟨e₂', e₂'_in_SE, x_in_f_e₂⟩
+      have : e₁ ⊆ f e₂'.1 e₂'.2 := by
+        apply SubCellComplex.subset_of_intersect
+        . exact e₁_in_sets
+        rw [←Set.nonempty_iff_ne_empty]
+        use x
+        tauto
+      use e₂'
+  have aux_subset_some_fe: ∀ e ∈ C.sets, e ⊆ SC_carrier → ∃ e' ∈ SE, e ⊆ (f e'.1 e'.2) := by
+    intro e₁ e₁_in_sets e₁_sub_SC
+    rcases C.nonempty e₁ e₁_in_sets with ⟨x, hx⟩
+    let x_in_SC := e₁_sub_SC hx
+    rw [Set.mem_iUnion₂] at x_in_SC
+    rcases x_in_SC with ⟨e', e'_in_SE, x_in_fe'⟩
+    use e', e'_in_SE
+    have e₁_inter_fe'_nonempty : (e₁ ∩ (f e'.1 e'.2)) ≠ ∅ := by
+      rw [←Set.nonempty_iff_ne_empty]
+      use x
+      exact ⟨hx, x_in_fe'⟩
+    exact (f e'.1 e'.2).subset_of_intersect e₁_in_sets e₁_inter_fe'_nonempty
+  have SC_carrier_cell_closure_incl: ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier → (closure e₁) ⊆ SC_carrier := by
+    intro e₁ e₁_in_sets e₁_sub_SC
+    suffices ∃ e' ∈ SE, e₁ ⊆ (f e'.1 e'.2) by
+      rcases this with ⟨e', e'_in_SE, e₁_sub_fe'⟩
+      trans ((f e'.1 e'.2):Set X)
+      . exact (f e'.1 e'.2).cell_closure_incl _ e₁_in_sets e₁_sub_fe'
+      exact Set.subset_iUnion₂_of_subset e' e'_in_SE fun ⦃a⦄ a ↦ a
+    apply aux_subset_some_fe _ e₁_in_sets e₁_sub_SC
+  have SC_finite : {e: Set X | e ∈ C.sets ∧ e ⊆ SC_carrier}.Finite := by
+    let SE₁ := {e: Set X | e ∈ C.sets ∧ e ⊆ SC_carrier}
+    show SE₁.Finite
+    let E := fun e:C.sets ↦ {e₀: Set X | e₀ ∈ C.sets ∧ e₀ ⊆ (f e.1 e.2)}
+    have SE₁_decomp: SE₁ = ⋃ e ∈ SE, E e := by
+      ext e₀
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        rintro ⟨e₀_in_sets, e₀_sub_SC⟩
+        rw [Set.mem_iUnion₂]
+        rcases aux_subset_some_fe e₀ e₀_in_sets e₀_sub_SC with ⟨e', e'_in_SE, e₀_sub_fe'⟩
+        use e', e'_in_SE
+        exact ⟨e₀_in_sets, e₀_sub_fe'⟩
+      case mpr =>
+        intro e₀_sub_iunion₂
+        rw [Set.mem_iUnion₂] at e₀_sub_iunion₂
+        rcases e₀_sub_iunion₂ with ⟨e', ⟨e'_in_SE, e₀_sub_Ee'⟩⟩
+        have e₀_sub_SC: e₀ ⊆ SC_carrier := by
+          intro x x_in_e₀
+          rw [Set.mem_iUnion₂]
+          use e', e'_in_SE
+          exact e₀_sub_Ee'.2 x_in_e₀
+        exact ⟨e₀_sub_Ee'.1, e₀_sub_SC⟩
+    have : ⋃ e ∈ SE, E e = ⋃ e:SE, E e.1 := by
+      exact Set.biUnion_eq_iUnion SE fun x h ↦ E x
+    rw [SE₁_decomp, this]
+    have : Fintype SE := by exact hSE.fintype
+    apply Set.finite_iUnion
+    rintro ⟨e', e'_in_SE⟩
+    rw [←finite_sub_cell_complex_iff]
+    apply f_finite
+  let SC: SubCellComplex X := {
+      carrier := SC_carrier
+      cell_closure_incl := SC_carrier_cell_closure_incl
+      cell_incl_or_disjoint:= SC_carrier_cell_incl_or_disjoint
+  }
+  use SC
+  constructor
+  . rwa [finite_sub_cell_complex_iff]
+  show (⋃ e ∈ SE, e.1) ⊆ SC_carrier
+  intro x hx
+  rw [Set.mem_iUnion₂] at *
+  rcases hx with ⟨e', e'_in_SE, x_in_e'1⟩
+  use e', e'_in_SE
+  apply f_cover
+  apply subset_closure
+  exact x_in_e'1
+theorem subset_discrete_iff_cell_inter_finite [CW: CWComplexClass X] {S: Set X} : (IsClosed S ∧ (DiscreteTopology S)) ↔ ∀ e ∈ C.sets, (S ∩ e).Finite := by
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        intro hS e e_in_sets
+        suffices (S ∩ (closure e)).Finite by
+            apply Set.Finite.subset this
+            exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) subset_closure
+        refine IsCompact.finite ?hcompact ?hdiscrete
+        case hcompact => exact IsCompact.of_isClosed_subset (cell_compact e e_in_sets) (IsClosed.inter hS.1 isClosed_closure) Set.inter_subset_right
+        case hdiscrete => exact DiscreteTopology.of_subset hS.2 Set.inter_subset_left
+    case mpr =>
+        intro hS
+        have aux_closed: ∀ S₀: Set X, (∀ e ∈ C.sets, (S₀ ∩ e).Finite) → IsClosed S₀ := by
+            intro S₀ hS₀
+            apply closed_crit_of_coeherent CW.coeherent
+            rintro _ ⟨e, e_in_sets, rfl⟩
+            let g : (closure e) → X := (↑)
+            show IsClosed (g ⁻¹' S₀)
+            suffices hfinite: (S₀ ∩ closure e).Finite by
+                have : g ⁻¹' S₀ = g ⁻¹' (S₀ ∩ closure e) := by
+                    rw [Subtype.preimage_coe_eq_preimage_coe_iff]
+                    ext x
+                    simp
+                    exact fun a a_1 ↦ a
+                rw [this]
+                exact IsClosed.preimage_val (Set.Finite.isClosed hfinite)
+            rcases CW.closure_finite e e_in_sets with ⟨ss, ss_sub_sets, ss_finite, ss_cover⟩
+            suffices (S₀ ∩ ⋃₀ ss).Finite by
+                apply Set.Finite.subset this
+                exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) ss_cover
+            have : S₀ ∩ ⋃₀ ss = ⋃ s ∈ ss, S₀ ∩ s := by
+                ext x
+                simp
+            rw [this]
+            exact Set.Finite.biUnion' ss_finite fun i hi ↦ hS₀ i (ss_sub_sets hi)
+        have SClosed: IsClosed S := aux_closed S hS
+        have SDiscrete: DiscreteTopology S := by
+            rw [discreteTopology_iff_forall_isClosed]
+            intro s
+            let g : S → X := (↑)
+            suffices s_in_x_closed : IsClosed (g '' s) by
+                have : s = g ⁻¹' (g '' s) := Eq.symm Set.preimage_val_image_val_eq_self
+                rw [this]
+                exact IsClosed.preimage_val s_in_x_closed
+            apply aux_closed
+            intro e e_in_sets
+            apply Set.Finite.subset (hS e e_in_sets)
+            rintro x ⟨⟨b, b_in_s, rfl⟩, x_in_e⟩
+            exact ⟨b.2, x_in_e⟩
+        tauto
+
+theorem finite_subcomplex_compact {SC: SubCellComplex X} (hSC: FiniteCellComplex SC) : IsCompact (SC: Set X) := by
+  let g: SC → X := (↑)
+  have iunion_decomp: (SC : Set X) = ⋃ (e:sub_cell_complex_sets SC), closure (g '' e.1) := by
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      intro hx
+      rw [Set.mem_iUnion]
+      rcases exists_mem_of_cell (⟨x, hx⟩:SC) with ⟨e₀, e₀_in_SC_sets, coe_x_in_e₀⟩
+      use ⟨e₀, e₀_in_SC_sets⟩
+      have : x ∈ g '' e₀ := by use ⟨x, hx⟩
+      apply subset_closure this
+    case mpr =>
+      intro hx
+      rw [Set.mem_iUnion] at hx
+      rcases hx with ⟨⟨e₀', e₀'_in_SC_sets⟩, he₀'⟩
+      let e₀ := g '' e₀'
+      have : closure e₀ ⊆ SC := by apply SC.cell_closure_incl e₀ e₀'_in_SC_sets (by apply Subtype.coe_image_subset)
+      exact this he₀'
+  rw [iunion_decomp]
+  have : Fintype (sub_cell_complex_sets SC) := Set.Finite.fintype hSC
+  apply isCompact_iUnion
+  intro e'
+  let e := g '' e'
+  exact cell_compact (g '' e') e'.2
+end
+
+theorem compact_iff_closed_and_subset_finite_sub_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] {S: Set X} : IsCompact S ↔ IsClosed S ∧ ∃ SC: SubCellComplex X, FiniteCellComplex SC ∧ S ⊆ SC := by
+  refine Iff.intro ?mp ?mpr
+  case mpr =>
+    rintro ⟨SClosed, ⟨SC, SC_finite, S_sub_SC⟩⟩
+    exact (finite_subcomplex_compact SC_finite).of_isClosed_subset SClosed S_sub_SC
+  case mp =>
+    intro hS
+    suffices ∃ SC:SubCellComplex X, FiniteCellComplex SC ∧ S ⊆ SC by
+      constructor
+      . exact IsCompact.isClosed hS
+      exact this
+    let SE : Set C.sets := {e | (e.1 ∩ S).Nonempty}
+    have SE_iunion_cover : S ⊆ ⋃ e ∈ SE, e.1 := by
+      intro x x_in_S
+      rw [Set.mem_iUnion₂]
+      rcases exists_mem_of_cell x with ⟨e₀, e₀_in_sets, x_in_e₀⟩
+      let e₀' : C.sets := ⟨e₀, e₀_in_sets⟩
+      have :e₀' ∈ SE := by
+        use x
+        exact ⟨x_in_e₀, x_in_S⟩
+      use e₀', this
+    have SE_finite : SE.Finite := by
+      have : ∀ e':SE, ∃ x: X, x ∈ e'.1.1 ∩ S := fun e' ↦ e'.2
+      choose f hf using this
+      have f_inj : Function.Injective f := by
+        intro e₁' e₂' heq
+        suffices e₁'.1.1 = e₂'.1.1 by
+          exact SetCoe.ext (SetCoe.ext this)
+        let x := f e₁'
+        have mem1 : x ∈ e₁'.1.1 := (hf e₁').1
+        have mem2 : x ∈ e₂'.1.1 := by
+          simp only [x, heq]
+          exact (hf e₂').1
+        exact same_cell_of_mem e₁'.1.2 e₂'.1.2 mem1 mem2
+      let T := Set.range f
+      have T_sub_S : T ⊆ S := by
+        rintro x ⟨e', rfl⟩
+        exact (hf e').2
+      suffices T.Finite by
+        rw [←Set.finite_coe_iff]
+        have : Finite T := this
+        apply Finite.of_injective_finite_range f_inj
+      suffices (IsClosed T) ∧ DiscreteTopology T by
+        have T_compact: IsCompact T := by
+          apply hS.of_isClosed_subset this.1 T_sub_S
+        apply T_compact.finite this.2
+      rw [subset_discrete_iff_cell_inter_finite]
+      intro e e_in_sets
+      let e' : C.sets := ⟨e, e_in_sets⟩
+      match Classical.em (e' ∈ SE) with
+      | Or.inl e'_in_SE =>
+        have : (T ∩ e) = {f ⟨e', e'_in_SE⟩} := by
+          ext x
+          refine Iff.intro ?mp ?mpr
+          case mp =>
+            intro hx
+            rcases hx.1 with ⟨e₀', he₀'⟩
+            have x_in_e₀: x ∈ e₀'.1.1 := by
+              rw [←he₀']
+              exact (hf e₀').1
+            have heq: e₀'.1.1 = e := same_cell_of_mem e₀'.1.2 e_in_sets x_in_e₀ hx.2
+            have heq': e₀' = ⟨e', e'_in_SE⟩ := by
+              apply SetCoe.ext
+              apply SetCoe.ext
+              exact heq
+            rw [←heq']
+            exact he₀'.symm
+          case mpr =>
+            intro hx
+            rw [hx]
+            constructor
+            . use ⟨e', e'_in_SE⟩
+            exact (hf ⟨e', e'_in_SE⟩).1
+        rw [this]
+        exact Set.finite_singleton (f ⟨e', e'_in_SE⟩)
+      | Or.inr e'_not_in_SE =>
+        have : T ∩ e = ∅ := by
+          rw [←Set.disjoint_iff_inter_eq_empty, Set.disjoint_left]
+          rintro x ⟨⟨e₀', e₀'_in_SE⟩, he'⟩
+          have e_ne_e₀ : e ≠ e₀'.1 := by
+            contrapose! e'_not_in_SE
+            have : e' = e₀' := SetCoe.ext e'_not_in_SE
+            rwa [this]
+          have e_e₀_disjoint: Disjoint e e₀'.1 := C.disjoint e_in_sets e₀'.2 e_ne_e₀
+          rw [Set.disjoint_right] at e_e₀_disjoint
+          apply e_e₀_disjoint
+          rw [←he']
+          exact (hf ⟨e₀', e₀'_in_SE⟩).1
+        rw [this]
+        exact Set.finite_empty
+    rcases finite_cell_iunion_subset_finite_sub_complex SE_finite with ⟨SC, SC_finite, SC_cover⟩
+    use SC, SC_finite
+    trans ⋃ e ∈ SE, e.1
+    . exact SE_iunion_cover
+    exact SC_cover
 end Chp5
 
 section
 variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-example {f: X → Y} (hf: IsClosedMap f) (fc: Continuous f) {s: Set X} : f '' (closure s) = closure (f '' s) := by exact Eq.symm (IsClosedMap.closure_image_eq_of_continuous hf fc s)
-example {s : Set X} (hs: IsClosed s) : let g : s → X := (↑); IsClosedMap g := by
-  exact IsClosed.isClosedMap_subtype_val hs
-example {f: X → Y} (t: Set Y) : f ⁻¹' t = f ⁻¹' (t ∩ Set.range f) := by
-  exact Eq.symm Set.preimage_inter_range
-example {f: X → Y} : f ⁻¹' (Set.range f) = Set.univ := by
-  exact Set.preimage_range f
-example {s1 s2 : Set X} (h0: s1 ⊆ s2) (h1: IsClosed s2) : closure s1 ⊆ s2 := by
-  exact (IsClosed.closure_subset_iff h1).mpr h0
-example {s1 s2 s3: Set X} (h0: s1 = s2 ∪ s3) (h1: s2 ∩ s3 = ∅) : s1 \ s2 = s3 := by
-  rw [h0]
-  apply Set.union_diff_cancel_left ?_
-  exact Set.subset_empty_iff.mpr h1
-example {s: Set X} : closure s = s ∪ (closure s \ s) := by
-  exact Eq.symm (Set.union_diff_cancel' (fun ⦃a⦄ a ↦ a) subset_closure)
-example {f: X → Y}: f ⁻¹' ∅ = ∅ := by exact rfl
-example {s1 s2 s3: Set X} : s1 ∩ s2 ∩ s3 = (s1 ∩ s3) ∩ s2 := Set.inter_right_comm s1 s2 s3
-example (s1 s2 s3: Set X) : (s1 ∩ s3) ∩ (s2 ∩ s3) = (s1 ∩ s2) ∩ s3 := by
-  exact Eq.symm (Set.inter_inter_distrib_right s1 s2 s3)
-example (s1 s2 s3: Set X) (h23: Disjoint s2 s3) (h112: s1 ⊆ s2) : Disjoint s1 s3 := by
-  exact Set.disjoint_of_subset h112 (fun ⦃a⦄ a ↦ a) h23
-example (s1 s2 s3: Set X) (h23: Disjoint s2 s3) (h112: s1 ⊆ s3) : Disjoint s2 s1 := by
-  exact Set.disjoint_of_subset (fun ⦃a⦄ a ↦ a) h112 h23
-example (s1 s2: Set X) (h: ∀ x, x ∈ s1 → x ∉ s2) : Disjoint s1 s2 := by
-  exact Set.disjoint_left.mpr h
-example (s1 s2: Set X) {x: X} (h1: x ∈ s1) (h2: x ∈ s2) (h: Disjoint s1 s2) : False := by
-  apply Set.disjoint_left.mp h h1 h2
-example {s1 :Set X} (h: ¬s1.Nonempty) : s1 = ∅ := by
-  exact Set.not_nonempty_iff_eq_empty.mp h
-#check Path
-#check IsPathConnected.union
-example {ι : Type*} {f: ι → Set X} {s₀: Set X} (i₀: ι) (hs₀: s₀.Nonempty) (hf_pc: ∀ i:ι, IsPathConnected (f i)) (hf_incl: ∀ i:ι, s₀ ⊆ f i) : IsPathConnected (⋃ i:ι, f i) := by
-  rcases hs₀ with ⟨x, hx⟩
-  have : x ∈ ⋃ i:ι, f i := by
-    rw [Set.mem_iUnion]
-    use i₀
-    exact hf_incl i₀ hx
-  use x, this
-  intro y hy
-  rw [Set.mem_iUnion] at hy
-  rcases hy with ⟨i₁, y_in_fi₁⟩
-  exact ((hf_pc i₁).joinedIn x (hf_incl i₁ hx) y y_in_fi₁).mono (Set.subset_iUnion f i₁)
-example {s1 s2: Set X} {f: X → Y} (hf: Function.Injective f) (h: f '' s1 = f '' s2) : s1 = s2 := by
-  exact (Set.image_eq_image hf).mp h
-example {s : Set Y} {f : X → Y} (hs: s ⊆ Set.range f) (hf: Function.Injective f) : f '' (f ⁻¹' s) = s := by
-  exact Set.image_preimage_eq_of_subset hs
-example {s1 s2: Set X} (hs2: IsPathConnected s2) {x: X} (hx: x ∈ s2) : s2 ⊆ pathComponent x := by
-  exact IsPathConnected.subset_pathComponent hs2 hx
-example {n k: ℕ} (h: k ≤ n + 1) : k = n + 1 ∨ k ≤ n := by
-  exact Nat.le_succ_iff_eq_or_le.mp h
 end
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
