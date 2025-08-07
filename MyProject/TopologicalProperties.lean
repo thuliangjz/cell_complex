@@ -1120,7 +1120,7 @@ theorem cell_colsure_subset_finite_sub_complex [CW: CWComplexClass X] : ∀ e �
     . rw [finite_sub_cell_complex_iff]
       exact SC_finite
     exact ce_sub_SC
-theorem finite_cell_closure_subset_finite_sub_complex [CW: CWComplexClass X] {SE: Set C.sets} (hSE: SE.Finite) : ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ (⋃ e ∈ SE, e.1) ⊆ SC := by
+theorem finite_cell_iunion_subset_finite_sub_complex [CW: CWComplexClass X] {SE: Set C.sets} (hSE: SE.Finite) : ∃ SC: (SubCellComplex X), FiniteCellComplex SC ∧ (⋃ e ∈ SE, e.1) ⊆ SC := by
   choose f f_finite f_cover using @cell_colsure_subset_finite_sub_complex X _ _ C CW
   let SC_carrier : Set X := ⋃ e ∈ SE, (f e.1 e.2)
   have SC_carrier_cell_incl_or_disjoint: ∀ e₁ ∈ C.sets, e₁ ⊆ SC_carrier ∨ Disjoint e₁ SC_carrier := by
@@ -1299,6 +1299,10 @@ theorem compact_iff_closed_and_subset_finite_sub_complex {X: Type*} [Topological
     exact (finite_subcomplex_compact SC_finite).of_isClosed_subset SClosed S_sub_SC
   case mp =>
     intro hS
+    suffices ∃ SC:SubCellComplex X, FiniteCellComplex SC ∧ S ⊆ SC by
+      constructor
+      . exact IsCompact.isClosed hS
+      exact this
     let SE : Set C.sets := {e | (e.1 ∩ S).Nonempty}
     have SE_iunion_cover : S ⊆ ⋃ e ∈ SE, e.1 := by
       intro x x_in_S
@@ -1335,14 +1339,58 @@ theorem compact_iff_closed_and_subset_finite_sub_complex {X: Type*} [Topological
           apply hS.of_isClosed_subset this.1 T_sub_S
         apply T_compact.finite this.2
       rw [subset_discrete_iff_cell_inter_finite]
-      sorry
-    sorry
+      intro e e_in_sets
+      let e' : C.sets := ⟨e, e_in_sets⟩
+      match Classical.em (e' ∈ SE) with
+      | Or.inl e'_in_SE =>
+        have : (T ∩ e) = {f ⟨e', e'_in_SE⟩} := by
+          ext x
+          refine Iff.intro ?mp ?mpr
+          case mp =>
+            intro hx
+            rcases hx.1 with ⟨e₀', he₀'⟩
+            have x_in_e₀: x ∈ e₀'.1.1 := by
+              rw [←he₀']
+              exact (hf e₀').1
+            have heq: e₀'.1.1 = e := same_cell_of_mem e₀'.1.2 e_in_sets x_in_e₀ hx.2
+            have heq': e₀' = ⟨e', e'_in_SE⟩ := by
+              apply SetCoe.ext
+              apply SetCoe.ext
+              exact heq
+            rw [←heq']
+            exact he₀'.symm
+          case mpr =>
+            intro hx
+            rw [hx]
+            constructor
+            . use ⟨e', e'_in_SE⟩
+            exact (hf ⟨e', e'_in_SE⟩).1
+        rw [this]
+        exact Set.finite_singleton (f ⟨e', e'_in_SE⟩)
+      | Or.inr e'_not_in_SE =>
+        have : T ∩ e = ∅ := by
+          rw [←Set.disjoint_iff_inter_eq_empty, Set.disjoint_left]
+          rintro x ⟨⟨e₀', e₀'_in_SE⟩, he'⟩
+          have e_ne_e₀ : e ≠ e₀'.1 := by
+            contrapose! e'_not_in_SE
+            have : e' = e₀' := SetCoe.ext e'_not_in_SE
+            rwa [this]
+          have e_e₀_disjoint: Disjoint e e₀'.1 := C.disjoint e_in_sets e₀'.2 e_ne_e₀
+          rw [Set.disjoint_right] at e_e₀_disjoint
+          apply e_e₀_disjoint
+          rw [←he']
+          exact (hf ⟨e₀', e₀'_in_SE⟩).1
+        rw [this]
+        exact Set.finite_empty
+    rcases finite_cell_iunion_subset_finite_sub_complex SE_finite with ⟨SC, SC_finite, SC_cover⟩
+    use SC, SC_finite
+    trans ⋃ e ∈ SE, e.1
+    . exact SE_iunion_cover
+    exact SC_cover
 end Chp5
 
 section
 variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-example {S: Set X} (S_compact: IsCompact S) (S_discrete: DiscreteTopology S) : S.Finite := by
-  exact IsCompact.finite S_compact S_discrete
 end
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
