@@ -1394,50 +1394,29 @@ theorem compact_space_iff_finite {X: Type*} [TopologicalSpace X] [T2Space X] [C:
   refine Iff.intro ?mp ?mpr
   case mp =>
     rintro ⟨SC, SC_finite, SC_eq_univ⟩
-    let g : SC → X := (↑)
-    let h : sub_cell_complex_sets SC → Set X := fun e' ↦ g '' e'.1
-    have h_range_eq: Set.range h = C.sets := by
-      ext e
-      refine Iff.intro ?mp' ?mpr'
-      case mp' =>
-        rintro ⟨e', rfl⟩
-        exact e'.2
-      case mpr' =>
-        intro he
-        let e' : Set (SC) := {x' | g x' ∈ e}
-        have : g '' e' = e := by
-          ext x
-          refine Iff.intro ?mp0 ?mpr0
-          case mp0 =>
-            rintro ⟨x', x'_in_e', rfl⟩
-            exact x'_in_e'
-          case mpr0 =>
-            intro x_in_e
-            have x_in_SC: x ∈ (SC:Set X) := by
-              rw [SC_eq_univ]
-              trivial
-            let x' : SC := ⟨x, x_in_SC⟩
-            have x'_in_e' : x' ∈ e' := x_in_e
-            use x'
-        have e'_in_sets: e' ∈ (sub_cell_complex_sets SC) := by
-          rw [←this] at he
-          exact he
-        use ⟨e', e'_in_sets⟩
-    show (C.sets).Finite
-    rw [←h_range_eq]
-    have : Finite (sub_cell_complex_sets SC) := SC_finite
-    apply Set.finite_range
+    rw [finite_sub_cell_complex_iff, SC_eq_univ] at SC_finite
+    simp at SC_finite
+    exact SC_finite
   case mpr =>
-    sorry
+    intro sets_finite
+    let SC_carrier : Set X := Set.univ
+    let SC: SubCellComplex X := {
+      carrier := Set.univ
+      cell_closure_incl := by simp
+      cell_incl_or_disjoint := by simp
+    }
+    use SC
+    constructor
+    . rw [finite_sub_cell_complex_iff]
+      have : (SC:(Set X)) = Set.univ := rfl
+      rw [this]
+      simp
+      exact sets_finite
+    rfl
 end Chp5
 
 section
 variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-#check CompactSpace X
-example : CompactSpace X ↔ IsCompact (Set.univ: Set X) := by
-  exact Iff.symm isCompact_univ_iff
-example {T: Type*} [Finite T] {f: T → X} : (Set.range f).Finite := by
-  exact Set.finite_range f
 end
 -- example of dependent arrow notation
 -- constructing function having a desired property (proposition is required in f's input)
