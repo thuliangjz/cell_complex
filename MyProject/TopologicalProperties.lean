@@ -1413,8 +1413,84 @@ theorem compact_space_iff_finite {X: Type*} [TopologicalSpace X] [T2Space X] [C:
       simp
       exact sets_finite
     rfl
-end Chp5
 
+-- note the locally compact in text is actually WeaklyCompact in Matlib
+theorem cw_locally_finite_iff_locally_compact {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] : (LocallyFinite fun s:C.sets ↦ s.1) ↔ WeaklyLocallyCompactSpace X := by
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro h_locally_finite
+    have target: ∀ x:X, ∃ s, IsCompact s ∧ s ∈ 𝓝 x := by
+      intro x
+      rcases h_locally_finite x with ⟨nx, nx_in_nhds, h_sets_inter_nx_finite⟩
+      simp at h_sets_inter_nx_finite
+      let SE := {E:C.sets | (E.1 ∩ nx).Nonempty}
+      have SE_finite : SE.Finite := h_sets_inter_nx_finite
+      -- we have SE being a finite sets
+      rcases finite_cell_iunion_subset_finite_sub_complex SE_finite with ⟨SC, SC_finite, SC_cover_iunion⟩
+      use (closure nx)
+      have cnx_in_nhds: (closure nx) ∈ 𝓝 x := by
+        apply (𝓝 x).sets_of_superset nx_in_nhds
+        apply subset_closure
+      have cnx_compact: IsCompact (closure nx) := by
+        rw [compact_iff_closed_and_subset_finite_sub_complex]
+        constructor
+        . exact isClosed_closure
+        use SC, SC_finite
+        let uc := ⋃ e ∈ SE, (closure e.1)
+        have uc_closed: IsClosed uc := by
+          apply Set.Finite.isClosed_biUnion SE_finite
+          exact fun i a ↦ isClosed_closure
+        trans uc
+        . rw [IsClosed.closure_subset_iff uc_closed]
+          calc
+            nx ⊆ ⋃ e ∈ SE, e.1 := by
+              intro x₀ x₀_in_nx
+              rw [Set.mem_iUnion₂]
+              rcases exists_mem_of_cell x₀ with ⟨e, e_in_sets, x₀_in_e⟩
+              use ⟨e, e_in_sets⟩, ⟨x₀, ⟨x₀_in_e, x₀_in_nx⟩⟩
+            _ ⊆ uc := by
+              apply Set.iUnion₂_mono
+              intro e' e'_in_SE
+              exact subset_closure
+        apply Set.iUnion₂_subset
+        intro e' e'_in_SE
+        apply SC.cell_closure_incl e'.1 e'.2
+        trans ⋃ e ∈ SE, e
+        . apply Set.subset_iUnion₂ e' e'_in_SE
+        exact SC_cover_iunion
+      tauto
+    exact { exists_compact_mem_nhds := target }
+  case mpr =>
+    intro h_local_compact
+    intro x
+    dsimp
+    rcases h_local_compact.exists_compact_mem_nhds x with ⟨s, s_compact, s_in_nhds⟩
+    use s, s_in_nhds
+    rw [compact_iff_closed_and_subset_finite_sub_complex] at s_compact
+    rcases s_compact with ⟨s_closed, ⟨SC, SC_finite, s_in_SC⟩⟩
+    let S1 := {e:C.sets | (e.1 ∩ s).Nonempty}
+    let S2 := {e | e ∈ C.sets ∧ e ⊆ SC}
+    show S1.Finite
+    have aux: ∀ e ∈ S1, e.1 ∈ S2 := by
+      rintro e ⟨x₀, hx₀⟩
+      constructor
+      . exact e.2
+      apply SC.subset_of_intersect e.2
+      rw [←Set.nonempty_iff_ne_empty]
+      use x₀
+      exact ⟨hx₀.1, s_in_SC hx₀.2⟩
+    let f : S1 → S2 := fun ⟨e, e_in_S1⟩ ↦ ⟨e.1, aux e e_in_S1⟩
+    have f_inj: Function.Injective f := by
+      intro e1 e2 heq
+      simp [f] at heq
+      apply SetCoe.ext
+      apply SetCoe.ext
+      exact heq
+    have S2_finite : Finite S2 := by
+      rw [finite_sub_cell_complex_iff] at SC_finite
+      exact SC_finite
+    apply Finite.of_injective f f_inj
+end Chp5
 section
 variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
 end
