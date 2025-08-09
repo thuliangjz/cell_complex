@@ -1387,6 +1387,32 @@ theorem compact_iff_closed_and_subset_finite_sub_complex {X: Type*} [Topological
     trans ⋃ e ∈ SE, e.1
     . exact SE_iunion_cover
     exact SC_cover
+
+theorem compact_space_iff_finite {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] : CompactSpace X ↔ FiniteCellComplex X := by
+  rw [←isCompact_univ_iff, compact_iff_closed_and_subset_finite_sub_complex]
+  simp
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    rintro ⟨SC, SC_finite, SC_eq_univ⟩
+    rw [finite_sub_cell_complex_iff, SC_eq_univ] at SC_finite
+    simp at SC_finite
+    exact SC_finite
+  case mpr =>
+    intro sets_finite
+    let SC_carrier : Set X := Set.univ
+    let SC: SubCellComplex X := {
+      carrier := Set.univ
+      cell_closure_incl := by simp
+      cell_incl_or_disjoint := by simp
+    }
+    use SC
+    constructor
+    . rw [finite_sub_cell_complex_iff]
+      have : (SC:(Set X)) = Set.univ := rfl
+      rw [this]
+      simp
+      exact sets_finite
+    rfl
 end Chp5
 
 section
