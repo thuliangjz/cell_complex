@@ -1,4 +1,4 @@
-import MyProject.CellComplex
+import STCC.CellComplex
 import Mathlib.Topology.Connected.PathConnected
 import Mathlib.Topology.UnitInterval
 open Topology unitInterval
