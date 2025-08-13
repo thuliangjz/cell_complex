@@ -3,7 +3,7 @@ import Mathlib.Topology.Basic
 import Mathlib.Topology.Constructions
 import Mathlib.Topology.LocallyFinite
 import Mathlib.Topology.MetricSpace.Basic
-import MyProject.Basic
+import STCC.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 open BigOperators

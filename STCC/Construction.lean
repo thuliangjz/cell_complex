@@ -1,4 +1,4 @@
-import MyProject.TopologicalProperties
+import STCC.TopologicalProperties
 
 open BigOperators
 namespace Chp5
