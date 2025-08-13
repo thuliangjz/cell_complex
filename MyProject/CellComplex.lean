@@ -85,6 +85,10 @@ theorem characteristic_map_range {X: Type*} [TopologicalSpace X] [T2Space X] [C:
     ext x
     tauto
 
+theorem characteristic_map_range' {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] : ∀ s: Set X, ∀ h: s ∈ C.sets, Set.range (C.characteristic_map ⟨s, h⟩) = closure s := by
+    intro e e_in_sets
+    show Set.range (C.characteristic_map ⟨e, e_in_sets⟩) = closure (⟨e, e_in_sets⟩:C.sets).1
+    apply characteristic_map_range
 section
 variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
 theorem cell_closure_connected : ∀ s ∈ C.sets, IsConnected (closure s) := by
