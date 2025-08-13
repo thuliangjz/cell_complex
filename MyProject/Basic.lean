@@ -271,8 +271,7 @@ structure IsCoeherent {X: Type*} [TopologicalSpace X] (B: Set (Set X)) : Prop wh
     open_crit: ∀ s : Set X, IsOpen s ↔ ∀ b ∈ B, IsOpen (((↑): b → X)⁻¹' s)
     cover: ⋃₀ B = Set.univ
 
-set_option linter.unusedVariables false in
-def CoeherentSigmaMap {X: Type*} [TopologicalSpace X] (B: Set (Set X)) := fun (⟨_, x⟩: Sigma (fun b:B ↦ b.1)) ↦ x.val
+def CoeherentSigmaMap {X: Type*} [TopologicalSpace X] (B: Set (Set X)) := fun (x: Sigma (fun b:B ↦ b.1)) ↦ x.2.1
 
 theorem subset_open_of_open {X: Type*} [TopologicalSpace X] {s V: Set X} (hV: IsOpen V) : IsOpen (((↑): s → X) ⁻¹' V) := by
     exact isOpen_induced hV
@@ -387,6 +386,3 @@ example : (∀ p : (ℕ → Prop), (p 0 ∧ (∀ n: ℕ, (∀ m : ℕ, m ≤ n �
         apply r
         use hp0
         exact fun n a ↦ hp n (this n)
-
-#check Metric.isPathConnected_ball
-#check convex_closedBall
