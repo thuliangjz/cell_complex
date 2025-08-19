@@ -381,197 +381,212 @@ def left_adj_proj : X → AdjointSpace A f := (adj_proj A f)∘ (Sum.inl)
 -- which is analogous to the induction step of mathematical induction
 #check Relation.EqvGen.rec
 
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem glue_rel_equiv_explicit : ∀ xy1 xy2: (X ⊕ Y), ((glue_rel_equiv A f) xy1 xy2) →
+(∃ x:X, xy1 = Sum.inl x ∧ xy2 = xy1) ∨
+(∃ x1:X, ∃ y2:Y, ∃ y2':A, xy1 = Sum.inl x1 ∧ xy2 = Sum.inr y2 ∧ y2 = y2'.1 ∧ x1 = f y2') ∨
+(∃ y1:Y, ∃ x2:X, ∃ y1':A, xy1= Sum.inr y1 ∧ xy2 = Sum.inl x2 ∧ y1 = y1'.1 ∧ x2 = f y1') ∨
+(∃ y1:Y, ∃ y2:Y, ∃ y1' y2':A, xy1 = Sum.inr y1 ∧ xy2 = Sum.inr y2 ∧ y1'.1 = y1 ∧ y2'.1 = y2 ∧ f y1' = f y2' ∧ y1 ≠ y2) ∨
+(∃ y:Y, xy1 = Sum.inr y ∧ xy2 = xy1) := by
+    apply @Relation.EqvGen.rec
+    case rel =>
+        intro xy1 xy2 hxy12
+        rw [glue_rel] at hxy12
+        right; left
+        rcases hxy12 with ⟨y', heq1, heq2⟩
+        use (f y'), y'.1, y'
+    case refl =>
+        intro xy
+        match xy with
+        | Sum.inl x => left; use x
+        | Sum.inr y => right; right; right; right; use y
+    case symm =>
+        intro xy1 xy2 h_rel hxy12
+        rcases hxy12 with c12_0 | c12_1 | c12_2 | c12_3 | c12_4
+        . rcases c12_0 with ⟨x21, hx21, heq21⟩
+          left
+          use x21, (by rwa[heq21]), heq21.symm
+        . rcases c12_1 with ⟨x1, y2, y2', heq12_0, heq12_1, heq12_2, heq12_3⟩
+          right; right; left
+          use y2, x1, y2'
+        . rcases c12_2 with ⟨y12, x12, y12', heq12_1, heq12_2, heq12_3, heq12_4⟩
+          right; left
+          use x12, y12, y12'
+        . rcases c12_3 with ⟨y12_0, y12_1, y12_0', y12_1', heq12_1, heq12_2, heq12_3, heq12_4, heq12_5, hne12⟩
+          right; right; right; left
+          use y12_1, y12_0, y12_1', y12_0', heq12_2, heq12_1, heq12_4, heq12_3, heq12_5.symm, hne12.symm
+        . rcases c12_4 with ⟨y12, heq12_1, heq12_2⟩
+          right; right; right; right;
+          use y12, (by rwa[heq12_2]), heq12_2.symm
+    case trans =>
+        intro xy1 xy2 xy3 rxy12 rxy23 cases12 cases23
+        rcases cases12 with c12_0 | c12_1 | c12_2 | c12_3 | c12_4
+        . rcases c12_0 with ⟨x21, hx21, heq21⟩
+          rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
+          . rcases c23_0 with ⟨x23, hx23, heq23⟩
+            have :  (∃ x, xy1 = Sum.inl x ∧ xy3 = xy1) := by
+                use x21, hx21
+                simp [←heq21, heq23]
+            left
+            assumption
+          . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
+            right; left
+            use x21, y23, y23', hx21, heq2, heq3
+            have : x21 = x23 := by
+                apply Sum.inl_injective
+                rw [←hx21, ←heq1]
+                exact heq21.symm
+            rw [this]
+            exact heq4
+          . rcases c23_2 with ⟨y23, x23, y23', heq⟩
+            have : Sum.inl x21 = Sum.inr y23 := by
+                rw [←hx21, ←heq.1]
+                exact heq21.symm
+            contradiction
+          . rcases c23_3 with ⟨y2, y3, y2', y3', heq⟩
+            have : Sum.inl x21 = Sum.inr y2 := by
+                rw [←hx21, ←heq.1]
+                exact heq21.symm
+            contradiction
+          . rcases c23_4 with ⟨y2, heq⟩
+            have : Sum.inl x21 = Sum.inr y2 := by
+                rw [←hx21, ←heq.1]
+                exact heq21.symm
+            contradiction
+        . rcases c12_1 with ⟨x1, y2, y2', heq12_0, heq12_1, heq12_2, heq12_3⟩
+          rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
+          . rcases c23_0 with ⟨x2, heq23⟩
+            have : Sum.inl x2 = Sum.inr y2 := by rw [←heq23.1, heq12_1]
+            contradiction
+          . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
+            have : Sum.inr y2 = Sum.inl x23 := by rw [←heq12_1, heq1]
+            contradiction
+          . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
+            have y2_eq_y23 : y2 = y23 := by
+                apply Sum.inr_injective
+                rw [←heq12_1, ←heq1]
+            have y2'_eq_y23' : y2' = y23' := by
+                apply SetCoe.ext
+                rw [←heq12_2, ←heq3]
+                exact  y2_eq_y23
+            have x1_eq_x23: x1 = x23 := by
+                rw  [heq12_3, heq4]
+                congr
+            have xy1_eq_xy3 : xy1 = xy3 := by
+                rw [heq12_0, heq2]
+                congr
+            left
+            use x1, heq12_0, xy1_eq_xy3.symm
+          . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
+            right; left
+            use x1, y30, y30', heq12_0, heq2, heq4.symm
+            have : y2 = y20 := by apply Sum.inr_injective; rw [←heq12_1, ←heq1]
+            have : y2' = y20' := by apply SetCoe.ext; rwa [←heq12_2, heq3]
+            rwa [heq12_3, this]
+          . rcases c23_4 with ⟨y, heq⟩
+            right; left
+            use x1, y2, y2', heq12_0
+            rw [heq.2]
+            use heq12_1
+        . rcases c12_2 with ⟨y12, x12, y12', heq12_1, heq12_2, heq12_3, heq12_4⟩
+          rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
+          . rcases c23_0 with ⟨x2, heq0, heq1⟩
+            right; right; left
+            use y12, x2, y12', heq12_1, (by rwa[heq1]), heq12_3
+            have : x2 = x12 := by apply Sum.inl_injective; rw[←heq12_2, ←heq0]
+            rwa [this]
+          . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
+            -- in this case we need to check if y12 == y23
+            rcases eq_or_ne y12 y23 with h_y12_eq_y23 | h_y12_ne_y23
+            . right; right; right; right
+              use y12, heq12_1
+              rwa [heq12_1, h_y12_eq_y23]
+            . right; right; right; left
+              use y12, y23, y12', y23', heq12_1, heq2, heq12_3.symm, heq3.symm
+              have : f y12' = f y23' := by
+                rw [←heq12_4, ←heq4]
+                apply Sum.inl_injective
+                rwa [←heq12_2]
+              use this
+          . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
+            have : Sum.inl x12 = Sum.inr y23 := by rwa [←heq12_2]
+            contradiction
+          . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
+            have : Sum.inl x12 = Sum.inr y20 := by rwa [←heq12_2]
+            contradiction
+          . rcases c23_4 with ⟨y, heq1, heq2⟩
+            have: Sum.inl x12 = Sum.inr y := by rwa[←heq12_2]
+            contradiction
+        . rcases c12_3 with ⟨y12_0, y12_1, y12_0', y12_1', heq12_1, heq12_2, heq12_3, heq12_4, heq12_5, hne12⟩
+          rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
+          . rcases c23_0 with ⟨x2, heq0, heq1⟩
+            have : Sum.inr y12_1 = Sum.inl x2 := by rwa[←heq12_2]
+            contradiction
+          . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
+            have : Sum.inr y12_1 = Sum.inl x23 := by rwa[←heq12_2]
+            contradiction
+          . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
+            right; right; left
+            use y12_0, x23, y12_0', heq12_1, heq2, heq12_3.symm
+            rw [heq4, heq12_5]; congr
+            apply SetCoe.ext
+            rw [heq12_4, ←heq3]
+            apply Sum.inr_injective
+            rwa [←heq1]
+          . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
+            rcases eq_or_ne y12_0 y30 with h_y12_0_eq_y30 | h_y12_0_ne_y30
+            . right; right; right; right
+              use y12_0, heq12_1
+              rw [heq2, ←h_y12_0_eq_y30, heq12_1]
+            . right; right; right; left
+              use y12_0, y30, y12_0', y30', heq12_1, heq2, heq12_3, heq4
+              have : f y12_0' = f y30' := by
+                rw [heq12_5, ←heq5]
+                congr
+                apply SetCoe.ext
+                rw [heq12_4, heq3]
+                apply Sum.inr_injective
+                rwa [←heq12_2]
+              use this
+          . rcases c23_4 with ⟨y, heq⟩
+            right; right; right; left
+            use y12_0, y12_1, y12_0', y12_1', heq12_1, (by rwa[heq.2])
+        . rcases c12_4 with ⟨y12, heq12_1, heq12_2⟩
+          rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
+          . rcases c23_0 with ⟨x2, heq0, heq1⟩
+            have : Sum.inl x2 = Sum.inr y12 := by rwa [←heq0, ←heq12_1]
+            contradiction
+          . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
+            have : Sum.inl x23 = Sum.inr y12 := by rwa [←heq1, heq12_2]
+            contradiction
+          . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
+            right; right; left
+            use y12, x23, y23', heq12_1, heq2, (by rw [←heq3]; apply Sum.inr_injective; rwa [←heq12_1, ←heq12_2])
+          . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
+            right; right; right; left
+            use y20, y30, y20', y30', (by rwa [←heq12_2])
+          . rcases c23_4 with ⟨y, heq⟩
+            right; right; right; right
+            use y12, heq12_1, (by rwa[heq.2])
+
 -- as an example, we use recursor to prove the left_adj_proj is injective
-theorem left_adj_proj_inj : Function.Injective (left_adj_proj A f) := by
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_proj_inj : Function.Injective (left_adj_proj A f) := by
     intro a b hab
     rw [left_adj_proj, adj_proj] at hab
     have : (glue_setoid A f).r (Sum.inl a) (Sum.inl b) := by
         exact Quotient.eq''.mp hab
-    simp [glue_setoid, glue_rel_equiv] at this
-    have aux0 : ∀ xy1 xy2: (X ⊕ Y), Relation.EqvGen (glue_rel A f) xy1 xy2 →
-        (∃ x:X, xy1 = Sum.inl x ∧ xy2 = xy1) ∨
-        (∃ x1:X, ∃ y2:Y, ∃ y2':A, xy1 = Sum.inl x1 ∧ xy2 = Sum.inr y2 ∧ y2 = y2'.1 ∧ x1 = f y2') ∨
-        (∃ y1:Y, ∃ x2:X, ∃ y1':A, xy1= Sum.inr y1 ∧ xy2 = Sum.inl x2 ∧ y1 = y1'.1 ∧ x2 = f y1') ∨
-        (∃ y1:Y, ∃ y2:Y, ∃ y1' y2':A, xy1 = Sum.inr y1 ∧ xy2 = Sum.inr y2 ∧ y1'.1 = y1 ∧ y2'.1 = y2 ∧ f y1' = f y2' ∧ y1 ≠ y2) ∨
-        (∃ y:Y, xy1 = Sum.inr y ∧ xy2 = xy1) := by
-        apply @Relation.EqvGen.rec
-        case rel =>
-            sorry
-        case refl =>
-            sorry
-        case symm =>
-            sorry
-        case trans =>
-            intro xy1 xy2 xy3 rxy12 rxy23 cases12 cases23
-            rcases cases12 with c12_0 | c12_1 | c12_2 | c12_3 | c12_4
-            . rcases c12_0 with ⟨x21, hx21, heq21⟩
-              rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
-              . rcases c23_0 with ⟨x23, hx23, heq23⟩
-                have :  (∃ x, xy1 = Sum.inl x ∧ xy3 = xy1) := by
-                    use x21, hx21
-                    simp [←heq21, heq23]
-                left
-                assumption
-              . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
-                right; left
-                use x21, y23, y23', hx21, heq2, heq3
-                have : x21 = x23 := by
-                    apply Sum.inl_injective
-                    rw [←hx21, ←heq1]
-                    exact heq21.symm
-                rw [this]
-                exact heq4
-              . rcases c23_2 with ⟨y23, x23, y23', heq⟩
-                have : Sum.inl x21 = Sum.inr y23 := by
-                    rw [←hx21, ←heq.1]
-                    exact heq21.symm
-                contradiction
-              . rcases c23_3 with ⟨y2, y3, y2', y3', heq⟩
-                have : Sum.inl x21 = Sum.inr y2 := by
-                    rw [←hx21, ←heq.1]
-                    exact heq21.symm
-                contradiction
-              . rcases c23_4 with ⟨y2, heq⟩
-                have : Sum.inl x21 = Sum.inr y2 := by
-                    rw [←hx21, ←heq.1]
-                    exact heq21.symm
-                contradiction
-            . rcases c12_1 with ⟨x1, y2, y2', heq12_0, heq12_1, heq12_2, heq12_3⟩
-              rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
-              . rcases c23_0 with ⟨x2, heq23⟩
-                have : Sum.inl x2 = Sum.inr y2 := by rw [←heq23.1, heq12_1]
-                contradiction
-              . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
-                have : Sum.inr y2 = Sum.inl x23 := by rw [←heq12_1, heq1]
-                contradiction
-              . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
-                have y2_eq_y23 : y2 = y23 := by
-                    apply Sum.inr_injective
-                    rw [←heq12_1, ←heq1]
-                have y2'_eq_y23' : y2' = y23' := by
-                    apply SetCoe.ext
-                    rw [←heq12_2, ←heq3]
-                    exact  y2_eq_y23
-                have x1_eq_x23: x1 = x23 := by
-                    rw  [heq12_3, heq4]
-                    congr
-                have xy1_eq_xy3 : xy1 = xy3 := by
-                    rw [heq12_0, heq2]
-                    congr
-                left
-                use x1, heq12_0, xy1_eq_xy3.symm
-              . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
-                right; left
-                use x1, y30, y30', heq12_0, heq2, heq4.symm
-                have : y2 = y20 := by apply Sum.inr_injective; rw [←heq12_1, ←heq1]
-                have : y2' = y20' := by apply SetCoe.ext; rwa [←heq12_2, heq3]
-                rwa [heq12_3, this]
-              . rcases c23_4 with ⟨y, heq⟩
-                right; left
-                use x1, y2, y2', heq12_0
-                rw [heq.2]
-                use heq12_1
-            . rcases c12_2 with ⟨y12, x12, y12', heq12_1, heq12_2, heq12_3, heq12_4⟩
-              rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
-              . rcases c23_0 with ⟨x2, heq0, heq1⟩
-                right; right; left
-                use y12, x2, y12', heq12_1, (by rwa[heq1]), heq12_3
-                have : x2 = x12 := by apply Sum.inl_injective; rw[←heq12_2, ←heq0]
-                rwa [this]
-              . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
-                -- in this case we need to check if y12 == y23
-                rcases eq_or_ne y12 y23 with h_y12_eq_y23 | h_y12_ne_y23
-                . right; right; right; right
-                  use y12, heq12_1
-                  rwa [heq12_1, h_y12_eq_y23]
-                . right; right; right; left
-                  use y12, y23, y12', y23', heq12_1, heq2, heq12_3.symm, heq3.symm
-                  have : f y12' = f y23' := by
-                    rw [←heq12_4, ←heq4]
-                    apply Sum.inl_injective
-                    rwa [←heq12_2]
-                  use this
-              . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
-                have : Sum.inl x12 = Sum.inr y23 := by rwa [←heq12_2]
-                contradiction
-              . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
-                have : Sum.inl x12 = Sum.inr y20 := by rwa [←heq12_2]
-                contradiction
-              . rcases c23_4 with ⟨y, heq1, heq2⟩
-                have: Sum.inl x12 = Sum.inr y := by rwa[←heq12_2]
-                contradiction
-            . rcases c12_3 with ⟨y12_0, y12_1, y12_0', y12_1', heq12_1, heq12_2, heq12_3, heq12_4, heq12_5, hne12⟩
-              rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
-              . rcases c23_0 with ⟨x2, heq0, heq1⟩
-                have : Sum.inr y12_1 = Sum.inl x2 := by rwa[←heq12_2]
-                contradiction
-              . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
-                have : Sum.inr y12_1 = Sum.inl x23 := by rwa[←heq12_2]
-                contradiction
-              . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
-                right; right; left
-                use y12_0, x23, y12_0', heq12_1, heq2, heq12_3.symm
-                rw [heq4, heq12_5]; congr
-                apply SetCoe.ext
-                rw [heq12_4, ←heq3]
-                apply Sum.inr_injective
-                rwa [←heq1]
-              . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
-                rcases eq_or_ne y12_0 y30 with h_y12_0_eq_y30 | h_y12_0_ne_y30
-                . right; right; right; right
-                  use y12_0, heq12_1
-                  rw [heq2, ←h_y12_0_eq_y30, heq12_1]
-                . right; right; right; left
-                  use y12_0, y30, y12_0', y30', heq12_1, heq2, heq12_3, heq4
-                  have : f y12_0' = f y30' := by
-                    rw [heq12_5, ←heq5]
-                    congr
-                    apply SetCoe.ext
-                    rw [heq12_4, heq3]
-                    apply Sum.inr_injective
-                    rwa [←heq12_2]
-                  use this
-              . rcases c23_4 with ⟨y, heq⟩
-                right; right; right; left
-                use y12_0, y12_1, y12_0', y12_1', heq12_1, (by rwa[heq.2])
-            . rcases c12_4 with ⟨y12, heq12_1, heq12_2⟩
-              rcases cases23 with c23_0 | c23_1 | c23_2 | c23_3 | c23_4
-              . rcases c23_0 with ⟨x2, heq0, heq1⟩
-                have : Sum.inl x2 = Sum.inr y12 := by rwa [←heq0, ←heq12_1]
-                contradiction
-              . rcases c23_1 with ⟨x23, y23, y23', heq1, heq2, heq3, heq4⟩
-                have : Sum.inl x23 = Sum.inr y12 := by rwa [←heq1, heq12_2]
-                contradiction
-              . rcases c23_2 with ⟨y23, x23, y23', heq1, heq2, heq3, heq4⟩
-                right; right; left
-                use y12, x23, y23', heq12_1, heq2, (by rw [←heq3]; apply Sum.inr_injective; rwa [←heq12_1, ←heq12_2])
-              . rcases c23_3 with ⟨y20, y30, y20', y30', heq1, heq2, heq3, heq4, heq5, hne⟩
-                right; right; right; left
-                use y20, y30, y20', y30', (by rwa [←heq12_2])
-              . rcases c23_4 with ⟨y, heq⟩
-                right; right; right; right
-                use y12, heq12_1, (by rwa[heq.2])
-    have aux: ∀ xy1 xy2: (X ⊕ Y), Relation.EqvGen (glue_rel A f) xy1 xy2 →  (∃ x1 x2 : X, xy1 = Sum.inl x1 ∧ xy2 = Sum.inl x2)→ xy1 = xy2 := by
-        apply @Relation.EqvGen.rec
-        case rel =>
-            rintro xy1 xy2 rxy12 ⟨x1, x2, hx1, hx2⟩
-            rw [glue_rel] at rxy12
-            rcases rxy12 with ⟨a, hxy1, hxy2⟩
-            rw [hx2] at hxy2
-            -- inl cannot equal to inr
-            contradiction
-        case refl =>
-            intro _ _
-            rfl
-        case symm =>
-            rintro xy1 xy2 rxy12 hf ⟨x1, x2, hx1, hx2⟩
-            apply Eq.symm
-            apply hf
-            use x2, x1
-        case trans =>
-            intro xy1 xy2 xy3 rxy12 rxy23
-            sorry
-    sorry
+    simp [glue_setoid] at this
+    rcases glue_rel_equiv_explicit A f _ _ this with c_0 | c_1 | c_2 | c_3 | c_4
+    . rcases c_0 with ⟨x, heq1, heq2⟩
+      apply Sum.inl_injective
+      exact heq2.symm
+    . rcases c_1 with ⟨x, y, y', heq1, heq2, heq3, heq4⟩
+      contradiction
+    . rcases c_2 with ⟨y, x, y', heq1, heq2, heq3, heq4⟩
+      contradiction
+    . rcases c_3 with ⟨y1, y2, y1', y2', heq1, heq2, heq3, heq4, hne⟩
+      contradiction
+    . rcases c_4 with ⟨y, heq1, heq2⟩
+      contradiction
 
 theorem left_adj_proj_closed_map : IsClosedMap (left_adj_proj A f) := by
     intro B BClosed
@@ -598,7 +613,6 @@ example {f : X → Y} (hf: Topology.IsQuotientMap f) (s: Set Y) : IsClosed s ↔
     exact Iff.symm (hf.isClosed_preimage)
 example {s: Set (X ⊕ Y)}: IsClosed s ↔ IsClosed (Sum.inl ⁻¹' s) ∧ IsClosed (Sum.inr ⁻¹' s) := by
     exact isClosed_sum_iff
-#check instTopologicalSpaceSum
 end
 end Chp5
 
