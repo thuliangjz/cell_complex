@@ -350,6 +350,50 @@ theorem quotient_of_choherent {X: Type*} [TX:TopologicalSpace X] {B: Set (Set X)
 
 section
 variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+theorem embedding_of_closed_continuous_injectiv {f : X → Y} (f_closed_map: IsClosedMap f) (f_continuous: Continuous f) (f_injective : Function.Injective f): Topology.IsEmbedding f := by
+    refine (Topology.isEmbedding_iff f).mpr ⟨?_, f_injective⟩
+    rw [Topology.isInducing_iff]
+    ext s
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        intro s_open_in_X
+        refine isOpen_mk.mpr ?_
+        use (f '' s) ∪ (Set.range f)ᶜ
+        have : IsOpen (f '' s ∪ (Set.range f)ᶜ) := by
+            rw [←isClosed_compl_iff]
+            simp
+            have : (f '' s)ᶜ ∩ (Set.range f) = f '' sᶜ := by
+                ext y
+                simp
+                refine Iff.intro ?mp1 ?mpr1
+                case mp1 =>
+                    rintro ⟨h1, x, rfl⟩
+                    use x
+                    simp
+                    contrapose! h1
+                    use x
+                case mpr1 =>
+                    rintro ⟨x, x_not_in_s, rfl⟩
+                    refine ⟨?_, (by use x)⟩
+                    intro x₀ x₀_in_s
+                    contrapose! x_not_in_s
+                    have : x₀ = x := by apply f_injective x_not_in_s
+                    rwa [←this]
+            rw [this]
+            apply f_closed_map
+            rwa [isClosed_compl_iff]
+        use this
+        simp
+        exact Function.Injective.preimage_image f_injective s
+    case mpr =>
+        intro hs
+        rw [isOpen_mk] at hs
+        rcases hs with ⟨t, t_open_in_Y, rfl⟩
+        exact f_continuous.isOpen_preimage t t_open_in_Y
+end
+
+section
+variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
 variable (A: Set Y) (f : A → X)
 def glue_rel : (X ⊕ Y) → (X ⊕ Y) → Prop := fun u v => ∃ a : A, u = Sum.inl (f a) ∧ v = Sum.inr a.1
 
@@ -588,7 +632,7 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_proj_inj : Fu
     . rcases c_4 with ⟨y, heq1, heq2⟩
       contradiction
 
-theorem left_adj_proj_closed_map : IsClosedMap (left_adj_proj A f) := by
+theorem left_adj_proj_closed_map (hA: IsClosed A) (hf: Continuous f): IsClosedMap (left_adj_proj A f) := by
     intro B BClosed
     rw [left_adj_proj, Set.image_comp, ←(adj_proj_quotient A f).isClosed_preimage, isClosed_sum_iff]
     refine And.intro ?left ?right
@@ -599,20 +643,65 @@ theorem left_adj_proj_closed_map : IsClosedMap (left_adj_proj A f) := by
             case mem_left =>
                 intro hx
                 simp at hx
-                sorry
+                rcases hx with ⟨a, a_in_B, ha⟩
+                have : a = x := by
+                    apply left_adj_proj_inj A f
+                    exact ha
+                rwa [←this]
             case mem_right =>
-                sorry
-        sorry
+                intro hx
+                simp
+                use x
+        rwa [this]
     case right =>
-        sorry
+        let g : A → Y := (↑)
+        have : Sum.inr ⁻¹' (adj_proj A f ⁻¹' (adj_proj A f '' (Sum.inl '' B))) = g '' (f ⁻¹' B) := by
+            ext y
+            refine Iff.intro ?mem_left ?mem_right
+            case mem_left =>
+                intro hy
+                simp
+                simp[adj_proj] at hy
+                rcases hy with ⟨x, x_in_B, hxy⟩
+                rcases glue_rel_equiv_explicit A f (Sum.inl x) (Sum.inr y) hxy with c0 | c1 | c2 | c3 | c4
+                . rcases c0 with ⟨x₀, hx₀, hxy'⟩
+                  contradiction
+                . rcases c1 with ⟨x₀, y₀, y₀', heq1, heq2, heq3, heq4⟩
+                  have x_eq_x₀ : x = x₀ := by apply Sum.inl_injective; assumption
+                  have y_eq_y₀ : y = y₀ := by apply Sum.inr_injective; assumption
+                  use y₀'.1, y₀'.2, (by rwa [←heq4, ←x_eq_x₀])
+                  simp [g]
+                  rw [←heq3, y_eq_y₀]
+                . rcases c2 with ⟨y₀, x₀, y₀', heq1, heq2, heq3, heq4⟩
+                  contradiction
+                . rcases c3 with ⟨y₀, y₁, y₀', y₁', heq1, heq2⟩
+                  contradiction
+                . rcases c4 with ⟨y₀, heq1, heq2⟩
+                  contradiction
+            case mem_right =>
+                intro hy
+                rcases hy with ⟨y', fy'_in_B, rfl⟩
+                simp
+                use (f y'), fy'_in_B
+                simp [adj_proj, glue_setoid]
+                apply Relation.EqvGen.rel
+                use y'
+        rw [this]
+        exact IsClosed.trans (IsClosed.preimage hf BClosed) hA
+
+
+
+theorem left_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topology.IsEmbedding (left_adj_proj A f):= by
+    refine embedding_of_closed_continuous_injectiv (left_adj_proj_closed_map A f hA hf) ?_ (left_adj_proj_inj A f)
+    rw [left_adj_proj, adj_proj]
+    refine Continuous.comp ?_ ?_
+    exact { isOpen_preimage := fun s a ↦ a }
+    exact continuous_inl
+
 end
 
 section
 variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
-example {f : X → Y} (hf: Topology.IsQuotientMap f) (s: Set Y) : IsClosed s ↔ IsClosed (f ⁻¹' s) := by
-    exact Iff.symm (hf.isClosed_preimage)
-example {s: Set (X ⊕ Y)}: IsClosed s ↔ IsClosed (Sum.inl ⁻¹' s) ∧ IsClosed (Sum.inr ⁻¹' s) := by
-    exact isClosed_sum_iff
 end
 end Chp5
 
