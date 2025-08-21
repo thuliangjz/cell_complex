@@ -698,6 +698,39 @@ theorem left_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topolog
     exact { isOpen_preimage := fun s a ↦ a }
     exact continuous_inl
 
+def right_adj_proj : (Aᶜ:Set Y) → AdjointSpace A f := (adj_proj A f) ∘ (Sum.inr) ∘ (Subtype.val)
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_adj_proj_injective : Function.Injective (right_adj_proj A f) := by
+    intro a b hab
+    rw [right_adj_proj, adj_proj] at hab
+    have : (glue_setoid A f).r (Sum.inr a.1) (Sum.inr b.1) := Quotient.eq''.mp hab
+    simp [glue_setoid] at this
+    rcases glue_rel_equiv_explicit A f _ _ this with c0 | c1 | c2 | c3 | c4
+    . rcases c0 with ⟨x, heq1, heq2⟩
+      contradiction
+    . rcases c1 with ⟨x, y, y', heq1, heq2, heq3, heq4⟩
+      contradiction
+    . rcases c2 with ⟨y, x, y', heq1, heq2, heq3, heq4⟩
+      contradiction
+    . rcases c3 with ⟨y1, y2, y1', y2', heq1, heq2, heq3, heq4, heq5, hne⟩
+      have a_in_A: a.1 ∈ A := by
+        have : a.1 = y1 := by
+            apply Sum.inr_injective
+            exact heq1
+        rw [this, ←heq3]
+        exact y1'.2
+      have a_not_in_A : a.1 ∉ A := a.2
+      contradiction
+    . rcases c4 with ⟨y, heq1, heq2⟩
+      have : b.1 = a.1 := by
+        apply Sum.inr_injective
+        exact heq2
+      apply SetCoe.ext
+      exact this.symm
+
+theorem right_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topology.IsEmbedding (right_adj_proj A f) := by
+    sorry
+
 end
 
 section
