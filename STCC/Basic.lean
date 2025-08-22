@@ -350,7 +350,7 @@ theorem quotient_of_choherent {X: Type*} [TX:TopologicalSpace X] {B: Set (Set X)
 
 section
 variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
-theorem embedding_of_closed_continuous_injectiv {f : X → Y} (f_closed_map: IsClosedMap f) (f_continuous: Continuous f) (f_injective : Function.Injective f): Topology.IsEmbedding f := by
+theorem embedding_of_closed_continuous_injective {f : X → Y} (f_closed_map: IsClosedMap f) (f_continuous: Continuous f) (f_injective : Function.Injective f): Topology.IsEmbedding f := by
     refine (Topology.isEmbedding_iff f).mpr ⟨?_, f_injective⟩
     rw [Topology.isInducing_iff]
     ext s
@@ -390,6 +390,24 @@ theorem embedding_of_closed_continuous_injectiv {f : X → Y} (f_closed_map: IsC
         rw [isOpen_mk] at hs
         rcases hs with ⟨t, t_open_in_Y, rfl⟩
         exact f_continuous.isOpen_preimage t t_open_in_Y
+
+theorem embedding_of_open_continuous_injective {f: X → Y} (f_open_map: IsOpenMap f) (f_continuous: Continuous f) (f_injective: Function.Injective f): Topology.IsEmbedding f := by
+  refine (Topology.isEmbedding_iff f).mpr ⟨?_, f_injective⟩
+  rw [Topology.isInducing_iff]
+  ext s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro s_open_in_X
+    refine isOpen_mk.mpr ?_
+    use f '' s
+    have : IsOpen (f '' s) := f_open_map s s_open_in_X
+    use this
+    exact Function.Injective.preimage_image f_injective s
+  case mpr =>
+    intro hs
+    rw [isOpen_mk] at hs
+    rcases hs with ⟨t, t_open_in_Y, rfl⟩
+    exact f_continuous.isOpen_preimage t t_open_in_Y
 end
 
 section
@@ -692,7 +710,7 @@ theorem left_adj_proj_closed_map (hA: IsClosed A) (hf: Continuous f): IsClosedMa
 
 
 theorem left_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topology.IsEmbedding (left_adj_proj A f):= by
-    refine embedding_of_closed_continuous_injectiv (left_adj_proj_closed_map A f hA hf) ?_ (left_adj_proj_inj A f)
+    refine embedding_of_closed_continuous_injective (left_adj_proj_closed_map A f hA hf) ?_ (left_adj_proj_inj A f)
     rw [left_adj_proj, adj_proj]
     refine Continuous.comp ?_ ?_
     exact { isOpen_preimage := fun s a ↦ a }
@@ -728,9 +746,65 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_adj_proj_injecti
       apply SetCoe.ext
       exact this.symm
 
-theorem right_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topology.IsEmbedding (right_adj_proj A f) := by
-    sorry
+theorem right_adj_proj_open_map (hA: IsClosed A) (hf: Continuous f): IsOpenMap (right_adj_proj A f) := by
+  let g : (Aᶜ: Set Y) → Y := (↑)
+  intro U U_open_in_A_compl
+  rw [right_adj_proj, Set.image_comp, Set.image_comp]
+  let V := g '' U
+  let W: (Set (X ⊕ Y)) := Sum.inr '' V
+  have : IsOpen V := IsOpen.trans U_open_in_A_compl IsClosed.isOpen_compl
+  have W_open: IsOpen W := (Topology.IsOpenEmbedding.isOpen_iff_image_isOpen Topology.IsOpenEmbedding.inr).mp this
+  have V_sub_A_compl : V ⊆ Aᶜ := by exact Subtype.coe_image_subset Aᶜ U
+  show IsOpen ((adj_proj A f) '' W)
+  rw [←(adj_proj_quotient A f).isOpen_preimage]
+  suffices adj_proj A f ⁻¹' (adj_proj A f '' W) = W by rwa [this]
+  ext xy
+  refine Iff.intro ?mp ?mpr
+  case mpr =>
+    intro xy_in_W
+    use xy
+  case mp =>
+    rintro ⟨xy', xy'_in_W, heq⟩
+    let ⟨y₀, y₀_in_V, heq'⟩ := xy'_in_W
+    have : (glue_setoid A f) xy' xy := by
+      exact Quotient.eq''.mp heq
+    simp [glue_setoid] at this
+    rcases glue_rel_equiv_explicit A f xy' xy this with c0 | c1 | c2 | c3 | c4
+    . rcases c0 with ⟨x, heq1, heq2⟩
+      rw [←heq'] at heq1
+      contradiction
+    . rcases c1 with ⟨x, y₁, y₁', heq1, heq2⟩
+      rw [←heq'] at heq1
+      contradiction
+    . rcases c2 with ⟨y₁, x₂, y₁', heq1, heq2, heq3, heq4⟩
+      have: y₀ = y₁ := by
+        rw [←heq'] at heq1
+        apply Sum.inr_injective
+        exact heq1
+      have y₀_in_A : y₀ ∈ A := by
+        rw [this, heq3]
+        exact y₁'.2
+      have y₀_in_A_compl : y₀ ∈ Aᶜ := V_sub_A_compl y₀_in_V
+      contradiction
+    . rcases c3 with ⟨y₁, y₂, y₁', y₂', heq1, heq2, heq3, heq4, heq5, hne⟩
+      have: y₀ = y₁ := by
+        rw [←heq'] at heq1
+        apply Sum.inr_injective
+        exact heq1
+      have y₀_in_A : y₀ ∈ A := by
+        rw [this, ←heq3]
+        exact y₁'.2
+      have y₀_in_A_compl : y₀ ∈ Aᶜ := V_sub_A_compl y₀_in_V
+      contradiction
+    . rcases c4 with ⟨y, heq1, heq2⟩
+      rwa [heq2]
 
+theorem right_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topology.IsEmbedding (right_adj_proj A f) := by
+    refine embedding_of_open_continuous_injective (right_adj_proj_open_map A f hA hf) ?_ (right_adj_proj_injective A f)
+    rw [right_adj_proj]
+    refine Continuous.comp ?_ ?_
+    exact { isOpen_preimage := fun s a ↦ a }
+    continuity
 end
 
 section
