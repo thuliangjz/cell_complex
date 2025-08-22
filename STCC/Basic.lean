@@ -746,7 +746,7 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_adj_proj_injecti
       apply SetCoe.ext
       exact this.symm
 
-theorem right_adj_proj_open_map (hA: IsClosed A) (hf: Continuous f): IsOpenMap (right_adj_proj A f) := by
+theorem right_adj_proj_open_map (hA: IsClosed A): IsOpenMap (right_adj_proj A f) := by
   let g : (Aᶜ: Set Y) → Y := (↑)
   intro U U_open_in_A_compl
   rw [right_adj_proj, Set.image_comp, Set.image_comp]
@@ -800,7 +800,7 @@ theorem right_adj_proj_open_map (hA: IsClosed A) (hf: Continuous f): IsOpenMap (
       rwa [heq2]
 
 theorem right_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topology.IsEmbedding (right_adj_proj A f) := by
-    refine embedding_of_open_continuous_injective (right_adj_proj_open_map A f hA hf) ?_ (right_adj_proj_injective A f)
+    refine embedding_of_open_continuous_injective (right_adj_proj_open_map A f hA) ?_ (right_adj_proj_injective A f)
     rw [right_adj_proj]
     refine Continuous.comp ?_ ?_
     exact { isOpen_preimage := fun s a ↦ a }
