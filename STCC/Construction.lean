@@ -65,10 +65,50 @@ theorem quotient_sigma_cb_map : Topology.IsQuotientMap (fun (⟨e, d⟩: (_:C.se
       rw [←Topology.IsQuotientMap.isOpen_preimage this]
       rw [Set.preimage_preimage]
       apply h
+
+def CellAttached {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) :=
+  AdjointSpace ({x | x.2 ∈ cb_boundary}: Set (Σ_:ι, cb n)) (fun x ↦ (⟨g x.1.1 x.1.2, hg x.1.1 x.1.2 x.2⟩ :S))
+
+instance {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : TopologicalSpace (CellAttached g hg)  := by
+  rw [CellAttached]
+  infer_instance
+
+def CellOfDim (n: ℕ) := {e: C.sets | C.dim_map e = n}
+
+def characteristic_cn (n: ℕ) : @CellOfDim X _ _ C n → cb n → X := fun ⟨e, he⟩ x ↦ C.characteristic_map e ((congrArg (fun p ↦ (cb p: Type)) he.symm).mp x)
+
+omit CW in theorem char_cnp1_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1), ∀ x: (cb (n + 1)), x ∈ cb_boundary → (characteristic_cn (n + 1) e x) ∈ Skeleton X n := by
+  rintro ⟨e, he⟩ x x_in_boundary
+  have mem_0: characteristic_cn (n + 1) ⟨e, he⟩ x ∈ Set.range (cb_boundary_map (C.characteristic_map e)) := by
+    rw [characteristic_cn]
+    apply mem_boundary_map_range_of_mem_boundary
+    apply @Eq.rec ℕ (n + 1) (fun (n':ℕ) (eq:(n + 1 = n')) ↦ (congrArg (fun p ↦ (cb p:Type)) eq.symm).mpr x ∈ @cb_boundary n') x_in_boundary _ (he.symm)
+  have mem_1: Set.range (cb_boundary_map (C.characteristic_map e)) ⊆ ⋃p:sets, ⋃_:(C.dim_map p < C.dim_map e), p.1 := C.characteristic_map_boundary e
+  have mem_2: ⋃p:sets, ⋃_:(C.dim_map p < C.dim_map e), p.1 ⊆ Skeleton X n := by
+    rw [Set.iUnion₂_subset_iff]
+    intro p hp
+    rw [he] at hp
+    rw [sub_skeleton_iff, Nat.le_iff_lt_add_one]
+    exact hp
+  exact mem_2 (mem_1 mem_0)
+
+#check IsHomeomorph
+
+theorem sknp1_construct (n: ℕ) : Nonempty (Skeleton X (n + 1) ≃ₜ CellAttached (characteristic_cn (n + 1)) (@char_cnp1_in_skn X _ _ C n)) := by
+  sorry
 end
 
 section
-variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+
+end
+section
+
 end
 
 end Chp5
+
+-- example usage of Eq.rec and congArg
+example {f : ℕ → Type} (n1 n2: ℕ) (h: n1 = n2) : f n1 = f n2 := by
+  exact congrArg f h
+example {f: ℕ → Type} {g: (n: ℕ) → Set (f n)}{n1 n2: ℕ} (eq: n1 + 1 = n2) (x: f (n1 + 1)) (h: x ∈ g (n1 + 1)): (congrArg f eq).mp x ∈ g n2 :=
+  Eq.rec (motive := fun n2' eq' => (congrArg f eq').mp x ∈ g n2') h eq
