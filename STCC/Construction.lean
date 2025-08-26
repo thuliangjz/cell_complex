@@ -66,8 +66,12 @@ theorem quotient_sigma_cb_map : Topology.IsQuotientMap (fun (⟨e, d⟩: (_:C.se
       rw [Set.preimage_preimage]
       apply h
 
+def CellAttached_A {n: ℕ} {ι: Type*} : Set (Σ_: ι, cb n) := {x | x.2 ∈ cb_boundary}
+
+def CellAttached_f {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : @CellAttached_A n ι → S := fun x ↦ ⟨g x.1.1 x.1.2, hg x.1.1 x.1.2 x.2⟩
+
 def CellAttached {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) :=
-  AdjointSpace ({x | x.2 ∈ cb_boundary}: Set (Σ_:ι, cb n)) (fun x ↦ (⟨g x.1.1 x.1.2, hg x.1.1 x.1.2 x.2⟩ :S))
+  AdjointSpace CellAttached_A (CellAttached_f g hg)
 
 instance {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : TopologicalSpace (CellAttached g hg)  := by
   rw [CellAttached]
@@ -94,14 +98,25 @@ omit CW in theorem char_cnp1_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1), ∀ x: (
 
 #check IsHomeomorph
 
+def cn_sum_skn_to_sknp1 (n: ℕ): (Skeleton X n) ⊕ (Σ_:@CellOfDim X _ _ C n, cb n) → (Skeleton X (n + 1)) := by
+  intro x
+  match x with
+  | Sum.inl ⟨x, x_in_Xn⟩ =>
+    exact ⟨x, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x_in_Xn⟩
+  | Sum.inr ⟨⟨e, he⟩, x⟩ =>
+    use C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) he).mpr x)
+    suffices Set.range (C.characteristic_map e) ⊆ (Skeleton X (n + 1)) by exact this (Set.mem_range_self _)
+    rw [characteristic_map_range]
+    apply (Skeleton X (n + 1)).cell_closure_incl e.1 e.2
+    show e.1 ⊆ Skeleton X (n + 1)
+    rw [sub_skeleton_iff, he]
+    exact Nat.le_add_right n 1
+
+--theorem cn_sum_skn_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skeleton X n) ⊕ (Σ_:CellOfDim n, cb n), (glue_setoid CellAttached_A (CellAttached_f (characteristic_cn (n + 1)) (char_cnp1_in_skn n))) x₁ x₂ → cn_sum_skn_to_sknp1 n x₁ = cn_sum_skn_to_sknp1 n x₂ := by
+--  sorry
+
 theorem sknp1_construct (n: ℕ) : Nonempty (Skeleton X (n + 1) ≃ₜ CellAttached (characteristic_cn (n + 1)) (@char_cnp1_in_skn X _ _ C n)) := by
   sorry
-end
-
-section
-
-end
-section
 
 end
 
@@ -112,3 +127,7 @@ example {f : ℕ → Type} (n1 n2: ℕ) (h: n1 = n2) : f n1 = f n2 := by
   exact congrArg f h
 example {f: ℕ → Type} {g: (n: ℕ) → Set (f n)}{n1 n2: ℕ} (eq: n1 + 1 = n2) (x: f (n1 + 1)) (h: x ∈ g (n1 + 1)): (congrArg f eq).mp x ∈ g n2 :=
   Eq.rec (motive := fun n2' eq' => (congrArg f eq').mp x ∈ g n2') h eq
+
+example {X Y: Type*} {st: Setoid X} (f: X → Y) (hf: ∀ x1 x2: X, st x1 x2 → f x1 = f x2) : ∀ x: X, (Quotient.lift f hf) (Quotient.mk st x) = f x := by
+  exact fun x ↦ rfl
+example {n: ℕ}: n ≤ n + 1 := by exact Nat.le_add_right n 1
