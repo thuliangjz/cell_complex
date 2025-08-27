@@ -66,12 +66,12 @@ theorem quotient_sigma_cb_map : Topology.IsQuotientMap (fun (⟨e, d⟩: (_:C.se
       rw [Set.preimage_preimage]
       apply h
 
-def CellAttached_A {n: ℕ} {ι: Type*} : Set (Σ_: ι, cb n) := {x | x.2 ∈ cb_boundary}
+def CellAttached_boundary {n: ℕ} {ι: Type*} : Set (Σ_: ι, cb n) := {x | x.2 ∈ cb_boundary}
 
-def CellAttached_f {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : @CellAttached_A n ι → S := fun x ↦ ⟨g x.1.1 x.1.2, hg x.1.1 x.1.2 x.2⟩
+def CellAttached_f {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : @CellAttached_boundary n ι → S := fun x ↦ ⟨g x.1.1 x.1.2, hg x.1.1 x.1.2 x.2⟩
 
 def CellAttached {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) :=
-  AdjointSpace CellAttached_A (CellAttached_f g hg)
+  AdjointSpace CellAttached_boundary (CellAttached_f g hg)
 
 instance {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : TopologicalSpace (CellAttached g hg)  := by
   rw [CellAttached]
@@ -81,7 +81,7 @@ def CellOfDim (n: ℕ) := {e: C.sets | C.dim_map e = n}
 
 def characteristic_cn (n: ℕ) : @CellOfDim X _ _ C n → cb n → X := fun ⟨e, he⟩ x ↦ C.characteristic_map e ((congrArg (fun p ↦ (cb p: Type)) he.symm).mp x)
 
-omit CW in theorem char_cnp1_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1), ∀ x: (cb (n + 1)), x ∈ cb_boundary → (characteristic_cn (n + 1) e x) ∈ Skeleton X n := by
+omit CW in theorem char_cnp1_boundary_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1), ∀ x: (cb (n + 1)), x ∈ cb_boundary → (characteristic_cn (n + 1) e x) ∈ Skeleton X n := by
   rintro ⟨e, he⟩ x x_in_boundary
   have mem_0: characteristic_cn (n + 1) ⟨e, he⟩ x ∈ Set.range (cb_boundary_map (C.characteristic_map e)) := by
     rw [characteristic_cn]
@@ -98,7 +98,7 @@ omit CW in theorem char_cnp1_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1), ∀ x: (
 
 #check IsHomeomorph
 
-def cn_sum_skn_to_sknp1 (n: ℕ): (Skeleton X n) ⊕ (Σ_:@CellOfDim X _ _ C n, cb n) → (Skeleton X (n + 1)) := by
+def skn_sum_cnp1_to_sknp1 (n: ℕ): (Skeleton X n) ⊕ (Σ_:@CellOfDim X _ _ C (n + 1), cb (n + 1)) → (Skeleton X (n + 1)) := by
   intro x
   match x with
   | Sum.inl ⟨x, x_in_Xn⟩ =>
@@ -110,12 +110,35 @@ def cn_sum_skn_to_sknp1 (n: ℕ): (Skeleton X n) ⊕ (Σ_:@CellOfDim X _ _ C n, 
     apply (Skeleton X (n + 1)).cell_closure_incl e.1 e.2
     show e.1 ⊆ Skeleton X (n + 1)
     rw [sub_skeleton_iff, he]
-    exact Nat.le_add_right n 1
 
---theorem cn_sum_skn_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skeleton X n) ⊕ (Σ_:CellOfDim n, cb n), (glue_setoid CellAttached_A (CellAttached_f (characteristic_cn (n + 1)) (char_cnp1_in_skn n))) x₁ x₂ → cn_sum_skn_to_sknp1 n x₁ = cn_sum_skn_to_sknp1 n x₂ := by
---  sorry
+omit CW in theorem skn_sum_cnp1_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skeleton X n) ⊕ (Σ_:CellOfDim (n + 1), cb (n + 1)),
+  glue_setoid
+    (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+    (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n) (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+    x₁ x₂ →
+  skn_sum_cnp1_to_sknp1 n x₁ = skn_sum_cnp1_to_sknp1 n x₂ := by
+    intro x₁ x₂ h₁₂
+    rcases glue_rel_equiv_explicit _ _ x₁ x₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+    . rcases c0 with ⟨x, heq1, heq2⟩
+      rw [heq2]
+    . rcases c1 with ⟨x, y, y', heq1, heq2, heq3, heq4⟩
+      rw [CellAttached_f] at heq4
+      simp [heq1, skn_sum_cnp1_to_sknp1, heq2, heq4, ←heq3, characteristic_cn]
+      rw [←heq3]
+    . rcases c2 with ⟨y, x, y', heq1, heq2, heq3, heq4⟩
+      rw [CellAttached_f] at heq4
+      simp [heq1, skn_sum_cnp1_to_sknp1, heq2, heq4, ←heq3, characteristic_cn]
+      rw [←heq3]
+    . rcases c3 with ⟨y₁, y₂, y₁', y₂', heq1, heq2, heq3, heq4, heq5, hne⟩
+      simp [heq1, heq2, skn_sum_cnp1_to_sknp1]
+      simp [CellAttached_f, characteristic_cn, heq3, heq4] at heq5
+      rwa [heq3, heq4] at heq5
+    . rcases c4 with ⟨y, heq1, heq2⟩
+      rw [heq2]
 
-theorem sknp1_construct (n: ℕ) : Nonempty (Skeleton X (n + 1) ≃ₜ CellAttached (characteristic_cn (n + 1)) (@char_cnp1_in_skn X _ _ C n)) := by
+def cell_attached_to_sknp1 (n: ℕ): @CellAttached X (n + 1) _ _ (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n) → (Skeleton X (n + 1)) := (Quotient.lift (skn_sum_cnp1_to_sknp1 n) skn_sum_cnp1_to_sknp1_factors)
+
+theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attached_to_sknp1 X _ _ _ n) := by
   sorry
 
 end
