@@ -154,3 +154,59 @@ example {f: ℕ → Type} {g: (n: ℕ) → Set (f n)}{n1 n2: ℕ} (eq: n1 + 1 = 
 example {X Y: Type*} {st: Setoid X} (f: X → Y) (hf: ∀ x1 x2: X, st x1 x2 → f x1 = f x2) : ∀ x: X, (Quotient.lift f hf) (Quotient.mk st x) = f x := by
   exact fun x ↦ rfl
 example {n: ℕ}: n ≤ n + 1 := by exact Nat.le_add_right n 1
+
+
+section
+variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z] {f: X → Y} (hf: Topology.IsQuotientMap f)
+-- characteristic property of quotient topology
+example {g: Y → Z} : Continuous g ↔ Continuous (g ∘ f) := by exact Topology.IsQuotientMap.continuous_iff hf
+#check Topology.IsQuotientMap.lift
+example {g: X → Z} (hg: Topology.IsQuotientMap g) (hfg: ∀ x₁ x₂: X, g x₁ = g x₂ ↔ f x₁ = f x₂) : Homeomorph Y Z := by
+  let f' : C(X, Y) := ⟨f, Topology.IsQuotientMap.continuous hf⟩
+  let g' : C(X, Z) := ⟨g, Topology.IsQuotientMap.continuous hg⟩
+  have hf' : Topology.IsQuotientMap f' := hf
+  have hg' : Topology.IsQuotientMap g' := hg
+  have : Function.FactorsThrough g' f' := by
+    simp [Function.FactorsThrough, f', g']
+    exact fun {x1 x2} ↦ (hfg x1 x2).mpr
+  have: IsHomeomorph (Topology.IsQuotientMap.lift hf' g' this) := by
+    apply?
+  sorry
+end
+
+section
+variable {X: Type*} [TopologicalSpace X] {Z: Type*} [TopologicalSpace Z] {S: Setoid X}
+variable {g: X → Z}
+variable (h_g_factors: ∀ x₁ x₂: X, S x₁ x₂ → g x₁ = g x₂)
+
+example (g_quotient: Topology.IsQuotientMap g) (h_quotient_factors_on_g: ∀ x₁ x₂: X, g x₁ = g x₂ → S x₁ x₂): IsHomeomorph (Quotient.lift g h_g_factors) := by
+  let φ := Quotient.lift g h_g_factors
+  show IsHomeomorph φ
+  refine { continuous := ?is_continuous, isOpenMap := ?is_open_map, bijective := ?is_bijective }
+  case is_continuous =>
+    exact Continuous.quotient_lift (Topology.IsQuotientMap.continuous g_quotient) h_g_factors
+  case is_open_map =>
+    intro s s_open
+    let t := (Quotient.mk S) ⁻¹' s
+    have t_open : IsOpen t := s_open
+    have φ_s_eq_g_t : φ '' s = g '' t := by
+      ext z
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        intro hz
+        rcases hz with ⟨x', x'_in_s, heq⟩
+        rcases Quotient.exists_rep x' with ⟨x, hx⟩
+        rw [←heq, ←hx]
+        show g x ∈ g '' t
+        refine ⟨x, ?_, rfl⟩
+        show Quotient.mk S x ∈ s
+        rwa [hx]
+      case mpr =>
+        intro hz
+        rcases hz with ⟨x, x_in_t, rfl⟩
+        refine ⟨Quotient.mk S x, x_in_t, rfl ⟩
+    rw [φ_s_eq_g_t]
+    sorry
+  case is_bijective =>
+    sorry
+end
