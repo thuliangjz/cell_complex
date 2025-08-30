@@ -81,6 +81,12 @@ def CellOfDim (n: ℕ) := {e: C.sets | C.dim_map e = n}
 
 def characteristic_cn (n: ℕ) : @CellOfDim X _ _ C n → cb n → X := fun ⟨e, he⟩ x ↦ C.characteristic_map e ((congrArg (fun p ↦ (cb p: Type)) he.symm).mp x)
 
+-- example usage of Eq.rec and congArg
+-- example {f : ℕ → Type} (n1 n2: ℕ) (h: n1 = n2) : f n1 = f n2 := by
+--   exact congrArg f h
+-- example {f: ℕ → Type} {g: (n: ℕ) → Set (f n)}{n1 n2: ℕ} (eq: n1 + 1 = n2) (x: f (n1 + 1)) (h: x ∈ g (n1 + 1)): (congrArg f eq).mp x ∈ g n2 :=
+--   Eq.rec (motive := fun n2' eq' => (congrArg f eq').mp x ∈ g n2') h eq
+
 omit CW in theorem char_cnp1_boundary_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1), ∀ x: (cb (n + 1)), x ∈ cb_boundary → (characteristic_cn (n + 1) e x) ∈ Skeleton X n := by
   rintro ⟨e, he⟩ x x_in_boundary
   have mem_0: characteristic_cn (n + 1) ⟨e, he⟩ x ∈ Set.range (cb_boundary_map (C.characteristic_map e)) := by
@@ -95,8 +101,6 @@ omit CW in theorem char_cnp1_boundary_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1),
     rw [sub_skeleton_iff, Nat.le_iff_lt_add_one]
     exact hp
   exact mem_2 (mem_1 mem_0)
-
-#check IsHomeomorph
 
 def skn_sum_cnp1_to_sknp1 (n: ℕ): (Skeleton X n) ⊕ (Σ_:@CellOfDim X _ _ C (n + 1), cb (n + 1)) → (Skeleton X (n + 1)) := by
   intro x
@@ -139,74 +143,12 @@ omit CW in theorem skn_sum_cnp1_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skele
 def cell_attached_to_sknp1 (n: ℕ): @CellAttached X (n + 1) _ _ (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n) → (Skeleton X (n + 1)) := (Quotient.lift (skn_sum_cnp1_to_sknp1 n) skn_sum_cnp1_to_sknp1_factors)
 
 theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attached_to_sknp1 X _ _ _ n) := by
-  sorry
+  refine quotient_lift_is_homeomorph _ ?factors ?is_quot
+  case factors =>
+    sorry
+  case is_quot =>
+    sorry
 
 end
 
 end Chp5
-
--- example usage of Eq.rec and congArg
-example {f : ℕ → Type} (n1 n2: ℕ) (h: n1 = n2) : f n1 = f n2 := by
-  exact congrArg f h
-example {f: ℕ → Type} {g: (n: ℕ) → Set (f n)}{n1 n2: ℕ} (eq: n1 + 1 = n2) (x: f (n1 + 1)) (h: x ∈ g (n1 + 1)): (congrArg f eq).mp x ∈ g n2 :=
-  Eq.rec (motive := fun n2' eq' => (congrArg f eq').mp x ∈ g n2') h eq
-
-example {X Y: Type*} {st: Setoid X} (f: X → Y) (hf: ∀ x1 x2: X, st x1 x2 → f x1 = f x2) : ∀ x: X, (Quotient.lift f hf) (Quotient.mk st x) = f x := by
-  exact fun x ↦ rfl
-example {n: ℕ}: n ≤ n + 1 := by exact Nat.le_add_right n 1
-
-
-section
-variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z] {f: X → Y} (hf: Topology.IsQuotientMap f)
--- characteristic property of quotient topology
-example {g: Y → Z} : Continuous g ↔ Continuous (g ∘ f) := by exact Topology.IsQuotientMap.continuous_iff hf
-#check Topology.IsQuotientMap.lift
-example {g: X → Z} (hg: Topology.IsQuotientMap g) (hfg: ∀ x₁ x₂: X, g x₁ = g x₂ ↔ f x₁ = f x₂) : Homeomorph Y Z := by
-  let f' : C(X, Y) := ⟨f, Topology.IsQuotientMap.continuous hf⟩
-  let g' : C(X, Z) := ⟨g, Topology.IsQuotientMap.continuous hg⟩
-  have hf' : Topology.IsQuotientMap f' := hf
-  have hg' : Topology.IsQuotientMap g' := hg
-  have : Function.FactorsThrough g' f' := by
-    simp [Function.FactorsThrough, f', g']
-    exact fun {x1 x2} ↦ (hfg x1 x2).mpr
-  have: IsHomeomorph (Topology.IsQuotientMap.lift hf' g' this) := by
-    apply?
-  sorry
-end
-
-section
-variable {X: Type*} [TopologicalSpace X] {Z: Type*} [TopologicalSpace Z] {S: Setoid X}
-variable {g: X → Z}
-variable (h_g_factors: ∀ x₁ x₂: X, S x₁ x₂ → g x₁ = g x₂)
-
-example (g_quotient: Topology.IsQuotientMap g) (h_quotient_factors_on_g: ∀ x₁ x₂: X, g x₁ = g x₂ → S x₁ x₂): IsHomeomorph (Quotient.lift g h_g_factors) := by
-  let φ := Quotient.lift g h_g_factors
-  show IsHomeomorph φ
-  refine { continuous := ?is_continuous, isOpenMap := ?is_open_map, bijective := ?is_bijective }
-  case is_continuous =>
-    exact Continuous.quotient_lift (Topology.IsQuotientMap.continuous g_quotient) h_g_factors
-  case is_open_map =>
-    intro s s_open
-    let t := (Quotient.mk S) ⁻¹' s
-    have t_open : IsOpen t := s_open
-    have φ_s_eq_g_t : φ '' s = g '' t := by
-      ext z
-      refine Iff.intro ?mp ?mpr
-      case mp =>
-        intro hz
-        rcases hz with ⟨x', x'_in_s, heq⟩
-        rcases Quotient.exists_rep x' with ⟨x, hx⟩
-        rw [←heq, ←hx]
-        show g x ∈ g '' t
-        refine ⟨x, ?_, rfl⟩
-        show Quotient.mk S x ∈ s
-        rwa [hx]
-      case mpr =>
-        intro hz
-        rcases hz with ⟨x, x_in_t, rfl⟩
-        refine ⟨Quotient.mk S x, x_in_t, rfl ⟩
-    rw [φ_s_eq_g_t]
-    sorry
-  case is_bijective =>
-    sorry
-end

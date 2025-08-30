@@ -808,7 +808,65 @@ theorem right_adj_proj_is_embedding (hA: IsClosed A) : Topology.IsEmbedding (rig
 end
 
 section
-variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+theorem quotient_lift_is_homeomorph {X Z: Type*} [TopologicalSpace X] [TopologicalSpace Z] {S: Setoid X} {g: X → Z}
+  (h_g_factors: ∀ x₁ x₂: X, S x₁ x₂ → g x₁ = g x₂)
+  (h_quotient_factors_on_g : ∀ x₁ x₂: X, g x₁ = g x₂ → S x₁ x₂)
+  (g_quotient: Topology.IsQuotientMap g):
+  IsHomeomorph (Quotient.lift g h_g_factors) := by
+    let φ := Quotient.lift g h_g_factors
+    show IsHomeomorph φ
+    refine { continuous := ?is_continuous, isOpenMap := ?is_open_map, bijective := ?is_bijective }
+    case is_continuous =>
+      exact Continuous.quotient_lift (Topology.IsQuotientMap.continuous g_quotient) h_g_factors
+    case is_open_map =>
+      intro s s_open
+      let t := (Quotient.mk S) ⁻¹' s
+      have t_open : IsOpen t := s_open
+      have φ_s_eq_g_t : φ '' s = g '' t := by
+        ext z
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          intro hz
+          rcases hz with ⟨x', x'_in_s, heq⟩
+          rcases Quotient.exists_rep x' with ⟨x, hx⟩
+          rw [←heq, ←hx]
+          show g x ∈ g '' t
+          refine ⟨x, ?_, rfl⟩
+          show Quotient.mk S x ∈ s
+          rwa [hx]
+        case mpr =>
+          intro hz
+          rcases hz with ⟨x, x_in_t, rfl⟩
+          refine ⟨Quotient.mk S x, x_in_t, rfl ⟩
+      have t_eq_preimage : g ⁻¹' (g '' t) = t := by
+        ext x
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          intro hgx
+          rcases hgx with ⟨x', x'_in_t, heq⟩
+          show Quotient.mk S x ∈ s
+          rw [←Quotient.sound (h_quotient_factors_on_g _ _ heq)]
+          exact x'_in_t
+        case mpr =>
+          intro hx
+          use x
+      rw [φ_s_eq_g_t]
+      suffices IsOpen (g ⁻¹' (g '' t)) by
+        exact (Topology.IsQuotientMap.isOpen_preimage g_quotient).mp this
+      rw [t_eq_preimage]
+      exact t_open
+    case is_bijective =>
+      refine ⟨?inj, ?bij⟩
+      case inj =>
+        intro x₁' x₂' heq'
+        rcases Quotient.exists_rep x₁' with ⟨x₁, rfl⟩
+        rcases Quotient.exists_rep x₂' with ⟨x₂, rfl⟩
+        exact Quotient.sound (h_quotient_factors_on_g _ _ heq')
+      case bij =>
+        intro z
+        rcases g_quotient.surjective z with ⟨x, rfl⟩
+        use Quotient.mk S x
+        rfl
 end
 end Chp5
 
