@@ -1305,6 +1305,14 @@ theorem boundary_covered_by_finite_cells [CW: CWComplexClass X] : ∀ e₀:C.set
             rwa [←this]
         exact he.2
     use ss
+
+theorem mem_boundary_of_image_in_skeleton {x: X} {n: ℕ} {y: cb (n + 1)} {e: C.sets} (h_e_dim: C.dim_map e = n + 1) (hy: C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) h_e_dim.symm).mp y) ∈ Skeleton X n) : y ∈ cb_boundary := by
+    simp [←cb_boundary_inner_cmpl]
+    by_contra! y_in_cb_inner
+    let y' := (congrArg (fun p ↦ (cb p : Type)) h_e_dim.symm).mp y
+    have y'_in_cb_inner : y' ∈ cb_inner := @Eq.rec ℕ (n + 1) (fun n' eq ↦ (congrArg (fun p ↦ (cb p : Type)) eq).mp y ∈ @cb_inner n') y_in_cb_inner _ h_e_dim.symm
+
+    sorry
 end
 
 end CellComplexClass

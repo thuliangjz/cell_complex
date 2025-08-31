@@ -145,7 +145,25 @@ def cell_attached_to_sknp1 (n: ℕ): @CellAttached X (n + 1) _ _ (characteristic
 theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attached_to_sknp1 X _ _ _ n) := by
   refine quotient_lift_is_homeomorph _ ?factors ?is_quot
   case factors =>
-    sorry
+    intro x₁ x₂ hx₁x₂
+    match x₁ with
+    | Sum.inl xl₁ =>
+      match x₂ with
+      | Sum.inl xl₂ =>
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        rw [hx₁x₂]
+      | Sum.inr xr₂ =>
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        have : xr₂ ∈ CellAttached_boundary := by
+
+          sorry
+        simp [glue_setoid]
+        apply Relation.EqvGen.rel
+        rw [glue_rel]
+
+        sorry
+    | Sum.inr xr₁ =>
+      sorry
   case is_quot =>
     sorry
 
