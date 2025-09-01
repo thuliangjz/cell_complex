@@ -1306,13 +1306,31 @@ theorem boundary_covered_by_finite_cells [CW: CWComplexClass X] : ∀ e₀:C.set
         exact he.2
     use ss
 
-theorem mem_boundary_of_image_in_skeleton {x: X} {n: ℕ} {y: cb (n + 1)} {e: C.sets} (h_e_dim: C.dim_map e = n + 1) (hy: C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) h_e_dim.symm).mp y) ∈ Skeleton X n) : y ∈ cb_boundary := by
+theorem mem_boundary_of_image_in_skeleton {n: ℕ} {y: cb (n + 1)} {e: C.sets} (h_e_dim: C.dim_map e = n + 1) (hy: C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) h_e_dim.symm).mp y) ∈ Skeleton X n) : y ∈ cb_boundary := by
     simp [←cb_boundary_inner_cmpl]
     by_contra! y_in_cb_inner
     let y' := (congrArg (fun p ↦ (cb p : Type)) h_e_dim.symm).mp y
     have y'_in_cb_inner : y' ∈ cb_inner := @Eq.rec ℕ (n + 1) (fun n' eq ↦ (congrArg (fun p ↦ (cb p : Type)) eq).mp y ∈ @cb_inner n') y_in_cb_inner _ h_e_dim.symm
-
-    sorry
+    let x := (C.characteristic_map e y')
+    have x_in_e: x ∈ e.1 := by
+        rw [←characteristic_map_inner_image]
+        use y'
+    rw [mem_sub_complex_iff] at hy
+    rcases hy with ⟨e₁, e₁_in_sets, x_in_e₁, e₁_sub_Xn⟩
+    rw [sub_skeleton_iff ⟨e₁, e₁_in_sets⟩] at e₁_sub_Xn
+    have e₁_is_e : ⟨e₁, e₁_in_sets⟩ = e := by
+        apply SetCoe.ext
+        simp
+        by_contra! e₁_is_not_e
+        have h₁: Disjoint e₁ e := C.disjoint e₁_in_sets e.2 e₁_is_not_e
+        rw [Set.disjoint_iff_inter_eq_empty] at h₁
+        have h₂: (e₁ ∩ e.1).Nonempty := by
+            use x
+            exact ⟨x_in_e₁, x_in_e⟩
+        rw [Set.nonempty_iff_ne_empty] at h₂
+        contradiction
+    rw [e₁_is_e, h_e_dim] at e₁_sub_Xn
+    linarith
 end
 
 end CellComplexClass

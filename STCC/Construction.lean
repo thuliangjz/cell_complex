@@ -155,15 +155,21 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
       | Sum.inr xr₂ =>
         simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
         have : xr₂ ∈ CellAttached_boundary := by
-
-          sorry
+          apply @mem_boundary_of_image_in_skeleton X _ _ _ n xr₂.2 xr₂.1
+          case hy => simp [←hx₁x₂]
+          case h_e_dim => exact xr₂.1.2
         simp [glue_setoid]
         apply Relation.EqvGen.rel
         rw [glue_rel]
-
-        sorry
+        use ⟨xr₂, this⟩
+        simp [CellAttached_f, characteristic_cn, ←hx₁x₂]
     | Sum.inr xr₁ =>
-      sorry
+      match x₂ with
+      | Sum.inl xl₂ =>
+        sorry
+      | Sum.inr xr₂ =>
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        sorry
   case is_quot =>
     sorry
 
