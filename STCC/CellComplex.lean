@@ -1331,6 +1331,11 @@ theorem mem_boundary_of_image_in_skeleton {n: ℕ} {y: cb (n + 1)} {e: C.sets} (
         contradiction
     rw [e₁_is_e, h_e_dim] at e₁_sub_Xn
     linarith
+
+theorem mem_boundary_of_same_char_image {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1) (h_e₂_dim: C.dim_map e₂ = n + 1)
+    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) = C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
+    y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
+        sorry
 end
 
 end CellComplexClass

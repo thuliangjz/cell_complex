@@ -805,6 +805,18 @@ theorem right_adj_proj_is_embedding (hA: IsClosed A) : Topology.IsEmbedding (rig
     refine Continuous.comp ?_ ?_
     exact { isOpen_preimage := fun s a ↦ a }
     continuity
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem glue_setoid_of_same_image {y₁ y₂: Y} (y₁_in_A: y₁ ∈ A) (y₂_in_A: y₂ ∈ A) (heq: f ⟨y₁, y₁_in_A⟩ = f ⟨y₂, y₂_in_A⟩): (glue_setoid A f) (Sum.inr y₁) (Sum.inr y₂) := by
+  simp [glue_setoid]
+  let x := f ⟨y₁, y₁_in_A⟩
+  have relxy₁: (glue_rel_equiv A f) (Sum.inl x) (Sum.inr y₁) := by
+    apply Relation.EqvGen.rel
+    use ⟨y₁, y₁_in_A⟩
+  have relxy₂: (glue_rel_equiv A f) (Sum.inl x) (Sum.inr y₂) := by
+    apply Relation.EqvGen.rel
+    use ⟨y₂, y₂_in_A⟩
+    simp [←heq, x]
+  exact Relation.EqvGen.trans (Sum.inr y₁) (Sum.inl x) (Sum.inr y₂) (relxy₁.symm) relxy₂
 end
 
 section
