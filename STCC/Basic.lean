@@ -203,6 +203,13 @@ theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n
         refine continuous_iff_continuousOn_univ.mp ?_
         exact Isometry.continuous fun x1 ↦ congrFun rfl
 
+theorem cb_decomp {n: ℕ} {x: cb n} : x ∈ cb_inner ∨ x ∈ cb_boundary := by
+  rcases Classical.em (x ∈ cb_inner) with x_in_cb_inner | x_not_in_cb_inner
+  . left
+    exact x_in_cb_inner
+  right
+  rw [←cb_boundary_inner_cmpl]
+  simpa using x_not_in_cb_inner
 --theorem cb_singleton : cb 0 = {0} := by
 --    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
 

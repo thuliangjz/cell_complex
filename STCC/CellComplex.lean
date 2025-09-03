@@ -1332,10 +1332,44 @@ theorem mem_boundary_of_image_in_skeleton {n: ℕ} {y: cb (n + 1)} {e: C.sets} (
     rw [e₁_is_e, h_e_dim] at e₁_sub_Xn
     linarith
 
-theorem mem_boundary_of_same_char_image {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1) (h_e₂_dim: C.dim_map e₂ = n + 1)
-    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) = C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
+theorem mem_boundary_of_same_char_image₁ {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1)
+    (h_e₂_dim: C.dim_map e₂ = n + 1) (h_ne_y: y₁ ≠ y₂) (e₁_eq_e₂: e₁ = e₂)
+    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+        C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
     y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
-        sorry
+        have h_img_eq': C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂) := by
+                rw [h_img_eq]
+                apply @Eq.rec C.sets e₁
+                    (fun (e':C.sets) (h: e₁ = e') ↦
+                        C.characteristic_map e' ((congrArg (fun p ↦ (cb p:Type)) ((congrArg C.dim_map h).symm.trans h_e₁_dim).symm).mp y₂) =
+                            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂))
+                    rfl
+                exact e₁_eq_e₂
+        let f : cb (n + 1) → cb (C.dim_map e₁) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp
+        let g : cb (C.dim_map e₁) → cb (n + 1) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim).mp
+        have : ∀ y, g (f y) = y := by
+            intro y
+            simp [g, f]
+        have : ∀ y:(cb (n + 1)), y ∈ cb_inner → f y ∈ cb_inner  := by
+            intro y hy
+            apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_inner) hy
+            exact h_e₁_dim.symm
+        match @cb_decomp (n + 1) y₁ with
+        | Or.inl y₁_in_inneer =>
+            match @cb_decomp (n + 1) y₂ with
+            | Or.inl y₂_in_inner =>
+                -- try to get a contradiction
+
+                sorry
+            | Or.inr y₂_in_boundary =>
+                sorry
+        | Or.inr y₁_in_boundary =>
+            match @cb_decomp (n + 1) y₂ with
+            | Or.inl y₂_in_inner =>
+                sorry
+            | Or.inr y₂_in_boundary =>
+                sorry
 end
 
 end CellComplexClass
