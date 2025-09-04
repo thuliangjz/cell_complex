@@ -142,6 +142,72 @@ omit CW in theorem skn_sum_cnp1_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skele
 
 def cell_attached_to_sknp1 (n: ℕ): @CellAttached X (n + 1) _ _ (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n) → (Skeleton X (n + 1)) := (Quotient.lift (skn_sum_cnp1_to_sknp1 n) skn_sum_cnp1_to_sknp1_factors)
 
+section helper
+variable {X: Type*} [T: TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
+theorem mem_boundary_of_same_char_image₁ {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1)
+    (h_e₂_dim: C.dim_map e₂ = n + 1) (h_ne_y: y₁ ≠ y₂) (e₁_eq_e₂: e₁ = e₂)
+    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+        C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
+    y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
+        have h_img_eq': C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂) := by
+                rw [h_img_eq]
+                apply @Eq.rec C.sets e₁
+                    (fun (e':C.sets) (h: e₁ = e') ↦
+                        C.characteristic_map e' ((congrArg (fun p ↦ (cb p:Type)) ((congrArg C.dim_map h).symm.trans h_e₁_dim).symm).mp y₂) =
+                            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂))
+                    rfl
+                exact e₁_eq_e₂
+        let f : cb (n + 1) → cb (C.dim_map e₁) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp
+        let g : cb (C.dim_map e₁) → cb (n + 1) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim).mp
+        have g_f_inv: ∀ y, g (f y) = y := by
+            intro y
+            simp [g, f]
+        have f_y_in_inner: ∀ y:(cb (n + 1)), y ∈ cb_inner → f y ∈ cb_inner  := by
+            intro y hy
+            apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_inner) hy
+            exact h_e₁_dim.symm
+        have f_y_in_boundary: ∀y:(cb (n + 1)), y ∈ cb_boundary → f y ∈ cb_boundary := by
+            intro y hy
+            apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_boundary) hy
+            exact h_e₁_dim.symm
+        match @cb_decomp (n + 1) y₁ with
+        | Or.inl y₁_in_inneer =>
+            have f_y₁_in_inner : f y₁ ∈ cb_inner := f_y_in_inner y₁ y₁_in_inneer
+            match @cb_decomp (n + 1) y₂ with
+            | Or.inl y₂_in_inner =>
+                -- try to get a contradiction
+                have f_y₂_in_inner : f y₂ ∈ cb_inner := f_y_in_inner y₂ y₂_in_inner
+                have : y₁ = y₂ := by
+                    rw [←g_f_inv y₁, ←g_f_inv y₂]
+                    apply congrArg
+                    exact characteristic_map_inj_on_inner e₁ f_y₁_in_inner f_y₂_in_inner h_img_eq'
+                contradiction
+            | Or.inr y₂_in_boundary =>
+                have f_y₂_in_boundary: f y₂ ∈ cb_boundary := f_y_in_boundary y₂ y₂_in_boundary
+                have : C.characteristic_map e₁ (f y₁) ≠ C.characteristic_map e₁ (f y₂) := by
+                    exact characteristic_map_inner_boundary_ne e₁ _ _ f_y₁_in_inner f_y₂_in_boundary
+                contradiction
+        | Or.inr y₁_in_boundary =>
+            have f_y₁_in_boundary: f y₁ ∈ cb_boundary := f_y_in_boundary y₁ y₁_in_boundary
+            match @cb_decomp (n + 1) y₂ with
+            | Or.inl y₂_in_inner =>
+                have f_y₂_in_inner: f y₂ ∈ cb_inner := f_y_in_inner _ y₂_in_inner
+                have: C.characteristic_map e₁ (f y₁) ≠ C.characteristic_map e₁ (f y₂) := by
+                    apply Ne.symm
+                    exact characteristic_map_inner_boundary_ne e₁ _ _ f_y₂_in_inner f_y₁_in_boundary
+                contradiction
+            | Or.inr y₂_in_boundary =>
+                exact ⟨y₁_in_boundary, y₂_in_boundary⟩
+
+theorem mem_boundary_of_same_char_image₂ {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1)
+    (h_e₂_dim: C.dim_map e₂ = n + 1) (e₁_ne_e₂: e₁ ≠ e₂)
+    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+        C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
+    y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
+        sorry
+end helper
+
 theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attached_to_sknp1 X _ _ _ n) := by
   refine quotient_lift_is_homeomorph _ ?factors ?is_quot
   case factors =>

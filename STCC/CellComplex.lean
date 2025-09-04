@@ -1332,44 +1332,34 @@ theorem mem_boundary_of_image_in_skeleton {n: ℕ} {y: cb (n + 1)} {e: C.sets} (
     rw [e₁_is_e, h_e_dim] at e₁_sub_Xn
     linarith
 
-theorem mem_boundary_of_same_char_image₁ {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1)
-    (h_e₂_dim: C.dim_map e₂ = n + 1) (h_ne_y: y₁ ≠ y₂) (e₁_eq_e₂: e₁ = e₂)
-    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
-        C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
-    y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
-        have h_img_eq': C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
-            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂) := by
-                rw [h_img_eq]
-                apply @Eq.rec C.sets e₁
-                    (fun (e':C.sets) (h: e₁ = e') ↦
-                        C.characteristic_map e' ((congrArg (fun p ↦ (cb p:Type)) ((congrArg C.dim_map h).symm.trans h_e₁_dim).symm).mp y₂) =
-                            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂))
-                    rfl
-                exact e₁_eq_e₂
-        let f : cb (n + 1) → cb (C.dim_map e₁) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp
-        let g : cb (C.dim_map e₁) → cb (n + 1) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim).mp
-        have : ∀ y, g (f y) = y := by
-            intro y
-            simp [g, f]
-        have : ∀ y:(cb (n + 1)), y ∈ cb_inner → f y ∈ cb_inner  := by
-            intro y hy
-            apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_inner) hy
-            exact h_e₁_dim.symm
-        match @cb_decomp (n + 1) y₁ with
-        | Or.inl y₁_in_inneer =>
-            match @cb_decomp (n + 1) y₂ with
-            | Or.inl y₂_in_inner =>
-                -- try to get a contradiction
+theorem characteristic_map_inj_on_inner : ∀ e: C.sets, Set.InjOn (C.characteristic_map e) cb_inner := by
+    intro e x₁ x₁_in_inner x₂ x₂_in_inner heq
+    rcases x₁_in_inner with ⟨x₁', rfl⟩
+    rcases x₂_in_inner with ⟨x₂', rfl⟩
+    have : ∀ x, cb_inner_map (C.characteristic_map e) x = C.characteristic_map e (b_to_cb x) := by
+        intro x
+        simp only [cb_inner_map, b_to_cb]
+    rw [←this x₁', ←this x₂'] at heq
+    rw [(C.characteristic_map_inner_embd e).injective heq]
 
-                sorry
-            | Or.inr y₂_in_boundary =>
-                sorry
-        | Or.inr y₁_in_boundary =>
-            match @cb_decomp (n + 1) y₂ with
-            | Or.inl y₂_in_inner =>
-                sorry
-            | Or.inr y₂_in_boundary =>
-                sorry
+theorem characteristic_map_inner_boundary_ne: ∀ e:C.sets, ∀ x y: cb (C.dim_map e), x ∈ cb_inner → y ∈ cb_boundary → C.characteristic_map e x ≠ C.characteristic_map e y := by
+    intro e x y x_in_inner y_in_boundary
+    by_contra heq
+    have img_in_e: C.characteristic_map e x ∈ e.1 := by
+        rw [←characteristic_map_inner_image]
+        use x
+    have img_in_lower: C.characteristic_map e y ∈ ⋃ p:C.sets, ⋃ _:(C.dim_map p < C.dim_map e), p.val := by
+        apply C.characteristic_map_boundary
+        apply mem_boundary_map_range_of_mem_boundary
+        exact y_in_boundary
+    rw [Set.mem_iUnion₂] at img_in_lower
+    rcases img_in_lower with ⟨e₁, e₁_dim, img_in_e₁⟩
+    rw [←heq] at img_in_e₁
+    have: e₁ = e := by
+        apply SetCoe.ext
+        apply same_cell_of_mem e₁.2 e.2 img_in_e₁ img_in_e
+    rw [this] at e₁_dim
+    linarith
 end
 
 end CellComplexClass
