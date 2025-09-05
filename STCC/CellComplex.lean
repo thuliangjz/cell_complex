@@ -1360,6 +1360,10 @@ theorem characteristic_map_inner_boundary_ne: ∀ e:C.sets, ∀ x y: cb (C.dim_m
         apply same_cell_of_mem e₁.2 e.2 img_in_e₁ img_in_e
     rw [this] at e₁_dim
     linarith
+theorem characteristic_map_inner_boundary_ne': ∀ e₁ e₂:C.sets, ∀ x: cb (C.dim_map e₁), ∀ y: cb (C.dim_map e₂), x ∈ cb_inner → y ∈ cb_boundary → (C.dim_map e₁ = C.dim_map e₂) → C.characteristic_map e₁ x ≠ C.characteristic_map e₂ y := by
+    intro e₁ e₂ x y x_in_inner y_in_boundary h_dim_eq
+    by_contra h_img_eq
+    sorry
 end
 
 end CellComplexClass

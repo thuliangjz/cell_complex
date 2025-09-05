@@ -205,6 +205,27 @@ theorem mem_boundary_of_same_char_image₂ {n: ℕ} {y₁ y₂: cb (n + 1)} {e�
     (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
         C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
     y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
+      let ff : (e:C.sets) → (he: C.dim_map e = n + 1) → cb (n + 1) → cb (C.dim_map e) := fun e he ↦ (congrArg (fun p ↦ (cb p : Type)) he.symm).mp
+      have ff_y_in_inner : ∀ e:C.sets, ∀ he: (C.dim_map e = n + 1), ∀y: (cb (n + 1)), y ∈ cb_inner → ff e he y ∈ cb_inner := by
+        intro e he y hy
+        apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_inner) hy
+        exact he.symm
+      match @cb_decomp (n + 1) y₁ with
+      | Or.inl y₁_in_inner =>
+        have ff_y₁_in_inner : ff e₁ h_e₁_dim y₁ ∈ cb_inner := ff_y_in_inner _ h_e₁_dim _ y₁_in_inner
+        have cff_y₁_in_e₁: C.characteristic_map e₁ (ff e₁ h_e₁_dim y₁) ∈ e₁.1 := by rw [←characteristic_map_inner_image];use (ff e₁ h_e₁_dim y₁)
+        match @cb_decomp (n + 1) y₂ with
+        | Or.inl y₂_in_inner =>
+          have f_y₂_in_inner : ff e₂ h_e₂_dim y₂ ∈ cb_inner := ff_y_in_inner _ h_e₂_dim y₂ y₂_in_inner
+          have cff_y₂_in_e₂: C.characteristic_map e₂ (ff e₂ h_e₂_dim y₂) ∈ e₂.1 := by rw [←characteristic_map_inner_image];use (ff e₂ h_e₂_dim y₂)
+          rw [←h_img_eq] at cff_y₂_in_e₂
+          have : e₁ = e₂ := by
+            apply SetCoe.ext
+            exact same_cell_of_mem e₁.2 e₂.2 cff_y₁_in_e₁ cff_y₂_in_e₂
+          contradiction
+        | Or.inr y₂_in_boundary =>
+          sorry
+      | Or.inr y₁_in_boundary =>
         sorry
 end helper
 
