@@ -1342,28 +1342,25 @@ theorem characteristic_map_inj_on_inner : ∀ e: C.sets, Set.InjOn (C.characteri
     rw [←this x₁', ←this x₂'] at heq
     rw [(C.characteristic_map_inner_embd e).injective heq]
 
-theorem characteristic_map_inner_boundary_ne: ∀ e:C.sets, ∀ x y: cb (C.dim_map e), x ∈ cb_inner → y ∈ cb_boundary → C.characteristic_map e x ≠ C.characteristic_map e y := by
-    intro e x y x_in_inner y_in_boundary
-    by_contra heq
-    have img_in_e: C.characteristic_map e x ∈ e.1 := by
+
+theorem characteristic_map_inner_boundary_ne: ∀ e₁ e₂:C.sets, ∀ x: cb (C.dim_map e₁), ∀ y: cb (C.dim_map e₂), x ∈ cb_inner → y ∈ cb_boundary → (C.dim_map e₁ = C.dim_map e₂) → C.characteristic_map e₁ x ≠ C.characteristic_map e₂ y := by
+    intro e₁ e₂ x y x_in_inner y_in_boundary h_dim_eq
+    by_contra h_img_eq
+    have img_in_e₁: C.characteristic_map e₁ x ∈ e₁.1 := by
         rw [←characteristic_map_inner_image]
         use x
-    have img_in_lower: C.characteristic_map e y ∈ ⋃ p:C.sets, ⋃ _:(C.dim_map p < C.dim_map e), p.val := by
+    have img_in_lower_dim_cells: C.characteristic_map e₂ y ∈ ⋃ p:C.sets, ⋃ _:(C.dim_map p < C.dim_map e₂), p.1 := by
         apply C.characteristic_map_boundary
         apply mem_boundary_map_range_of_mem_boundary
         exact y_in_boundary
-    rw [Set.mem_iUnion₂] at img_in_lower
-    rcases img_in_lower with ⟨e₁, e₁_dim, img_in_e₁⟩
-    rw [←heq] at img_in_e₁
-    have: e₁ = e := by
+    rw [Set.mem_iUnion₂] at img_in_lower_dim_cells
+    rcases img_in_lower_dim_cells with ⟨e₃, e₃_dim, img_in_e₃⟩
+    rw [←h_img_eq] at img_in_e₃
+    have : e₁ = e₃ := by
         apply SetCoe.ext
-        apply same_cell_of_mem e₁.2 e.2 img_in_e₁ img_in_e
-    rw [this] at e₁_dim
+        apply same_cell_of_mem e₁.2 e₃.2 img_in_e₁ img_in_e₃
+    rw [←this] at e₃_dim
     linarith
-theorem characteristic_map_inner_boundary_ne': ∀ e₁ e₂:C.sets, ∀ x: cb (C.dim_map e₁), ∀ y: cb (C.dim_map e₂), x ∈ cb_inner → y ∈ cb_boundary → (C.dim_map e₁ = C.dim_map e₂) → C.characteristic_map e₁ x ≠ C.characteristic_map e₂ y := by
-    intro e₁ e₂ x y x_in_inner y_in_boundary h_dim_eq
-    by_contra h_img_eq
-    sorry
 end
 
 end CellComplexClass

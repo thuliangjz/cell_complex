@@ -186,7 +186,7 @@ theorem mem_boundary_of_same_char_image₁ {n: ℕ} {y₁ y₂: cb (n + 1)} {e�
             | Or.inr y₂_in_boundary =>
                 have f_y₂_in_boundary: f y₂ ∈ cb_boundary := f_y_in_boundary y₂ y₂_in_boundary
                 have : C.characteristic_map e₁ (f y₁) ≠ C.characteristic_map e₁ (f y₂) := by
-                    exact characteristic_map_inner_boundary_ne e₁ _ _ f_y₁_in_inner f_y₂_in_boundary
+                    exact characteristic_map_inner_boundary_ne _ _ _ _ f_y₁_in_inner f_y₂_in_boundary rfl
                 contradiction
         | Or.inr y₁_in_boundary =>
             have f_y₁_in_boundary: f y₁ ∈ cb_boundary := f_y_in_boundary y₁ y₁_in_boundary
@@ -195,7 +195,7 @@ theorem mem_boundary_of_same_char_image₁ {n: ℕ} {y₁ y₂: cb (n + 1)} {e�
                 have f_y₂_in_inner: f y₂ ∈ cb_inner := f_y_in_inner _ y₂_in_inner
                 have: C.characteristic_map e₁ (f y₁) ≠ C.characteristic_map e₁ (f y₂) := by
                     apply Ne.symm
-                    exact characteristic_map_inner_boundary_ne e₁ _ _ f_y₂_in_inner f_y₁_in_boundary
+                    exact characteristic_map_inner_boundary_ne _ _ _ _ f_y₂_in_inner f_y₁_in_boundary rfl
                 contradiction
             | Or.inr y₂_in_boundary =>
                 exact ⟨y₁_in_boundary, y₂_in_boundary⟩
@@ -206,27 +206,39 @@ theorem mem_boundary_of_same_char_image₂ {n: ℕ} {y₁ y₂: cb (n + 1)} {e�
         C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
     y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
       let ff : (e:C.sets) → (he: C.dim_map e = n + 1) → cb (n + 1) → cb (C.dim_map e) := fun e he ↦ (congrArg (fun p ↦ (cb p : Type)) he.symm).mp
-      have ff_y_in_inner : ∀ e:C.sets, ∀ he: (C.dim_map e = n + 1), ∀y: (cb (n + 1)), y ∈ cb_inner → ff e he y ∈ cb_inner := by
-        intro e he y hy
-        apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_inner) hy
+      have ff_y_in_set: ∀ e:C.sets, ∀ he: (C.dim_map e = n + 1), ∀ sf: ((n:ℕ) → Set (cb n)), ∀ y:cb (n + 1), y ∈ sf (n + 1) → ff e he y ∈ sf (C.dim_map e) := by
+        intro e he sf y hy
+        apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ sf m) hy
         exact he.symm
+      let y₁' := ff e₁ h_e₁_dim y₁
+      let y₂' := ff e₂ h_e₂_dim y₂
+      have h_img_eq' : C.characteristic_map e₁ y₁' = C.characteristic_map e₂ y₂' := h_img_eq
       match @cb_decomp (n + 1) y₁ with
       | Or.inl y₁_in_inner =>
-        have ff_y₁_in_inner : ff e₁ h_e₁_dim y₁ ∈ cb_inner := ff_y_in_inner _ h_e₁_dim _ y₁_in_inner
-        have cff_y₁_in_e₁: C.characteristic_map e₁ (ff e₁ h_e₁_dim y₁) ∈ e₁.1 := by rw [←characteristic_map_inner_image];use (ff e₁ h_e₁_dim y₁)
+        have ff_y₁_in_inner : y₁' ∈ cb_inner := ff_y_in_set e₁ h_e₁_dim @cb_inner y₁ y₁_in_inner
+        have cff_y₁_in_e₁: C.characteristic_map e₁ y₁' ∈ e₁.1 := by rw [←characteristic_map_inner_image];use y₁'
         match @cb_decomp (n + 1) y₂ with
         | Or.inl y₂_in_inner =>
-          have f_y₂_in_inner : ff e₂ h_e₂_dim y₂ ∈ cb_inner := ff_y_in_inner _ h_e₂_dim y₂ y₂_in_inner
-          have cff_y₂_in_e₂: C.characteristic_map e₂ (ff e₂ h_e₂_dim y₂) ∈ e₂.1 := by rw [←characteristic_map_inner_image];use (ff e₂ h_e₂_dim y₂)
+          have f_y₂_in_inner : y₂' ∈ cb_inner := ff_y_in_set e₂ h_e₂_dim @cb_inner y₂ y₂_in_inner
+          have cff_y₂_in_e₂: C.characteristic_map e₂ y₂' ∈ e₂.1 := by rw [←characteristic_map_inner_image];use y₂'
           rw [←h_img_eq] at cff_y₂_in_e₂
           have : e₁ = e₂ := by
             apply SetCoe.ext
             exact same_cell_of_mem e₁.2 e₂.2 cff_y₁_in_e₁ cff_y₂_in_e₂
           contradiction
         | Or.inr y₂_in_boundary =>
-          sorry
+          have ff_y₂_in_boundary : y₂' ∈ cb_boundary := ff_y_in_set e₂ h_e₂_dim @cb_boundary y₂ y₂_in_boundary
+          have : C.characteristic_map e₁ y₁' ≠ C.characteristic_map e₂ y₂' := characteristic_map_inner_boundary_ne e₁ e₂ y₁' y₂' ff_y₁_in_inner ff_y₂_in_boundary (h_e₁_dim.trans h_e₂_dim.symm)
+          contradiction
       | Or.inr y₁_in_boundary =>
-        sorry
+        have ff_y₁_in_boundary : y₁' ∈ cb_boundary := ff_y_in_set e₁ h_e₁_dim @cb_boundary y₁ y₁_in_boundary
+        match @cb_decomp (n + 1) y₂ with
+        | Or.inl y₂_in_inner =>
+          have ff_y₂_in_inner : y₂' ∈ cb_inner := ff_y_in_set e₂ h_e₂_dim @cb_inner y₂ y₂_in_inner
+          have : C.characteristic_map e₁ y₁' ≠ C.characteristic_map e₂ y₂' := (characteristic_map_inner_boundary_ne e₂ e₁ y₂' y₁' ff_y₂_in_inner ff_y₁_in_boundary (h_e₂_dim.trans h_e₁_dim.symm)).symm
+          contradiction
+        | Or.inr y₂_in_boundary =>
+          exact ⟨y₁_in_boundary, y₂_in_boundary⟩
 end helper
 
 theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attached_to_sknp1 X _ _ _ n) := by
@@ -253,10 +265,30 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
     | Sum.inr xr₁ =>
       match x₂ with
       | Sum.inl xl₂ =>
-        sorry
-      | Sum.inr xr₂ =>
         simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
-        sorry
+        simp [glue_setoid]
+        apply Relation.EqvGen.symm
+        apply Relation.EqvGen.rel
+        rw [glue_rel]
+        have: xr₁ ∈ CellAttached_boundary := by
+          apply @mem_boundary_of_image_in_skeleton X _ _ _ n xr₁.2 xr₁.1
+          case hy => simp [hx₁x₂]
+          case h_e_dim => exact xr₁.1.2
+        use ⟨xr₁, this⟩
+        simp [CellAttached_f, characteristic_cn, hx₁x₂]
+      | Sum.inr xr₂ =>
+        rcases eq_or_ne xr₁ xr₂ with heq | hne
+        . exact Quotient.eq''.mp (congrArg Quotient.mk'' (congrArg Sum.inr heq))
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        have: xr₁ ∈ CellAttached_boundary ∧ xr₂ ∈ CellAttached_boundary:= by
+          rcases (eq_or_ne xr₁.1 xr₂.1) with heq' | hne'
+          . have: xr₁.2 ≠ xr₂.2 := by
+              contrapose! hne
+              exact Sigma.subtype_ext heq' (congrArg Subtype.val hne)
+            exact mem_boundary_of_same_char_image₁ (C:=C) xr₁.1.2 xr₂.1.2 this (congrArg Subtype.val heq') hx₁x₂
+          exact mem_boundary_of_same_char_image₂ (C:=C) xr₁.1.2 xr₂.1.2 (Subtype.coe_ne_coe.mpr hne') hx₁x₂
+        refine glue_setoid_of_same_image _ _ this.1 this.2 ?heq
+        simpa [CellAttached_f, characteristic_cn] using hx₁x₂
   case is_quot =>
     sorry
 
