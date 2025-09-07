@@ -115,6 +115,52 @@ def skn_sum_cnp1_to_sknp1 (n: ℕ): (Skeleton X n) ⊕ (Σ_:@CellOfDim X _ _ C (
     show e.1 ⊆ Skeleton X (n + 1)
     rw [sub_skeleton_iff, he]
 
+omit CW in theorem skn_sum_cnp1_to_sknp1_surj {n: ℕ}: Function.Surjective (skn_sum_cnp1_to_sknp1 (C := C) n) := by
+  intro x
+  rcases exists_mem_of_cell (x:X) with ⟨e, e_in_sets, x_in_e⟩
+  have : C.dim_map ⟨e, e_in_sets⟩ ≤ (n + 1) := by
+    rw [←sub_skeleton_iff]
+    simp
+    apply (Skeleton X (n + 1)).subset_of_intersect e_in_sets
+    rw [←Set.nonempty_iff_ne_empty]
+    use x
+    exact ⟨x_in_e, x.2⟩
+  match Nat.le_succ_iff.mp this with
+  | Or.inl dim_e_le_n =>
+    have: (x:X) ∈ (Skeleton X n) := by
+      suffices e ⊆ (Skeleton X n) by
+        exact this x_in_e
+      show (⟨e, e_in_sets⟩:C.sets).1 ⊆ (Skeleton X n)
+      rwa [sub_skeleton_iff]
+    use Sum.inl ⟨x, this⟩
+    rfl
+  | Or.inr dim_e_eq_np1 =>
+    let e': C.sets := ⟨e, e_in_sets⟩
+    have : (x:X) ∈ e'.1 := x_in_e
+    rw [←characteristic_map_inner_image] at this
+    rcases this with ⟨y, y_in_inner, y_map_to_x⟩
+    let f := (congrArg (fun p ↦ (cb p: Type)) dim_e_eq_np1).mp
+    let g := (congrArg (fun p ↦ (cb p: Type)) dim_e_eq_np1).mpr
+    let y': cb (n + 1) := (congrArg (fun p ↦ (cb p: Type)) dim_e_eq_np1).mp y
+    use Sum.inr ⟨⟨e', dim_e_eq_np1⟩, y'⟩
+    simp [skn_sum_cnp1_to_sknp1]
+    apply SetCoe.ext;simp
+    show C.characteristic_map e' (g y') = x
+    have : g (f y) = y := by simp [f, g]
+    rwa [this]
+
+theorem skn_sum_cnp1_to_sknp1_cont {n: ℕ}: Continuous (skn_sum_cnp1_to_sknp1 (C:= C) n) := by
+  rw [continuous_sum_dom]
+  refine And.intro ?inl_cont ?inr_cont
+  case inl_cont =>
+    have : skn_sum_cnp1_to_sknp1 n ∘ Sum.inl = fun x ↦ ⟨x.1, skeleton_mono (C:=C) n (n + 1) (Nat.le_add_right n 1) x.2⟩ := by
+      ext x
+      simp [skn_sum_cnp1_to_sknp1]
+    rw [this]
+    exact Continuous.subtype_mk continuous_subtype_val fun x ↦ skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.property
+  case inr_cont =>
+    sorry
+
 omit CW in theorem skn_sum_cnp1_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skeleton X n) ⊕ (Σ_:CellOfDim (n + 1), cb (n + 1)),
   glue_setoid
     (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
@@ -295,3 +341,18 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
 end
 
 end Chp5
+section
+variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
+example {f: X → Y} (f_cont: Continuous f) (f_surj: Function.Surjective f) (h: ∀ s: Set X, f ⁻¹' (f '' s) = s → IsClosed s → IsClosed (f '' s)) : Topology.IsQuotientMap f := by
+  refine Topology.isQuotientMap_iff_isClosed.mpr ?_
+  use f_surj
+  intro s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    exact fun a ↦ IsClosed.preimage f_cont a
+  case mpr =>
+    intro h_inv_closed
+    let t := f ⁻¹' s
+    rw [← Set.image_preimage_eq s f_surj]
+    exact h t Set.preimage_image_preimage h_inv_closed
+end
