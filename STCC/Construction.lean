@@ -149,7 +149,7 @@ omit CW in theorem skn_sum_cnp1_to_sknp1_surj {n: ℕ}: Function.Surjective (skn
     have : g (f y) = y := by simp [f, g]
     rwa [this]
 
-theorem skn_sum_cnp1_to_sknp1_cont {n: ℕ}: Continuous (skn_sum_cnp1_to_sknp1 (C:= C) n) := by
+omit CW in theorem skn_sum_cnp1_to_sknp1_cont {n: ℕ}: Continuous (skn_sum_cnp1_to_sknp1 (C:= C) n) := by
   rw [continuous_sum_dom]
   refine And.intro ?inl_cont ?inr_cont
   case inl_cont =>
@@ -159,7 +159,13 @@ theorem skn_sum_cnp1_to_sknp1_cont {n: ℕ}: Continuous (skn_sum_cnp1_to_sknp1 (
     rw [this]
     exact Continuous.subtype_mk continuous_subtype_val fun x ↦ skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.property
   case inr_cont =>
-    sorry
+    apply continuous_sigma
+    intro e
+    simp [skn_sum_cnp1_to_sknp1]
+    apply Continuous.subtype_mk
+    apply Continuous.comp
+    . apply C.characteristic_map_continuous
+    exact @Eq.rec ℕ (C.dim_map e.1) (fun n hn ↦ Continuous (congrArg (fun p ↦ (cb p : Type)) hn).mpr) (continuous_id) (n + 1) e.2
 
 omit CW in theorem skn_sum_cnp1_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skeleton X n) ⊕ (Σ_:CellOfDim (n + 1), cb (n + 1)),
   glue_setoid
