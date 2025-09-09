@@ -1361,6 +1361,28 @@ theorem characteristic_map_inner_boundary_ne: ∀ e₁ e₂:C.sets, ∀ x: cb (C
         apply same_cell_of_mem e₁.2 e₃.2 img_in_e₁ img_in_e₃
     rw [←this] at e₃_dim
     linarith
+theorem is_closed_iff_is_closed_in_ce_less_than_dim [CW:CWComplexClass X] {n: ℕ} {S: Set (Skeleton X n)}: IsClosed S ↔ ∀ e:C.sets, (C.dim_map e ≤ n) → IsClosed ((Subtype.val: closure e.1 → X) ⁻¹' ((Subtype.val: (Skeleton X n) → X) '' S)) := by
+    let g : (Skeleton X n) → X := (↑)
+    have g_closed_embedding: IsClosedEmbedding g := IsClosed.isClosedEmbedding_subtypeVal (sub_cw_cell_complex_closed _)
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        intro S_closed_in_Xn
+        intro e h_e_dim
+        exact IsClosed.preimage_val ((Topology.IsClosedEmbedding.isClosed_iff_image_isClosed g_closed_embedding).mp S_closed_in_Xn)
+    case mpr =>
+        intro h
+        apply closed_crit_of_coeherent CWComplexClass.coeherent
+        rintro ce' ⟨e', e'_in_sets', rfl⟩
+        simp
+        suffices IsClosed (g '' (closure e' ∩ S)) by
+            exact (Topology.IsClosedEmbedding.isClosed_iff_image_isClosed g_closed_embedding).mpr this
+        rw [Set.image_inter Subtype.val_injective, ←IsClosedEmbedding.closure_image_eq g_closed_embedding e']
+        have : C.dim_map ⟨g '' e', e'_in_sets'⟩ ≤ n := by
+            rw [←sub_skeleton_iff]
+            intro x hx
+            simp [g] at hx
+            exact hx.1
+        simpa using h ⟨g '' e', e'_in_sets'⟩ this
 end
 
 end CellComplexClass

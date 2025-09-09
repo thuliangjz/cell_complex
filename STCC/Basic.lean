@@ -886,6 +886,22 @@ theorem quotient_lift_is_homeomorph {X Z: Type*} [TopologicalSpace X] [Topologic
         rcases g_quotient.surjective z with ⟨x, rfl⟩
         use Quotient.mk S x
         rfl
+
+theorem quotient_of_saturate_closed_image_closed {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
+  {f: X → Y} (f_cont: Continuous f) (f_surj: Function.Surjective f)
+  (h_closed_img_closed: ∀ s: Set X, f ⁻¹' (f '' s) = s → IsClosed s → IsClosed (f '' s)) :
+  Topology.IsQuotientMap f := by
+    refine Topology.isQuotientMap_iff_isClosed.mpr ?_
+    use f_surj
+    intro s
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      exact fun a ↦ IsClosed.preimage f_cont a
+    case mpr =>
+      intro h_inv_closed
+      let t := f ⁻¹' s
+      rw [← Set.image_preimage_eq s f_surj]
+      exact h_closed_img_closed t Set.preimage_image_preimage h_inv_closed
 end
 end Chp5
 

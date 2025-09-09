@@ -342,23 +342,16 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
         refine glue_setoid_of_same_image _ _ this.1 this.2 ?heq
         simpa [CellAttached_f, characteristic_cn] using hx₁x₂
   case is_quot =>
+    apply quotient_of_saturate_closed_image_closed
+    case f_cont => apply skn_sum_cnp1_to_sknp1_cont
+    case f_surj => apply skn_sum_cnp1_to_sknp1_surj
+    intro S hS SClosed
+    rw [is_closed_iff_is_closed_in_ce_less_than_dim]
+    intro e h_e_dim
     sorry
 
 end
 
 end Chp5
 section
-variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-example {f: X → Y} (f_cont: Continuous f) (f_surj: Function.Surjective f) (h: ∀ s: Set X, f ⁻¹' (f '' s) = s → IsClosed s → IsClosed (f '' s)) : Topology.IsQuotientMap f := by
-  refine Topology.isQuotientMap_iff_isClosed.mpr ?_
-  use f_surj
-  intro s
-  refine Iff.intro ?mp ?mpr
-  case mp =>
-    exact fun a ↦ IsClosed.preimage f_cont a
-  case mpr =>
-    intro h_inv_closed
-    let t := f ⁻¹' s
-    rw [← Set.image_preimage_eq s f_surj]
-    exact h t Set.preimage_image_preimage h_inv_closed
 end
