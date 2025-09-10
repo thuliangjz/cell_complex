@@ -348,10 +348,51 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
     intro S hS SClosed
     rw [is_closed_iff_is_closed_in_ce_less_than_dim]
     intro e h_e_dim
-    sorry
+    match Nat.le_succ_iff.mp h_e_dim with
+    | Or.inl dim_e_le_n =>
+      let g₁ : (Skeleton X n) → X := (↑)
+      let g₂ : (Skeleton X (n + 1)) → X := (↑)
+      show IsClosed (closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S))
+      have : closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S) = closure e.1 ∩ g₁ '' (Sum.inl ⁻¹' S) := by
+        ext x
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          intro hx
+          use hx.1
+          have ce_sub_Xn : closure e.1 ⊆ (Skeleton X n) := by
+            apply (Skeleton X n).cell_closure_incl _ e.2
+            show e.1 ⊆ (Skeleton X n)
+            rwa [sub_skeleton_iff e]
+          use ⟨x, ce_sub_Xn hx.1⟩
+          simp [g₁]
+          have: ∃ y ∈ S, x = g₂ (skn_sum_cnp1_to_sknp1 n y) := by
+            rcases hx.2 with ⟨w, hw, heq1⟩
+            rcases hw with ⟨u, hu, heq2⟩
+            rw [←heq2] at heq1
+            use u, hu, heq1.symm
+          rcases this with ⟨t, ht, htx⟩
+          have : x = g₂ (skn_sum_cnp1_to_sknp1 n (Sum.inl ⟨x, ce_sub_Xn hx.1⟩)) := by simp [g₂, skn_sum_cnp1_to_sknp1]
+          rw [this] at htx
+          rw [Set.ext_iff] at hS
+          rw [←hS]
+          use t, ht, (Subtype.val_injective htx).symm
+        case mpr =>
+          sorry
+      rw [this]
+      have : IsClosed (Sum.inl ⁻¹' S) := IsClosed.preimage continuous_inl SClosed
+      rw [is_closed_iff_is_closed_in_ce_less_than_dim] at this
+      apply this
+      exact dim_e_le_n
+    | Or.inr dim_e_eq_np1 =>
+      sorry
 
 end
 
 end Chp5
 section
+variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+example {S: Set (X ⊕ Y)} (h: IsClosed S) : IsClosed (Sum.inl ⁻¹' S) := by
+  exact IsClosed.preimage continuous_inl h
+example {S T: Set X} {x: X} (hx: x ∈ S) (h: S = T) : x ∈ T := by
+  sorry
 end

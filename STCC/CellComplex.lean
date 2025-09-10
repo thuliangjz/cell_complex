@@ -1361,14 +1361,15 @@ theorem characteristic_map_inner_boundary_ne: ∀ e₁ e₂:C.sets, ∀ x: cb (C
         apply same_cell_of_mem e₁.2 e₃.2 img_in_e₁ img_in_e₃
     rw [←this] at e₃_dim
     linarith
-theorem is_closed_iff_is_closed_in_ce_less_than_dim [CW:CWComplexClass X] {n: ℕ} {S: Set (Skeleton X n)}: IsClosed S ↔ ∀ e:C.sets, (C.dim_map e ≤ n) → IsClosed ((Subtype.val: closure e.1 → X) ⁻¹' ((Subtype.val: (Skeleton X n) → X) '' S)) := by
+
+theorem is_closed_iff_is_closed_in_ce_less_than_dim [CW:CWComplexClass X] {n: ℕ} {S: Set (Skeleton X n)}: IsClosed S ↔ ∀ e:C.sets, (C.dim_map e ≤ n) → IsClosed (closure e.1 ∩ ((Subtype.val: (Skeleton X n) → X) '' S)) := by
     let g : (Skeleton X n) → X := (↑)
     have g_closed_embedding: IsClosedEmbedding g := IsClosed.isClosedEmbedding_subtypeVal (sub_cw_cell_complex_closed _)
     refine Iff.intro ?mp ?mpr
     case mp =>
         intro S_closed_in_Xn
         intro e h_e_dim
-        exact IsClosed.preimage_val ((Topology.IsClosedEmbedding.isClosed_iff_image_isClosed g_closed_embedding).mp S_closed_in_Xn)
+        exact IsClosed.inter isClosed_closure ((Topology.IsClosedEmbedding.isClosed_iff_image_isClosed g_closed_embedding).mp S_closed_in_Xn)
     case mpr =>
         intro h
         apply closed_crit_of_coeherent CWComplexClass.coeherent
