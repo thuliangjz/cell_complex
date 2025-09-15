@@ -377,7 +377,11 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
           rw [←hS]
           use t, ht, (Subtype.val_injective htx).symm
         case mpr =>
-          sorry
+          intro hx
+          use hx.1
+          rcases hx.2 with ⟨w, inl_w_in_S, hwx⟩
+          use skn_sum_cnp1_to_sknp1 n (Sum.inl w), ⟨Sum.inl w, inl_w_in_S, rfl⟩
+          simpa [g₂, skn_sum_cnp1_to_sknp1]
       rw [this]
       have : IsClosed (Sum.inl ⁻¹' S) := IsClosed.preimage continuous_inl SClosed
       rw [is_closed_iff_is_closed_in_ce_less_than_dim] at this
