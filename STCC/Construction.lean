@@ -348,11 +348,11 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
     intro S hS SClosed
     rw [is_closed_iff_is_closed_in_ce_less_than_dim]
     intro e h_e_dim
+    let g₂ : (Skeleton X (n + 1)) → X := (↑)
+    show IsClosed (closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S))
     match Nat.le_succ_iff.mp h_e_dim with
     | Or.inl dim_e_le_n =>
       let g₁ : (Skeleton X n) → X := (↑)
-      let g₂ : (Skeleton X (n + 1)) → X := (↑)
-      show IsClosed (closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S))
       have : closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S) = closure e.1 ∩ g₁ '' (Sum.inl ⁻¹' S) := by
         ext x
         refine Iff.intro ?mp ?mpr
@@ -388,7 +388,25 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
       apply this
       exact dim_e_le_n
     | Or.inr dim_e_eq_np1 =>
-      sorry
+      -- inclusion map from cb to sum of cb
+      let η : cb (n + 1) → (Σ_:CellOfDim (C := C) (n + 1), cb (n + 1)) := fun x ↦ ⟨⟨e, dim_e_eq_np1⟩, x⟩
+      have η_continuous: Continuous η := by
+        apply continuous_iff_coinduced_le.mpr
+        rw [instTopologicalSpaceSigma]
+        exact le_iSup_iff.mpr fun b a ↦ a _
+      let φ : cb (n + 1) → X := fun x ↦ C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) dim_e_eq_np1).mpr x)
+      have φ_closed_map: IsClosedMap φ := by
+        apply @Eq.rec ℕ (C.dim_map e)
+          (fun m hem ↦ IsClosedMap (fun x:cb m ↦ C.characteristic_map e (((congrArg (fun p ↦ (cb p : Type)) hem)).mpr x)))
+          (by simp; apply Continuous.isClosedMap (C.characteristic_map_continuous e))
+        exact dim_e_eq_np1
+      -- we shall be able to prove φ is closed map
+      -- but this lemma shall be proved
+      have: closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S) = φ '' (η ⁻¹' (Sum.inr ⁻¹' S)) := by
+        sorry
+      rw [this]
+      apply φ_closed_map
+      exact IsClosed.preimage η_continuous (IsClosed.preimage continuous_inr SClosed)
 
 end
 
@@ -397,6 +415,10 @@ section
 variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
 example {S: Set (X ⊕ Y)} (h: IsClosed S) : IsClosed (Sum.inl ⁻¹' S) := by
   exact IsClosed.preimage continuous_inl h
-example {S T: Set X} {x: X} (hx: x ∈ S) (h: S = T) : x ∈ T := by
-  sorry
+variable {ι: Type*} {i: ι}
+
+example : Continuous ((fun x ↦ ⟨i, x⟩): X → Σ_:ι, X) := by
+  refine continuous_iff_coinduced_le.mpr ?_
+  rw [instTopologicalSpaceSigma]
+  exact le_iSup_iff.mpr fun b a ↦ a i
 end
