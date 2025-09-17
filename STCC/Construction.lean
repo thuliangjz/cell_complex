@@ -349,6 +349,7 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
     rw [is_closed_iff_is_closed_in_ce_less_than_dim]
     intro e h_e_dim
     let g₂ : (Skeleton X (n + 1)) → X := (↑)
+    have g₂_inj: Function.Injective g₂ := Subtype.val_injective
     show IsClosed (closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S))
     match Nat.le_succ_iff.mp h_e_dim with
     | Or.inl dim_e_le_n =>
@@ -403,7 +404,35 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
       -- we shall be able to prove φ is closed map
       -- but this lemma shall be proved
       have: closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S) = φ '' (η ⁻¹' (Sum.inr ⁻¹' S)) := by
-        sorry
+        ext x
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          rintro ⟨x_in_ce, ⟨_, ⟨w, w_in_S, rfl⟩, rfl⟩⟩
+          rw [←characteristic_map_range, Set.mem_range] at x_in_ce
+          rcases x_in_ce with ⟨y, hy⟩
+          rw [←hy]
+          let p := (congrArg (fun p ↦ (cb p : Type)) dim_e_eq_np1).mp y
+          have hp: φ p = C.characteristic_map e y := by simp [φ, p]
+          rw [←hp]
+          rw [hy] at hp
+          use p
+          have hp': g₂ (skn_sum_cnp1_to_sknp1 n (Sum.inr (η p))) = φ p := by simp [φ, skn_sum_cnp1_to_sknp1, η, g₂]
+          have hp_in_S: Sum.inr (η p) ∈ S := by
+            rw [←hS]
+            use w, w_in_S
+            apply g₂_inj
+            rw [←hp, hp']
+          simpa
+        case mpr =>
+          intro hx
+          rcases hx with ⟨w, hw, rfl⟩
+          have : φ w ∈ closure e := by
+            rw [←characteristic_map_range, Set.mem_range]
+            use (congrArg (fun p ↦ (cb p : Type)) dim_e_eq_np1).mpr w
+          use this
+          have : Sum.inr (η w) ∈ S := hw
+          use (skn_sum_cnp1_to_sknp1 n (Sum.inr (η w))), (by use (Sum.inr (η w)))
+          simp [g₂, skn_sum_cnp1_to_sknp1, η, φ]
       rw [this]
       apply φ_closed_map
       exact IsClosed.preimage η_continuous (IsClosed.preimage continuous_inr SClosed)
@@ -411,14 +440,3 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
 end
 
 end Chp5
-section
-variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
-example {S: Set (X ⊕ Y)} (h: IsClosed S) : IsClosed (Sum.inl ⁻¹' S) := by
-  exact IsClosed.preimage continuous_inl h
-variable {ι: Type*} {i: ι}
-
-example : Continuous ((fun x ↦ ⟨i, x⟩): X → Σ_:ι, X) := by
-  refine continuous_iff_coinduced_le.mpr ?_
-  rw [instTopologicalSpaceSigma]
-  exact le_iSup_iff.mpr fun b a ↦ a i
-end
