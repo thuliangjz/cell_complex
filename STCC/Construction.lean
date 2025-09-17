@@ -65,10 +65,378 @@ theorem quotient_sigma_cb_map : Topology.IsQuotientMap (fun (⟨e, d⟩: (_:C.se
       rw [←Topology.IsQuotientMap.isOpen_preimage this]
       rw [Set.preimage_preimage]
       apply h
-end
 
-section
-variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+def CellAttached_boundary {n: ℕ} {ι: Type*} : Set (Σ_: ι, cb n) := {x | x.2 ∈ cb_boundary}
+
+def CellAttached_f {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : @CellAttached_boundary n ι → S := fun x ↦ ⟨g x.1.1 x.1.2, hg x.1.1 x.1.2 x.2⟩
+
+def CellAttached {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) :=
+  AdjointSpace CellAttached_boundary (CellAttached_f g hg)
+
+instance {n: ℕ} {ι: Type*} {S: Set X} (g: ι → cb n → X) (hg: ∀ i:ι, ∀ x:cb n, x ∈ cb_boundary →  g i x ∈ S) : TopologicalSpace (CellAttached g hg)  := by
+  rw [CellAttached]
+  infer_instance
+
+def CellOfDim (n: ℕ) := {e: C.sets | C.dim_map e = n}
+
+def characteristic_cn (n: ℕ) : @CellOfDim X _ _ C n → cb n → X := fun ⟨e, he⟩ x ↦ C.characteristic_map e ((congrArg (fun p ↦ (cb p: Type)) he.symm).mp x)
+
+-- example usage of Eq.rec and congArg
+-- example {f : ℕ → Type} (n1 n2: ℕ) (h: n1 = n2) : f n1 = f n2 := by
+--   exact congrArg f h
+-- example {f: ℕ → Type} {g: (n: ℕ) → Set (f n)}{n1 n2: ℕ} (eq: n1 + 1 = n2) (x: f (n1 + 1)) (h: x ∈ g (n1 + 1)): (congrArg f eq).mp x ∈ g n2 :=
+--   Eq.rec (motive := fun n2' eq' => (congrArg f eq').mp x ∈ g n2') h eq
+
+omit CW in theorem char_cnp1_boundary_in_skn (n: ℕ): ∀ e: CellOfDim (n + 1), ∀ x: (cb (n + 1)), x ∈ cb_boundary → (characteristic_cn (n + 1) e x) ∈ Skeleton X n := by
+  rintro ⟨e, he⟩ x x_in_boundary
+  have mem_0: characteristic_cn (n + 1) ⟨e, he⟩ x ∈ Set.range (cb_boundary_map (C.characteristic_map e)) := by
+    rw [characteristic_cn]
+    apply mem_boundary_map_range_of_mem_boundary
+    apply @Eq.rec ℕ (n + 1) (fun (n':ℕ) (eq:(n + 1 = n')) ↦ (congrArg (fun p ↦ (cb p:Type)) eq.symm).mpr x ∈ @cb_boundary n') x_in_boundary _ (he.symm)
+  have mem_1: Set.range (cb_boundary_map (C.characteristic_map e)) ⊆ ⋃p:sets, ⋃_:(C.dim_map p < C.dim_map e), p.1 := C.characteristic_map_boundary e
+  have mem_2: ⋃p:sets, ⋃_:(C.dim_map p < C.dim_map e), p.1 ⊆ Skeleton X n := by
+    rw [Set.iUnion₂_subset_iff]
+    intro p hp
+    rw [he] at hp
+    rw [sub_skeleton_iff, Nat.le_iff_lt_add_one]
+    exact hp
+  exact mem_2 (mem_1 mem_0)
+
+def skn_sum_cnp1_to_sknp1 (n: ℕ): (Skeleton X n) ⊕ (Σ_:@CellOfDim X _ _ C (n + 1), cb (n + 1)) → (Skeleton X (n + 1)) := by
+  intro x
+  match x with
+  | Sum.inl ⟨x, x_in_Xn⟩ =>
+    exact ⟨x, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x_in_Xn⟩
+  | Sum.inr ⟨⟨e, he⟩, x⟩ =>
+    use C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) he).mpr x)
+    suffices Set.range (C.characteristic_map e) ⊆ (Skeleton X (n + 1)) by exact this (Set.mem_range_self _)
+    rw [characteristic_map_range]
+    apply (Skeleton X (n + 1)).cell_closure_incl e.1 e.2
+    show e.1 ⊆ Skeleton X (n + 1)
+    rw [sub_skeleton_iff, he]
+
+omit CW in theorem skn_sum_cnp1_to_sknp1_surj {n: ℕ}: Function.Surjective (skn_sum_cnp1_to_sknp1 (C := C) n) := by
+  intro x
+  rcases exists_mem_of_cell (x:X) with ⟨e, e_in_sets, x_in_e⟩
+  have : C.dim_map ⟨e, e_in_sets⟩ ≤ (n + 1) := by
+    rw [←sub_skeleton_iff]
+    simp
+    apply (Skeleton X (n + 1)).subset_of_intersect e_in_sets
+    rw [←Set.nonempty_iff_ne_empty]
+    use x
+    exact ⟨x_in_e, x.2⟩
+  match Nat.le_succ_iff.mp this with
+  | Or.inl dim_e_le_n =>
+    have: (x:X) ∈ (Skeleton X n) := by
+      suffices e ⊆ (Skeleton X n) by
+        exact this x_in_e
+      show (⟨e, e_in_sets⟩:C.sets).1 ⊆ (Skeleton X n)
+      rwa [sub_skeleton_iff]
+    use Sum.inl ⟨x, this⟩
+    rfl
+  | Or.inr dim_e_eq_np1 =>
+    let e': C.sets := ⟨e, e_in_sets⟩
+    have : (x:X) ∈ e'.1 := x_in_e
+    rw [←characteristic_map_inner_image] at this
+    rcases this with ⟨y, y_in_inner, y_map_to_x⟩
+    let f := (congrArg (fun p ↦ (cb p: Type)) dim_e_eq_np1).mp
+    let g := (congrArg (fun p ↦ (cb p: Type)) dim_e_eq_np1).mpr
+    let y': cb (n + 1) := (congrArg (fun p ↦ (cb p: Type)) dim_e_eq_np1).mp y
+    use Sum.inr ⟨⟨e', dim_e_eq_np1⟩, y'⟩
+    simp [skn_sum_cnp1_to_sknp1]
+    apply SetCoe.ext;simp
+    show C.characteristic_map e' (g y') = x
+    have : g (f y) = y := by simp [f, g]
+    rwa [this]
+
+omit CW in theorem skn_sum_cnp1_to_sknp1_cont {n: ℕ}: Continuous (skn_sum_cnp1_to_sknp1 (C:= C) n) := by
+  rw [continuous_sum_dom]
+  refine And.intro ?inl_cont ?inr_cont
+  case inl_cont =>
+    have : skn_sum_cnp1_to_sknp1 n ∘ Sum.inl = fun x ↦ ⟨x.1, skeleton_mono (C:=C) n (n + 1) (Nat.le_add_right n 1) x.2⟩ := by
+      ext x
+      simp [skn_sum_cnp1_to_sknp1]
+    rw [this]
+    exact Continuous.subtype_mk continuous_subtype_val fun x ↦ skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.property
+  case inr_cont =>
+    apply continuous_sigma
+    intro e
+    simp [skn_sum_cnp1_to_sknp1]
+    apply Continuous.subtype_mk
+    apply Continuous.comp
+    . apply C.characteristic_map_continuous
+    exact @Eq.rec ℕ (C.dim_map e.1) (fun n hn ↦ Continuous (congrArg (fun p ↦ (cb p : Type)) hn).mpr) (continuous_id) (n + 1) e.2
+
+omit CW in theorem skn_sum_cnp1_to_sknp1_factors {n: ℕ}: ∀ x₁ x₂: (Skeleton X n) ⊕ (Σ_:CellOfDim (n + 1), cb (n + 1)),
+  glue_setoid
+    (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+    (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n) (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+    x₁ x₂ →
+  skn_sum_cnp1_to_sknp1 n x₁ = skn_sum_cnp1_to_sknp1 n x₂ := by
+    intro x₁ x₂ h₁₂
+    rcases glue_rel_equiv_explicit _ _ x₁ x₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+    . rcases c0 with ⟨x, heq1, heq2⟩
+      rw [heq2]
+    . rcases c1 with ⟨x, y, y', heq1, heq2, heq3, heq4⟩
+      rw [CellAttached_f] at heq4
+      simp [heq1, skn_sum_cnp1_to_sknp1, heq2, heq4, ←heq3, characteristic_cn]
+      rw [←heq3]
+    . rcases c2 with ⟨y, x, y', heq1, heq2, heq3, heq4⟩
+      rw [CellAttached_f] at heq4
+      simp [heq1, skn_sum_cnp1_to_sknp1, heq2, heq4, ←heq3, characteristic_cn]
+      rw [←heq3]
+    . rcases c3 with ⟨y₁, y₂, y₁', y₂', heq1, heq2, heq3, heq4, heq5, hne⟩
+      simp [heq1, heq2, skn_sum_cnp1_to_sknp1]
+      simp [CellAttached_f, characteristic_cn, heq3, heq4] at heq5
+      rwa [heq3, heq4] at heq5
+    . rcases c4 with ⟨y, heq1, heq2⟩
+      rw [heq2]
+
+def cell_attached_to_sknp1 (n: ℕ): @CellAttached X (n + 1) _ _ (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n) → (Skeleton X (n + 1)) := (Quotient.lift (skn_sum_cnp1_to_sknp1 n) skn_sum_cnp1_to_sknp1_factors)
+
+section helper
+variable {X: Type*} [T: TopologicalSpace X] [T2Space X] [C: CellComplexClass X]
+theorem mem_boundary_of_same_char_image₁ {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1)
+    (h_e₂_dim: C.dim_map e₂ = n + 1) (h_ne_y: y₁ ≠ y₂) (e₁_eq_e₂: e₁ = e₂)
+    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+        C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
+    y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
+        have h_img_eq': C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂) := by
+                rw [h_img_eq]
+                apply @Eq.rec C.sets e₁
+                    (fun (e':C.sets) (h: e₁ = e') ↦
+                        C.characteristic_map e' ((congrArg (fun p ↦ (cb p:Type)) ((congrArg C.dim_map h).symm.trans h_e₁_dim).symm).mp y₂) =
+                            C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₂))
+                    rfl
+                exact e₁_eq_e₂
+        let f : cb (n + 1) → cb (C.dim_map e₁) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp
+        let g : cb (C.dim_map e₁) → cb (n + 1) := (congrArg (fun p ↦ (cb p : Type)) h_e₁_dim).mp
+        have g_f_inv: ∀ y, g (f y) = y := by
+            intro y
+            simp [g, f]
+        have f_y_in_inner: ∀ y:(cb (n + 1)), y ∈ cb_inner → f y ∈ cb_inner  := by
+            intro y hy
+            apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_inner) hy
+            exact h_e₁_dim.symm
+        have f_y_in_boundary: ∀y:(cb (n + 1)), y ∈ cb_boundary → f y ∈ cb_boundary := by
+            intro y hy
+            apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ cb_boundary) hy
+            exact h_e₁_dim.symm
+        match @cb_decomp (n + 1) y₁ with
+        | Or.inl y₁_in_inneer =>
+            have f_y₁_in_inner : f y₁ ∈ cb_inner := f_y_in_inner y₁ y₁_in_inneer
+            match @cb_decomp (n + 1) y₂ with
+            | Or.inl y₂_in_inner =>
+                -- try to get a contradiction
+                have f_y₂_in_inner : f y₂ ∈ cb_inner := f_y_in_inner y₂ y₂_in_inner
+                have : y₁ = y₂ := by
+                    rw [←g_f_inv y₁, ←g_f_inv y₂]
+                    apply congrArg
+                    exact characteristic_map_inj_on_inner e₁ f_y₁_in_inner f_y₂_in_inner h_img_eq'
+                contradiction
+            | Or.inr y₂_in_boundary =>
+                have f_y₂_in_boundary: f y₂ ∈ cb_boundary := f_y_in_boundary y₂ y₂_in_boundary
+                have : C.characteristic_map e₁ (f y₁) ≠ C.characteristic_map e₁ (f y₂) := by
+                    exact characteristic_map_inner_boundary_ne _ _ _ _ f_y₁_in_inner f_y₂_in_boundary rfl
+                contradiction
+        | Or.inr y₁_in_boundary =>
+            have f_y₁_in_boundary: f y₁ ∈ cb_boundary := f_y_in_boundary y₁ y₁_in_boundary
+            match @cb_decomp (n + 1) y₂ with
+            | Or.inl y₂_in_inner =>
+                have f_y₂_in_inner: f y₂ ∈ cb_inner := f_y_in_inner _ y₂_in_inner
+                have: C.characteristic_map e₁ (f y₁) ≠ C.characteristic_map e₁ (f y₂) := by
+                    apply Ne.symm
+                    exact characteristic_map_inner_boundary_ne _ _ _ _ f_y₂_in_inner f_y₁_in_boundary rfl
+                contradiction
+            | Or.inr y₂_in_boundary =>
+                exact ⟨y₁_in_boundary, y₂_in_boundary⟩
+
+theorem mem_boundary_of_same_char_image₂ {n: ℕ} {y₁ y₂: cb (n + 1)} {e₁ e₂: C.sets} (h_e₁_dim: C.dim_map e₁ = n + 1)
+    (h_e₂_dim: C.dim_map e₂ = n + 1) (e₁_ne_e₂: e₁ ≠ e₂)
+    (h_img_eq: C.characteristic_map e₁ ((congrArg (fun p ↦ (cb p : Type)) h_e₁_dim.symm).mp y₁) =
+        C.characteristic_map e₂ ((congrArg (fun p ↦ (cb p : Type)) h_e₂_dim.symm).mp y₂)):
+    y₁ ∈ cb_boundary ∧ y₂ ∈ cb_boundary := by
+      let ff : (e:C.sets) → (he: C.dim_map e = n + 1) → cb (n + 1) → cb (C.dim_map e) := fun e he ↦ (congrArg (fun p ↦ (cb p : Type)) he.symm).mp
+      have ff_y_in_set: ∀ e:C.sets, ∀ he: (C.dim_map e = n + 1), ∀ sf: ((n:ℕ) → Set (cb n)), ∀ y:cb (n + 1), y ∈ sf (n + 1) → ff e he y ∈ sf (C.dim_map e) := by
+        intro e he sf y hy
+        apply @Eq.rec ℕ (n + 1) (fun m hm ↦ (congrArg (fun p ↦ (cb p : Type)) hm).mp y ∈ sf m) hy
+        exact he.symm
+      let y₁' := ff e₁ h_e₁_dim y₁
+      let y₂' := ff e₂ h_e₂_dim y₂
+      have h_img_eq' : C.characteristic_map e₁ y₁' = C.characteristic_map e₂ y₂' := h_img_eq
+      match @cb_decomp (n + 1) y₁ with
+      | Or.inl y₁_in_inner =>
+        have ff_y₁_in_inner : y₁' ∈ cb_inner := ff_y_in_set e₁ h_e₁_dim @cb_inner y₁ y₁_in_inner
+        have cff_y₁_in_e₁: C.characteristic_map e₁ y₁' ∈ e₁.1 := by rw [←characteristic_map_inner_image];use y₁'
+        match @cb_decomp (n + 1) y₂ with
+        | Or.inl y₂_in_inner =>
+          have f_y₂_in_inner : y₂' ∈ cb_inner := ff_y_in_set e₂ h_e₂_dim @cb_inner y₂ y₂_in_inner
+          have cff_y₂_in_e₂: C.characteristic_map e₂ y₂' ∈ e₂.1 := by rw [←characteristic_map_inner_image];use y₂'
+          rw [←h_img_eq] at cff_y₂_in_e₂
+          have : e₁ = e₂ := by
+            apply SetCoe.ext
+            exact same_cell_of_mem e₁.2 e₂.2 cff_y₁_in_e₁ cff_y₂_in_e₂
+          contradiction
+        | Or.inr y₂_in_boundary =>
+          have ff_y₂_in_boundary : y₂' ∈ cb_boundary := ff_y_in_set e₂ h_e₂_dim @cb_boundary y₂ y₂_in_boundary
+          have : C.characteristic_map e₁ y₁' ≠ C.characteristic_map e₂ y₂' := characteristic_map_inner_boundary_ne e₁ e₂ y₁' y₂' ff_y₁_in_inner ff_y₂_in_boundary (h_e₁_dim.trans h_e₂_dim.symm)
+          contradiction
+      | Or.inr y₁_in_boundary =>
+        have ff_y₁_in_boundary : y₁' ∈ cb_boundary := ff_y_in_set e₁ h_e₁_dim @cb_boundary y₁ y₁_in_boundary
+        match @cb_decomp (n + 1) y₂ with
+        | Or.inl y₂_in_inner =>
+          have ff_y₂_in_inner : y₂' ∈ cb_inner := ff_y_in_set e₂ h_e₂_dim @cb_inner y₂ y₂_in_inner
+          have : C.characteristic_map e₁ y₁' ≠ C.characteristic_map e₂ y₂' := (characteristic_map_inner_boundary_ne e₂ e₁ y₂' y₁' ff_y₂_in_inner ff_y₁_in_boundary (h_e₂_dim.trans h_e₁_dim.symm)).symm
+          contradiction
+        | Or.inr y₂_in_boundary =>
+          exact ⟨y₁_in_boundary, y₂_in_boundary⟩
+end helper
+
+theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attached_to_sknp1 X _ _ _ n) := by
+  refine quotient_lift_is_homeomorph _ ?factors ?is_quot
+  case factors =>
+    intro x₁ x₂ hx₁x₂
+    match x₁ with
+    | Sum.inl xl₁ =>
+      match x₂ with
+      | Sum.inl xl₂ =>
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        rw [hx₁x₂]
+      | Sum.inr xr₂ =>
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        have : xr₂ ∈ CellAttached_boundary := by
+          apply @mem_boundary_of_image_in_skeleton X _ _ _ n xr₂.2 xr₂.1
+          case hy => simp [←hx₁x₂]
+          case h_e_dim => exact xr₂.1.2
+        simp [glue_setoid]
+        apply Relation.EqvGen.rel
+        rw [glue_rel]
+        use ⟨xr₂, this⟩
+        simp [CellAttached_f, characteristic_cn, ←hx₁x₂]
+    | Sum.inr xr₁ =>
+      match x₂ with
+      | Sum.inl xl₂ =>
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        simp [glue_setoid]
+        apply Relation.EqvGen.symm
+        apply Relation.EqvGen.rel
+        rw [glue_rel]
+        have: xr₁ ∈ CellAttached_boundary := by
+          apply @mem_boundary_of_image_in_skeleton X _ _ _ n xr₁.2 xr₁.1
+          case hy => simp [hx₁x₂]
+          case h_e_dim => exact xr₁.1.2
+        use ⟨xr₁, this⟩
+        simp [CellAttached_f, characteristic_cn, hx₁x₂]
+      | Sum.inr xr₂ =>
+        rcases eq_or_ne xr₁ xr₂ with heq | hne
+        . exact Quotient.eq''.mp (congrArg Quotient.mk'' (congrArg Sum.inr heq))
+        simp [skn_sum_cnp1_to_sknp1] at hx₁x₂
+        have: xr₁ ∈ CellAttached_boundary ∧ xr₂ ∈ CellAttached_boundary:= by
+          rcases (eq_or_ne xr₁.1 xr₂.1) with heq' | hne'
+          . have: xr₁.2 ≠ xr₂.2 := by
+              contrapose! hne
+              exact Sigma.subtype_ext heq' (congrArg Subtype.val hne)
+            exact mem_boundary_of_same_char_image₁ (C:=C) xr₁.1.2 xr₂.1.2 this (congrArg Subtype.val heq') hx₁x₂
+          exact mem_boundary_of_same_char_image₂ (C:=C) xr₁.1.2 xr₂.1.2 (Subtype.coe_ne_coe.mpr hne') hx₁x₂
+        refine glue_setoid_of_same_image _ _ this.1 this.2 ?heq
+        simpa [CellAttached_f, characteristic_cn] using hx₁x₂
+  case is_quot =>
+    apply quotient_of_saturate_closed_image_closed
+    case f_cont => apply skn_sum_cnp1_to_sknp1_cont
+    case f_surj => apply skn_sum_cnp1_to_sknp1_surj
+    intro S hS SClosed
+    rw [is_closed_iff_is_closed_in_ce_less_than_dim]
+    intro e h_e_dim
+    let g₂ : (Skeleton X (n + 1)) → X := (↑)
+    have g₂_inj: Function.Injective g₂ := Subtype.val_injective
+    show IsClosed (closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S))
+    match Nat.le_succ_iff.mp h_e_dim with
+    | Or.inl dim_e_le_n =>
+      let g₁ : (Skeleton X n) → X := (↑)
+      have : closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S) = closure e.1 ∩ g₁ '' (Sum.inl ⁻¹' S) := by
+        ext x
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          intro hx
+          use hx.1
+          have ce_sub_Xn : closure e.1 ⊆ (Skeleton X n) := by
+            apply (Skeleton X n).cell_closure_incl _ e.2
+            show e.1 ⊆ (Skeleton X n)
+            rwa [sub_skeleton_iff e]
+          use ⟨x, ce_sub_Xn hx.1⟩
+          simp [g₁]
+          have: ∃ y ∈ S, x = g₂ (skn_sum_cnp1_to_sknp1 n y) := by
+            rcases hx.2 with ⟨w, hw, heq1⟩
+            rcases hw with ⟨u, hu, heq2⟩
+            rw [←heq2] at heq1
+            use u, hu, heq1.symm
+          rcases this with ⟨t, ht, htx⟩
+          have : x = g₂ (skn_sum_cnp1_to_sknp1 n (Sum.inl ⟨x, ce_sub_Xn hx.1⟩)) := by simp [g₂, skn_sum_cnp1_to_sknp1]
+          rw [this] at htx
+          rw [Set.ext_iff] at hS
+          rw [←hS]
+          use t, ht, (Subtype.val_injective htx).symm
+        case mpr =>
+          intro hx
+          use hx.1
+          rcases hx.2 with ⟨w, inl_w_in_S, hwx⟩
+          use skn_sum_cnp1_to_sknp1 n (Sum.inl w), ⟨Sum.inl w, inl_w_in_S, rfl⟩
+          simpa [g₂, skn_sum_cnp1_to_sknp1]
+      rw [this]
+      have : IsClosed (Sum.inl ⁻¹' S) := IsClosed.preimage continuous_inl SClosed
+      rw [is_closed_iff_is_closed_in_ce_less_than_dim] at this
+      apply this
+      exact dim_e_le_n
+    | Or.inr dim_e_eq_np1 =>
+      -- inclusion map from cb to sum of cb
+      let η : cb (n + 1) → (Σ_:CellOfDim (C := C) (n + 1), cb (n + 1)) := fun x ↦ ⟨⟨e, dim_e_eq_np1⟩, x⟩
+      have η_continuous: Continuous η := by
+        apply continuous_iff_coinduced_le.mpr
+        rw [instTopologicalSpaceSigma]
+        exact le_iSup_iff.mpr fun b a ↦ a _
+      let φ : cb (n + 1) → X := fun x ↦ C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) dim_e_eq_np1).mpr x)
+      have φ_closed_map: IsClosedMap φ := by
+        apply @Eq.rec ℕ (C.dim_map e)
+          (fun m hem ↦ IsClosedMap (fun x:cb m ↦ C.characteristic_map e (((congrArg (fun p ↦ (cb p : Type)) hem)).mpr x)))
+          (by simp; apply Continuous.isClosedMap (C.characteristic_map_continuous e))
+        exact dim_e_eq_np1
+      -- we shall be able to prove φ is closed map
+      -- but this lemma shall be proved
+      have: closure e.1 ∩ g₂ '' (skn_sum_cnp1_to_sknp1 n '' S) = φ '' (η ⁻¹' (Sum.inr ⁻¹' S)) := by
+        ext x
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          rintro ⟨x_in_ce, ⟨_, ⟨w, w_in_S, rfl⟩, rfl⟩⟩
+          rw [←characteristic_map_range, Set.mem_range] at x_in_ce
+          rcases x_in_ce with ⟨y, hy⟩
+          rw [←hy]
+          let p := (congrArg (fun p ↦ (cb p : Type)) dim_e_eq_np1).mp y
+          have hp: φ p = C.characteristic_map e y := by simp [φ, p]
+          rw [←hp]
+          rw [hy] at hp
+          use p
+          have hp': g₂ (skn_sum_cnp1_to_sknp1 n (Sum.inr (η p))) = φ p := by simp [φ, skn_sum_cnp1_to_sknp1, η, g₂]
+          have hp_in_S: Sum.inr (η p) ∈ S := by
+            rw [←hS]
+            use w, w_in_S
+            apply g₂_inj
+            rw [←hp, hp']
+          simpa
+        case mpr =>
+          intro hx
+          rcases hx with ⟨w, hw, rfl⟩
+          have : φ w ∈ closure e := by
+            rw [←characteristic_map_range, Set.mem_range]
+            use (congrArg (fun p ↦ (cb p : Type)) dim_e_eq_np1).mpr w
+          use this
+          have : Sum.inr (η w) ∈ S := hw
+          use (skn_sum_cnp1_to_sknp1 n (Sum.inr (η w))), (by use (Sum.inr (η w)))
+          simp [g₂, skn_sum_cnp1_to_sknp1, η, φ]
+      rw [this]
+      apply φ_closed_map
+      exact IsClosed.preimage η_continuous (IsClosed.preimage continuous_inr SClosed)
+
 end
 
 end Chp5

@@ -203,6 +203,13 @@ theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n
         refine continuous_iff_continuousOn_univ.mp ?_
         exact Isometry.continuous fun x1 ↦ congrFun rfl
 
+theorem cb_decomp {n: ℕ} {x: cb n} : x ∈ cb_inner ∨ x ∈ cb_boundary := by
+  rcases Classical.em (x ∈ cb_inner) with x_in_cb_inner | x_not_in_cb_inner
+  . left
+    exact x_in_cb_inner
+  right
+  rw [←cb_boundary_inner_cmpl]
+  simpa using x_not_in_cb_inner
 --theorem cb_singleton : cb 0 = {0} := by
 --    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
 
@@ -746,7 +753,7 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_adj_proj_injecti
       apply SetCoe.ext
       exact this.symm
 
-theorem right_adj_proj_open_map (hA: IsClosed A) (hf: Continuous f): IsOpenMap (right_adj_proj A f) := by
+theorem right_adj_proj_open_map (hA: IsClosed A): IsOpenMap (right_adj_proj A f) := by
   let g : (Aᶜ: Set Y) → Y := (↑)
   intro U U_open_in_A_compl
   rw [right_adj_proj, Set.image_comp, Set.image_comp]
@@ -799,16 +806,102 @@ theorem right_adj_proj_open_map (hA: IsClosed A) (hf: Continuous f): IsOpenMap (
     . rcases c4 with ⟨y, heq1, heq2⟩
       rwa [heq2]
 
-theorem right_adj_proj_is_embedding (hA: IsClosed A) (hf: Continuous f) : Topology.IsEmbedding (right_adj_proj A f) := by
-    refine embedding_of_open_continuous_injective (right_adj_proj_open_map A f hA hf) ?_ (right_adj_proj_injective A f)
+theorem right_adj_proj_is_embedding (hA: IsClosed A) : Topology.IsEmbedding (right_adj_proj A f) := by
+    refine embedding_of_open_continuous_injective (right_adj_proj_open_map A f hA) ?_ (right_adj_proj_injective A f)
     rw [right_adj_proj]
     refine Continuous.comp ?_ ?_
     exact { isOpen_preimage := fun s a ↦ a }
     continuity
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem glue_setoid_of_same_image {y₁ y₂: Y} (y₁_in_A: y₁ ∈ A) (y₂_in_A: y₂ ∈ A) (heq: f ⟨y₁, y₁_in_A⟩ = f ⟨y₂, y₂_in_A⟩): (glue_setoid A f) (Sum.inr y₁) (Sum.inr y₂) := by
+  simp [glue_setoid]
+  let x := f ⟨y₁, y₁_in_A⟩
+  have relxy₁: (glue_rel_equiv A f) (Sum.inl x) (Sum.inr y₁) := by
+    apply Relation.EqvGen.rel
+    use ⟨y₁, y₁_in_A⟩
+  have relxy₂: (glue_rel_equiv A f) (Sum.inl x) (Sum.inr y₂) := by
+    apply Relation.EqvGen.rel
+    use ⟨y₂, y₂_in_A⟩
+    simp [←heq, x]
+  exact Relation.EqvGen.trans (Sum.inr y₁) (Sum.inl x) (Sum.inr y₂) (relxy₁.symm) relxy₂
 end
 
 section
-variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+theorem quotient_lift_is_homeomorph {X Z: Type*} [TopologicalSpace X] [TopologicalSpace Z] {S: Setoid X} {g: X → Z}
+  (h_g_factors: ∀ x₁ x₂: X, S x₁ x₂ → g x₁ = g x₂)
+  (h_quotient_factors_on_g : ∀ x₁ x₂: X, g x₁ = g x₂ → S x₁ x₂)
+  (g_quotient: Topology.IsQuotientMap g):
+  IsHomeomorph (Quotient.lift g h_g_factors) := by
+    let φ := Quotient.lift g h_g_factors
+    show IsHomeomorph φ
+    refine { continuous := ?is_continuous, isOpenMap := ?is_open_map, bijective := ?is_bijective }
+    case is_continuous =>
+      exact Continuous.quotient_lift (Topology.IsQuotientMap.continuous g_quotient) h_g_factors
+    case is_open_map =>
+      intro s s_open
+      let t := (Quotient.mk S) ⁻¹' s
+      have t_open : IsOpen t := s_open
+      have φ_s_eq_g_t : φ '' s = g '' t := by
+        ext z
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          intro hz
+          rcases hz with ⟨x', x'_in_s, heq⟩
+          rcases Quotient.exists_rep x' with ⟨x, hx⟩
+          rw [←heq, ←hx]
+          show g x ∈ g '' t
+          refine ⟨x, ?_, rfl⟩
+          show Quotient.mk S x ∈ s
+          rwa [hx]
+        case mpr =>
+          intro hz
+          rcases hz with ⟨x, x_in_t, rfl⟩
+          refine ⟨Quotient.mk S x, x_in_t, rfl ⟩
+      have t_eq_preimage : g ⁻¹' (g '' t) = t := by
+        ext x
+        refine Iff.intro ?mp ?mpr
+        case mp =>
+          intro hgx
+          rcases hgx with ⟨x', x'_in_t, heq⟩
+          show Quotient.mk S x ∈ s
+          rw [←Quotient.sound (h_quotient_factors_on_g _ _ heq)]
+          exact x'_in_t
+        case mpr =>
+          intro hx
+          use x
+      rw [φ_s_eq_g_t]
+      suffices IsOpen (g ⁻¹' (g '' t)) by
+        exact (Topology.IsQuotientMap.isOpen_preimage g_quotient).mp this
+      rw [t_eq_preimage]
+      exact t_open
+    case is_bijective =>
+      refine ⟨?inj, ?bij⟩
+      case inj =>
+        intro x₁' x₂' heq'
+        rcases Quotient.exists_rep x₁' with ⟨x₁, rfl⟩
+        rcases Quotient.exists_rep x₂' with ⟨x₂, rfl⟩
+        exact Quotient.sound (h_quotient_factors_on_g _ _ heq')
+      case bij =>
+        intro z
+        rcases g_quotient.surjective z with ⟨x, rfl⟩
+        use Quotient.mk S x
+        rfl
+
+theorem quotient_of_saturate_closed_image_closed {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
+  {f: X → Y} (f_cont: Continuous f) (f_surj: Function.Surjective f)
+  (h_closed_img_closed: ∀ s: Set X, f ⁻¹' (f '' s) = s → IsClosed s → IsClosed (f '' s)) :
+  Topology.IsQuotientMap f := by
+    refine Topology.isQuotientMap_iff_isClosed.mpr ?_
+    use f_surj
+    intro s
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      exact fun a ↦ IsClosed.preimage f_cont a
+    case mpr =>
+      intro h_inv_closed
+      let t := f ⁻¹' s
+      rw [← Set.image_preimage_eq s f_surj]
+      exact h_closed_img_closed t Set.preimage_image_preimage h_inv_closed
 end
 end Chp5
 

@@ -1305,6 +1305,85 @@ theorem boundary_covered_by_finite_cells [CW: CWComplexClass X] : ∀ e₀:C.set
             rwa [←this]
         exact he.2
     use ss
+
+theorem mem_boundary_of_image_in_skeleton {n: ℕ} {y: cb (n + 1)} {e: C.sets} (h_e_dim: C.dim_map e = n + 1) (hy: C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) h_e_dim.symm).mp y) ∈ Skeleton X n) : y ∈ cb_boundary := by
+    simp [←cb_boundary_inner_cmpl]
+    by_contra! y_in_cb_inner
+    let y' := (congrArg (fun p ↦ (cb p : Type)) h_e_dim.symm).mp y
+    have y'_in_cb_inner : y' ∈ cb_inner := @Eq.rec ℕ (n + 1) (fun n' eq ↦ (congrArg (fun p ↦ (cb p : Type)) eq).mp y ∈ @cb_inner n') y_in_cb_inner _ h_e_dim.symm
+    let x := (C.characteristic_map e y')
+    have x_in_e: x ∈ e.1 := by
+        rw [←characteristic_map_inner_image]
+        use y'
+    rw [mem_sub_complex_iff] at hy
+    rcases hy with ⟨e₁, e₁_in_sets, x_in_e₁, e₁_sub_Xn⟩
+    rw [sub_skeleton_iff ⟨e₁, e₁_in_sets⟩] at e₁_sub_Xn
+    have e₁_is_e : ⟨e₁, e₁_in_sets⟩ = e := by
+        apply SetCoe.ext
+        simp
+        by_contra! e₁_is_not_e
+        have h₁: Disjoint e₁ e := C.disjoint e₁_in_sets e.2 e₁_is_not_e
+        rw [Set.disjoint_iff_inter_eq_empty] at h₁
+        have h₂: (e₁ ∩ e.1).Nonempty := by
+            use x
+            exact ⟨x_in_e₁, x_in_e⟩
+        rw [Set.nonempty_iff_ne_empty] at h₂
+        contradiction
+    rw [e₁_is_e, h_e_dim] at e₁_sub_Xn
+    linarith
+
+theorem characteristic_map_inj_on_inner : ∀ e: C.sets, Set.InjOn (C.characteristic_map e) cb_inner := by
+    intro e x₁ x₁_in_inner x₂ x₂_in_inner heq
+    rcases x₁_in_inner with ⟨x₁', rfl⟩
+    rcases x₂_in_inner with ⟨x₂', rfl⟩
+    have : ∀ x, cb_inner_map (C.characteristic_map e) x = C.characteristic_map e (b_to_cb x) := by
+        intro x
+        simp only [cb_inner_map, b_to_cb]
+    rw [←this x₁', ←this x₂'] at heq
+    rw [(C.characteristic_map_inner_embd e).injective heq]
+
+
+theorem characteristic_map_inner_boundary_ne: ∀ e₁ e₂:C.sets, ∀ x: cb (C.dim_map e₁), ∀ y: cb (C.dim_map e₂), x ∈ cb_inner → y ∈ cb_boundary → (C.dim_map e₁ = C.dim_map e₂) → C.characteristic_map e₁ x ≠ C.characteristic_map e₂ y := by
+    intro e₁ e₂ x y x_in_inner y_in_boundary h_dim_eq
+    by_contra h_img_eq
+    have img_in_e₁: C.characteristic_map e₁ x ∈ e₁.1 := by
+        rw [←characteristic_map_inner_image]
+        use x
+    have img_in_lower_dim_cells: C.characteristic_map e₂ y ∈ ⋃ p:C.sets, ⋃ _:(C.dim_map p < C.dim_map e₂), p.1 := by
+        apply C.characteristic_map_boundary
+        apply mem_boundary_map_range_of_mem_boundary
+        exact y_in_boundary
+    rw [Set.mem_iUnion₂] at img_in_lower_dim_cells
+    rcases img_in_lower_dim_cells with ⟨e₃, e₃_dim, img_in_e₃⟩
+    rw [←h_img_eq] at img_in_e₃
+    have : e₁ = e₃ := by
+        apply SetCoe.ext
+        apply same_cell_of_mem e₁.2 e₃.2 img_in_e₁ img_in_e₃
+    rw [←this] at e₃_dim
+    linarith
+
+theorem is_closed_iff_is_closed_in_ce_less_than_dim [CW:CWComplexClass X] {n: ℕ} {S: Set (Skeleton X n)}: IsClosed S ↔ ∀ e:C.sets, (C.dim_map e ≤ n) → IsClosed (closure e.1 ∩ ((Subtype.val: (Skeleton X n) → X) '' S)) := by
+    let g : (Skeleton X n) → X := (↑)
+    have g_closed_embedding: IsClosedEmbedding g := IsClosed.isClosedEmbedding_subtypeVal (sub_cw_cell_complex_closed _)
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+        intro S_closed_in_Xn
+        intro e h_e_dim
+        exact IsClosed.inter isClosed_closure ((Topology.IsClosedEmbedding.isClosed_iff_image_isClosed g_closed_embedding).mp S_closed_in_Xn)
+    case mpr =>
+        intro h
+        apply closed_crit_of_coeherent CWComplexClass.coeherent
+        rintro ce' ⟨e', e'_in_sets', rfl⟩
+        simp
+        suffices IsClosed (g '' (closure e' ∩ S)) by
+            exact (Topology.IsClosedEmbedding.isClosed_iff_image_isClosed g_closed_embedding).mpr this
+        rw [Set.image_inter Subtype.val_injective, ←IsClosedEmbedding.closure_image_eq g_closed_embedding e']
+        have : C.dim_map ⟨g '' e', e'_in_sets'⟩ ≤ n := by
+            rw [←sub_skeleton_iff]
+            intro x hx
+            simp [g] at hx
+            exact hx.1
+        simpa using h ⟨g '' e', e'_in_sets'⟩ this
 end
 
 end CellComplexClass
