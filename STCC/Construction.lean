@@ -439,4 +439,18 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
 
 end
 
+section
+structure CWComplexConstructor (X: Type*) where
+  Fsk: ℕ → Set X
+  Fsk0_nonempty: (Fsk 0).Nonempty
+  Fsk_chain: ∀ n: ℕ, Fsk n ⊆ Fsk (n + 1)
+  Fsk_cover: ⋃n:ℕ, Fsk n = Set.univ
+  Tsk: (n:ℕ) → TopologicalSpace (Fsk n)  -- topology on skeletons
+  Tsk0_discrete: DiscreteTopology (Fsk 0)
+  Fι: ℕ → Type*   -- indexing type for gluing closed balls
+  Ff: (n:ℕ) → {(x: Σ_:(Fι n), cb (n + 1)) | x.2 ∈ cb_boundary} → (Fsk n)  -- gluing function sending set of closed ball's boundary to skeleton n
+  Fφ: (n:ℕ) → (AdjointSpace _ (Ff n)) → (Fsk (n + 1))
+  Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
+
+end
 end Chp5
