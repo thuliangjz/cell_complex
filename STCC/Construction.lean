@@ -452,5 +452,71 @@ structure CWComplexConstructor (X: Type*) where
   Fφ: (n:ℕ) → (AdjointSpace _ (Ff n)) → (Fsk (n + 1))
   Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
 
+variable {X: Type*}
+variable (CWC: CWComplexConstructor X)
+instance {n:ℕ}: TopologicalSpace (CWC.Fsk n) := CWC.Tsk n
+
+-- this topology is the same with what is defined by text, see below
+instance instCWConstructorTopology : TopologicalSpace X where
+  IsOpen := fun s ↦ ∀ n:ℕ, IsOpen ((Subtype.val : (CWC.Fsk n) → X) ⁻¹' s)
+  isOpen_univ := by simp
+  isOpen_inter := by
+    intro s t hs ht n
+    rw [Set.preimage_inter]
+    apply IsOpen.inter (hs n) (ht n)
+  isOpen_sUnion := by
+    intro ss hss n
+    rw [Set.preimage_sUnion]
+    apply isOpen_sUnion
+    intro t ht
+    simp at ht
+    rcases ht with ⟨y, hy, rfl⟩
+    apply isOpen_sUnion
+    intro t ht
+    simp at ht
+    rcases ht with ⟨y', hy', rfl⟩
+    apply hss y y'
+
+--instance instCWConstructorTopology' : TopologicalSpace X where
+--  IsOpen := fun s ↦ ∀ n: ℕ, @IsClosed _ (CWC.Tsk n) ((Subtype.val: (CWC.Fsk n) → X) ⁻¹' sᶜ)
+--  isOpen_univ := by intro n; simp
+--  isOpen_inter := by
+--    intro s t hs ht n
+--    rw [Set.compl_inter, Set.preimage_union]
+--    exact IsClosed.union (hs n) (ht n)
+--  isOpen_sUnion := by
+--    intro ss hss n
+--    rw [Set.compl_sUnion, Set.preimage_sInter]
+--    apply isClosed_iInter
+--    intro s
+--    apply isClosed_iInter
+--    rintro ⟨t, t_in_ss, rfl⟩
+--    exact hss t t_in_ss n
+--
+--theorem cwc_topology_eq: instCWConstructorTopology' (CWC) = instCWConstructorTopology (CWC) := by
+--  ext s
+--  refine Iff.intro ?mp ?mpr
+--  case mp =>
+--    intro s_open
+--    intro n
+--    rw [←isClosed_compl_iff]
+--    exact s_open n
+--  case mpr =>
+--    intro s_open n
+--    rw [Set.preimage_compl, isClosed_compl_iff]
+--    exact s_open n
+
+theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubtype X _ (instCWConstructorTopology CWC) := by
+  intro n
+  ext s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro s_open_Tsk
+    sorry
+  case mpr =>
+    intro s_open_subspace
+    rcases s_open_subspace with ⟨s', s'_open_X, rfl⟩
+    exact s'_open_X n
+
 end
 end Chp5
