@@ -439,6 +439,26 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
 
 end
 
+section helper
+variable {X: Type*} [TopologicalSpace X]
+theorem aux_subspace_topology_eq {S: Set X} [TS: TopologicalSpace S] (h: ∀ (B: Set X), IsClosed B ↔ @IsClosed S TS (((↑):S → X) ⁻¹' B)): TS = instTopologicalSpaceSubtype := by
+  suffices ∀ (b:Set S), @IsClosed _ TS b ↔ @IsClosed _ instTopologicalSpaceSubtype b by
+    ext s
+    simp only [←isClosed_compl_iff, this]
+  have S_closed: IsClosed S := by rw [h]; simp
+  intro b
+  nth_rw 1 [←@Set.preimage_val_image_val_eq_self _ S b]
+  rw [←h ((↑) '' b)]
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hb
+    use ((↑) '' b)ᶜ, hb.isOpen_compl
+    simp
+  case mpr =>
+    intro hb
+    exact S_closed.isClosedMap_subtype_val b hb
+end helper
+
 section
 structure CWComplexConstructor (X: Type*) where
   Fsk: ℕ → Set X
@@ -453,7 +473,7 @@ structure CWComplexConstructor (X: Type*) where
   Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
 
 variable {X: Type*}
-variable (CWC: CWComplexConstructor X)
+variable {CWC: CWComplexConstructor X}
 instance {n:ℕ}: TopologicalSpace (CWC.Fsk n) := CWC.Tsk n
 
 -- this topology is the same with what is defined by text, see below
@@ -505,8 +525,10 @@ instance instCWConstructorTopology : TopologicalSpace X where
 --    intro s_open n
 --    rw [Set.preimage_compl, isClosed_compl_iff]
 --    exact s_open n
+theorem closed_in_cwc_iff {n: ℕ}: ∀ (B: Set X), @IsClosed X (instCWConstructorTopology (CWC := CWC)) B ↔ @IsClosed (CWC.Fsk n) (CWC.Tsk n) ((↑) ⁻¹' B) := by
+  sorry
 
-theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubtype X _ (instCWConstructorTopology CWC) := by
+theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubtype X _ (instCWConstructorTopology (CWC := CWC)) := by
   intro n
   ext s
   refine Iff.intro ?mp ?mpr
