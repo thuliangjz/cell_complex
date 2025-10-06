@@ -441,14 +441,15 @@ end
 
 section helper
 variable {X: Type*} [TopologicalSpace X]
-theorem aux_subspace_topology_eq {S: Set X} [TS: TopologicalSpace S] (h: ∀ (B: Set X), IsClosed B ↔ @IsClosed S TS (((↑):S → X) ⁻¹' B)): TS = instTopologicalSpaceSubtype := by
+theorem aux_subspace_topology_eq {S: Set X} [TS: TopologicalSpace S] (h: ∀ (b: Set S), @IsClosed S TS b ↔ @IsClosed X _ ((↑) '' b)): TS = instTopologicalSpaceSubtype := by
   suffices ∀ (b:Set S), @IsClosed _ TS b ↔ @IsClosed _ instTopologicalSpaceSubtype b by
     ext s
     simp only [←isClosed_compl_iff, this]
-  have S_closed: IsClosed S := by rw [h]; simp
+  have S_closed : IsClosed S := by
+    rw [←Subtype.coe_image_univ S, ←h]
+    exact isClosed_univ
   intro b
-  nth_rw 1 [←@Set.preimage_val_image_val_eq_self _ S b]
-  rw [←h ((↑) '' b)]
+  rw [h]
   refine Iff.intro ?mp ?mpr
   case mp =>
     intro hb
@@ -525,8 +526,20 @@ instance instCWConstructorTopology : TopologicalSpace X where
 --    intro s_open n
 --    rw [Set.preimage_compl, isClosed_compl_iff]
 --    exact s_open n
-theorem closed_in_cwc_iff {n: ℕ}: ∀ (B: Set X), @IsClosed X (instCWConstructorTopology (CWC := CWC)) B ↔ @IsClosed (CWC.Fsk n) (CWC.Tsk n) ((↑) ⁻¹' B) := by
-  sorry
+
+theorem closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), @IsClosed (CWC.Fsk n) (CWC.Tsk n) b ↔ @IsClosed X (instCWConstructorTopology (CWC := CWC)) ((↑) '' b) := by
+  intro b
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hb
+    rw [←@isOpen_compl_iff]
+    intro m
+    sorry
+  case mpr =>
+    intro b_closed_in_X
+    rw [←@isOpen_compl_iff] at b_closed_in_X
+    rw [←@isOpen_compl_iff]
+    simpa using b_closed_in_X n
 
 theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubtype X _ (instCWConstructorTopology (CWC := CWC)) := by
   intro n
