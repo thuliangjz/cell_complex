@@ -472,6 +472,7 @@ structure CWComplexConstructor (X: Type*) where
   Ff: (n:ℕ) → {(x: Σ_:(Fι n), cb (n + 1)) | x.2 ∈ cb_boundary} → (Fsk n)  -- gluing function sending set of closed ball's boundary to skeleton n
   Fφ: (n:ℕ) → (AdjointSpace _ (Ff n)) → (Fsk (n + 1))
   Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
+  Fφ_fix: ∀ n:ℕ, (Fφ n) ∘ (left_adj_proj _ (Ff n)) = fun x ↦ ⟨x.1,  (Fsk_chain n) x.2⟩
 
 variable {X: Type*}
 variable {CWC: CWComplexConstructor X}
@@ -526,6 +527,19 @@ instance instCWConstructorTopology : TopologicalSpace X where
 --    intro s_open n
 --    rw [Set.preimage_compl, isClosed_compl_iff]
 --    exact s_open n
+lemma Fskn_closed_in_Fsknp1 {n: ℕ}: @IsClosed (CWC.Fsk (n + 1)) (CWC.Tsk (n + 1)) (((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' (CWC.Fsk n)) := by
+  have: ((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' (CWC.Fsk n) = Set.range ((fun x ↦ ⟨x.1, CWC.Fsk_chain n x.2⟩): (CWC.Fsk n) → (CWC.Fsk (n + 1))) := by
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      intro hx
+      simp at hx
+      use ⟨x.1, hx⟩
+    case mpr =>
+      rintro ⟨y, rfl⟩
+      simp
+  rw [this, ←CWC.Fφ_fix, Set.range_comp]
+  sorry
 
 theorem closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), @IsClosed (CWC.Fsk n) (CWC.Tsk n) b ↔ @IsClosed X (instCWConstructorTopology (CWC := CWC)) ((↑) '' b) := by
   intro b
@@ -555,3 +569,6 @@ theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubty
 
 end
 end Chp5
+
+example {ι: Type*} {X: ι → Type*} {T: (i:ι) → TopologicalSpace (X i)} {S: (i:ι) → Set (X i)} (hS: ∀ i, @IsClosed (X i) (T i) (S i)): IsClosed {x:Σi:ι, X i | x.2 ∈ S (x.1)} := by
+  exact isClosed_sigma_iff.mpr hS
