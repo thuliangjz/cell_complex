@@ -193,6 +193,10 @@ theorem cb_boundary_inner_cmpl {n : ℕ} : Set.univ \ @cb_inner n = cb_boundary 
             simp
         linarith
 
+theorem cb_boundary_closed {n: ℕ}: IsClosed (@cb_boundary n) := by
+  rw [←cb_boundary_inner_cmpl, ←Set.compl_eq_univ_diff, isClosed_compl_iff]
+  exact cb_inner_open
+
 theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n) := by
     rw [cb_boundary,←Set.image_univ]
     apply IsConnected.image

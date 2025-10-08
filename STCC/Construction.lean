@@ -470,6 +470,7 @@ structure CWComplexConstructor (X: Type*) where
   Tsk0_discrete: DiscreteTopology (Fsk 0)
   Fι: ℕ → Type*   -- indexing type for gluing closed balls
   Ff: (n:ℕ) → {(x: Σ_:(Fι n), cb (n + 1)) | x.2 ∈ cb_boundary} → (Fsk n)  -- gluing function sending set of closed ball's boundary to skeleton n
+  Ff_continuous: ∀ n, Continuous (Ff n)
   Fφ: (n:ℕ) → (AdjointSpace _ (Ff n)) → (Fsk (n + 1))
   Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
   Fφ_fix: ∀ n:ℕ, (Fφ n) ∘ (left_adj_proj _ (Ff n)) = fun x ↦ ⟨x.1,  (Fsk_chain n) x.2⟩
@@ -478,7 +479,7 @@ variable {X: Type*}
 variable {CWC: CWComplexConstructor X}
 instance {n:ℕ}: TopologicalSpace (CWC.Fsk n) := CWC.Tsk n
 
--- this topology is the same with what is defined by text, see below
+-- this topology is the same with what is defined by text
 instance instCWConstructorTopology : TopologicalSpace X where
   IsOpen := fun s ↦ ∀ n:ℕ, IsOpen ((Subtype.val : (CWC.Fsk n) → X) ⁻¹' s)
   isOpen_univ := by simp
@@ -499,46 +500,44 @@ instance instCWConstructorTopology : TopologicalSpace X where
     rcases ht with ⟨y', hy', rfl⟩
     apply hss y y'
 
---instance instCWConstructorTopology' : TopologicalSpace X where
---  IsOpen := fun s ↦ ∀ n: ℕ, @IsClosed _ (CWC.Tsk n) ((Subtype.val: (CWC.Fsk n) → X) ⁻¹' sᶜ)
---  isOpen_univ := by intro n; simp
---  isOpen_inter := by
---    intro s t hs ht n
---    rw [Set.compl_inter, Set.preimage_union]
---    exact IsClosed.union (hs n) (ht n)
---  isOpen_sUnion := by
---    intro ss hss n
---    rw [Set.compl_sUnion, Set.preimage_sInter]
---    apply isClosed_iInter
---    intro s
---    apply isClosed_iInter
---    rintro ⟨t, t_in_ss, rfl⟩
---    exact hss t t_in_ss n
---
---theorem cwc_topology_eq: instCWConstructorTopology' (CWC) = instCWConstructorTopology (CWC) := by
---  ext s
---  refine Iff.intro ?mp ?mpr
---  case mp =>
---    intro s_open
---    intro n
---    rw [←isClosed_compl_iff]
---    exact s_open n
---  case mpr =>
---    intro s_open n
---    rw [Set.preimage_compl, isClosed_compl_iff]
---    exact s_open n
-lemma Fskn_closed_in_Fsknp1 {n: ℕ}: @IsClosed (CWC.Fsk (n + 1)) (CWC.Tsk (n + 1)) (((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' (CWC.Fsk n)) := by
-  have: ((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' (CWC.Fsk n) = Set.range ((fun x ↦ ⟨x.1, CWC.Fsk_chain n x.2⟩): (CWC.Fsk n) → (CWC.Fsk (n + 1))) := by
+lemma Fskn_Fsknp1_compat_closed {n: ℕ} {b: Set (CWC.Fsk n)} (bClosed: IsClosed b): @IsClosed (CWC.Fsk (n + 1)) (CWC.Tsk (n + 1)) (((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' ((↑) '' b)) := by
+  have: (((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' ((↑) '' b)) = ((fun x ↦ ⟨x.1, CWC.Fsk_chain n x.2⟩): (CWC.Fsk n) → (CWC.Fsk (n + 1))) '' b := by
     ext x
     refine Iff.intro ?mp ?mpr
     case mp =>
       intro hx
       simp at hx
-      use ⟨x.1, hx⟩
+      rcases hx with ⟨x_in_skn, x_in_b⟩
+      use ⟨x.1, x_in_skn⟩
     case mpr =>
-      rintro ⟨y, rfl⟩
-      simp
-  rw [this, ←CWC.Fφ_fix, Set.range_comp]
+      rintro ⟨x', x'_in_b, rfl⟩
+      simp [x'_in_b]
+  rw [this, ←CWC.Fφ_fix, Set.image_comp]
+  apply (CWC.Fφ_heomorph n).isClosedMap
+  suffices (IsClosedMap (left_adj_proj _ (CWC.Ff n))) by
+    apply this
+    exact bClosed
+  refine left_adj_proj_closed_map _ _ ?hAClosed (CWC.Ff_continuous n)
+  rw [isClosed_sigma_iff]
+  intro i
+  simp [cb_boundary_closed]
+
+lemma Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
+  rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
+  induction' k with k ik
+  . simp
+  trans (CWC.Fsk (m + k))
+  . exact ik (Nat.le_add_right m k)
+  rw [←add_assoc]
+  apply CWC.Fsk_chain
+
+lemma Fskn_closed_in_Fskm (n: ℕ) (m: ℕ): @IsClosed (CWC.Fsk m) (CWC.Tsk m) (((↑): (CWC.Fsk m → X)) ⁻¹' (CWC.Fsk n)) := by
+  rcases (le_or_gt m n) with m_le_n | m_gt_n
+  . suffices ((↑): (CWC.Fsk m → X)) ⁻¹' (CWC.Fsk n) = Set.univ by
+      simp [this]
+    apply Set.preimage_val_eq_univ_of_subset
+    exact Fsk_incl m_le_n
+  rcases Nat.exists_eq_add_of_lt m_gt_n with ⟨k, rfl⟩
   sorry
 
 theorem closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), @IsClosed (CWC.Fsk n) (CWC.Tsk n) b ↔ @IsClosed X (instCWConstructorTopology (CWC := CWC)) ((↑) '' b) := by
