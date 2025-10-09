@@ -522,7 +522,7 @@ lemma Fskn_Fsknp1_compat_closed {n: ℕ} {b: Set (CWC.Fsk n)} (bClosed: IsClosed
   intro i
   simp [cb_boundary_closed]
 
-lemma Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
+theorem Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
   rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
   induction' k with k ik
   . simp
@@ -530,6 +530,41 @@ lemma Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
   . exact ik (Nat.le_add_right m k)
   rw [←add_assoc]
   apply CWC.Fsk_chain
+
+lemma Fsk_chain_incl_continuous {n: ℕ}: Continuous ((fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩): CWC.Fsk n → CWC.Fsk (n + 1)) := by
+  rw [←CWC.Fφ_fix]
+  refine Continuous.comp ?φ_cont ?left_adj_proj_cont
+  case φ_cont => exact (CWC.Fφ_heomorph n).continuous
+  case left_adj_proj_cont =>
+    apply Topology.IsEmbedding.continuous
+    refine left_adj_proj_is_embedding _ _ ?hAClosed (CWC.Ff_continuous n)
+    rw [isClosed_sigma_iff]
+    intro i
+    simp [cb_boundary_closed]
+
+theorem Fsk_incl_continuous {m n: ℕ} (hmn: m ≤ n): Continuous ((fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩): CWC.Fsk m → CWC.Fsk n) := by
+  rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
+  have aux: ∀ p q:ℕ, (h:p = q) → Continuous ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq h) x.2⟩):CWC.Fsk p → CWC.Fsk q) := by
+    intro p q h
+    exact @Eq.rec ℕ p (fun (p':ℕ) (eq:p=p') ↦ Continuous ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq eq) x.2⟩): CWC.Fsk p → CWC.Fsk p')) continuous_id q h
+  induction' k with k ik
+  . apply aux
+    norm_num
+  let f₁ : CWC.Fsk m → CWC.Fsk (m + k) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_add_right m k) x.2⟩
+  let f₂ : CWC.Fsk (m + k) → CWC.Fsk (m + k + 1) := fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩
+  let f₃ : CWC.Fsk (m + k + 1) → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq (by rw[add_assoc])) x.2⟩
+  let f : CWC.Fsk m → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩
+  show Continuous f
+  have: f = f₃ ∘ f₂ ∘ f₁ := by
+    ext x
+    simp [f, f₁, f₂, f₃]
+  rw [this]
+  have cont₁: Continuous f₁ := ik (Nat.le_add_right m k)
+  have cont₂: Continuous f₂ := by apply Fsk_chain_incl_continuous
+  have cont₃: Continuous f₃ := by
+    apply aux
+    rw [add_assoc]
+  exact Continuous.comp cont₃ (Continuous.comp cont₂ cont₁)
 
 lemma Fskn_closed_in_Fskm (n: ℕ) (m: ℕ): @IsClosed (CWC.Fsk m) (CWC.Tsk m) (((↑): (CWC.Fsk m → X)) ⁻¹' (CWC.Fsk n)) := by
   rcases (le_or_gt m n) with m_le_n | m_gt_n
@@ -568,6 +603,3 @@ theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubty
 
 end
 end Chp5
-
-example {ι: Type*} {X: ι → Type*} {T: (i:ι) → TopologicalSpace (X i)} {S: (i:ι) → Set (X i)} (hS: ∀ i, @IsClosed (X i) (T i) (S i)): IsClosed {x:Σi:ι, X i | x.2 ∈ S (x.1)} := by
-  exact isClosed_sigma_iff.mpr hS
