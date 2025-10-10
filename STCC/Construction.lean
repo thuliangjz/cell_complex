@@ -458,6 +458,9 @@ theorem aux_subspace_topology_eq {S: Set X} [TS: TopologicalSpace S] (h: ∀ (b:
   case mpr =>
     intro hb
     exact S_closed.isClosedMap_subtype_val b hb
+theorem is_closed_map_id : IsClosedMap (id: X → X) := by
+  intro U UClosed
+  simp [UClosed]
 end helper
 
 section
@@ -499,28 +502,6 @@ instance instCWConstructorTopology : TopologicalSpace X where
     simp at ht
     rcases ht with ⟨y', hy', rfl⟩
     apply hss y y'
-
-lemma Fskn_Fsknp1_compat_closed {n: ℕ} {b: Set (CWC.Fsk n)} (bClosed: IsClosed b): @IsClosed (CWC.Fsk (n + 1)) (CWC.Tsk (n + 1)) (((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' ((↑) '' b)) := by
-  have: (((↑): (CWC.Fsk (n + 1) → X)) ⁻¹' ((↑) '' b)) = ((fun x ↦ ⟨x.1, CWC.Fsk_chain n x.2⟩): (CWC.Fsk n) → (CWC.Fsk (n + 1))) '' b := by
-    ext x
-    refine Iff.intro ?mp ?mpr
-    case mp =>
-      intro hx
-      simp at hx
-      rcases hx with ⟨x_in_skn, x_in_b⟩
-      use ⟨x.1, x_in_skn⟩
-    case mpr =>
-      rintro ⟨x', x'_in_b, rfl⟩
-      simp [x'_in_b]
-  rw [this, ←CWC.Fφ_fix, Set.image_comp]
-  apply (CWC.Fφ_heomorph n).isClosedMap
-  suffices (IsClosedMap (left_adj_proj _ (CWC.Ff n))) by
-    apply this
-    exact bClosed
-  refine left_adj_proj_closed_map _ _ ?hAClosed (CWC.Ff_continuous n)
-  rw [isClosed_sigma_iff]
-  intro i
-  simp [cb_boundary_closed]
 
 theorem Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
   rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
@@ -566,23 +547,77 @@ theorem Fsk_incl_continuous {m n: ℕ} (hmn: m ≤ n): Continuous ((fun x ↦ �
     rw [add_assoc]
   exact Continuous.comp cont₃ (Continuous.comp cont₂ cont₁)
 
-lemma Fskn_closed_in_Fskm (n: ℕ) (m: ℕ): @IsClosed (CWC.Fsk m) (CWC.Tsk m) (((↑): (CWC.Fsk m → X)) ⁻¹' (CWC.Fsk n)) := by
-  rcases (le_or_gt m n) with m_le_n | m_gt_n
-  . suffices ((↑): (CWC.Fsk m → X)) ⁻¹' (CWC.Fsk n) = Set.univ by
-      simp [this]
-    apply Set.preimage_val_eq_univ_of_subset
-    exact Fsk_incl m_le_n
-  rcases Nat.exists_eq_add_of_lt m_gt_n with ⟨k, rfl⟩
-  sorry
+lemma Fsk_chain_incl_closed_map {n:ℕ}: IsClosedMap ((fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩): CWC.Fsk n → CWC.Fsk (n + 1)) := by
+  rw [←CWC.Fφ_fix]
+  refine IsClosedMap.comp ?φ_closed ?left_adj_proj_closed
+  case φ_closed => exact (CWC.Fφ_heomorph n).isClosedMap
+  case left_adj_proj_closed =>
+    refine left_adj_proj_closed_map _ _ ?hAClosed (CWC.Ff_continuous n)
+    rw [isClosed_sigma_iff]
+    intro i
+    simp [cb_boundary_closed]
 
-theorem closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), @IsClosed (CWC.Fsk n) (CWC.Tsk n) b ↔ @IsClosed X (instCWConstructorTopology (CWC := CWC)) ((↑) '' b) := by
+theorem Fsk_incl_closed_map {m n: ℕ} (hmn: m ≤ n): IsClosedMap ((fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩): CWC.Fsk m → CWC.Fsk n) := by
+  rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
+  have aux: ∀ p q:ℕ, (h:p = q) → IsClosedMap ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq h) x.2⟩):CWC.Fsk p → CWC.Fsk q) := by
+    intro p q h
+    exact @Eq.rec ℕ p (fun (p':ℕ) (eq:p=p') ↦ IsClosedMap ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq eq) x.2⟩): CWC.Fsk p → CWC.Fsk p')) is_closed_map_id q h
+  induction' k with k ik
+  . apply aux
+    simp
+  let f₁ : CWC.Fsk m → CWC.Fsk (m + k) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_add_right m k) x.2⟩
+  let f₂ : CWC.Fsk (m + k) → CWC.Fsk (m + k + 1) := fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩
+  let f₃ : CWC.Fsk (m + k + 1) → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq (by rw[add_assoc])) x.2⟩
+  let f : CWC.Fsk m → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩
+  show IsClosedMap f
+  have: f = f₃ ∘ f₂ ∘ f₁ := by
+    ext x
+    simp [f, f₁, f₂, f₃]
+  rw [this]
+  have c₁: IsClosedMap f₁ := ik (Nat.le_add_right m k)
+  have c₂: IsClosedMap f₂ := by apply Fsk_chain_incl_closed_map
+  have c₃: IsClosedMap f₃ := by
+    apply aux
+    rw [add_assoc]
+  exact IsClosedMap.comp c₃ (IsClosedMap.comp c₂ c₁)
+
+lemma closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), @IsClosed (CWC.Fsk n) (CWC.Tsk n) b ↔ @IsClosed X (instCWConstructorTopology (CWC := CWC)) ((↑) '' b) := by
   intro b
   refine Iff.intro ?mp ?mpr
   case mp =>
     intro hb
     rw [←@isOpen_compl_iff]
     intro m
-    sorry
+    show IsOpen ((((↑): CWC.Fsk m → X) ⁻¹' ((↑) '' b))ᶜ)
+    rw [@isOpen_compl_iff]
+    rcases Nat.le_total m n with m_le_n | n_le_m
+    . let f : CWC.Fsk m → CWC.Fsk n := fun x ↦ ⟨x.1, Fsk_incl m_le_n x.2⟩
+      have: ((↑): CWC.Fsk m → X) ⁻¹' (((↑): CWC.Fsk n → X) '' b) = f ⁻¹' b := by
+        ext x
+        simp [f]
+        refine Iff.intro ?mp' ?mpr'
+        case mp' =>
+          rintro ⟨hx, x_in_b⟩
+          exact x_in_b
+        case mpr' =>
+          intro x_in_b
+          use Fsk_incl m_le_n x.2
+      rw [this]
+      exact IsClosed.preimage (Fsk_incl_continuous m_le_n) hb
+    . let f : CWC.Fsk n → CWC.Fsk m := fun x ↦ ⟨x.1, Fsk_incl n_le_m x.2⟩
+      have: ((↑): CWC.Fsk m → X) ⁻¹' (((↑): CWC.Fsk n → X) '' b) = f '' b := by
+        ext x
+        simp [f]
+        refine Iff.intro ?mp' ?mpr'
+        case mp' =>
+          rintro ⟨x_in_skn, x_in_b⟩
+          use x.1, x_in_skn
+        case mpr' =>
+          rintro ⟨x', ⟨x'_in_skn, x'_in_b, rfl⟩⟩
+          use x'_in_skn
+      rw [this]
+      apply (Fsk_incl_closed_map n_le_m)
+      exact hb
   case mpr =>
     intro b_closed_in_X
     rw [←@isOpen_compl_iff] at b_closed_in_X
@@ -603,3 +638,13 @@ theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubty
 
 end
 end Chp5
+
+section
+variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+variable {f: X → Y} {g: Y → Z}
+
+example {S: Set Y} : f ⁻¹' Sᶜ = (f ⁻¹' S)ᶜ := by
+  exact rfl
+example {m n: ℕ}: m ≤ n ∨ n ≤ m := by
+  exact Nat.le_total m n
+end
