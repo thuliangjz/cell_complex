@@ -464,7 +464,7 @@ theorem is_closed_map_id : IsClosedMap (id: X → X) := by
 end helper
 
 section
-structure CWComplexConstructor (X: Type*) where
+class CWComplexConstructor (X: Type*) where
   Fsk: ℕ → Set X
   Fsk0_nonempty: (Fsk 0).Nonempty
   Fsk_chain: ∀ n: ℕ, Fsk n ⊆ Fsk (n + 1)
@@ -479,7 +479,7 @@ structure CWComplexConstructor (X: Type*) where
   Fφ_fix: ∀ n:ℕ, (Fφ n) ∘ (left_adj_proj _ (Ff n)) = fun x ↦ ⟨x.1,  (Fsk_chain n) x.2⟩
 
 variable {X: Type*}
-variable {CWC: CWComplexConstructor X}
+variable [CWC: CWComplexConstructor X]
 instance {n:ℕ}: TopologicalSpace (CWC.Fsk n) := CWC.Tsk n
 
 -- this topology is the same with what is defined by text
@@ -581,7 +581,7 @@ theorem Fsk_incl_closed_map {m n: ℕ} (hmn: m ≤ n): IsClosedMap ((fun x ↦ �
     rw [add_assoc]
   exact IsClosedMap.comp c₃ (IsClosedMap.comp c₂ c₁)
 
-lemma closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), @IsClosed (CWC.Fsk n) (CWC.Tsk n) b ↔ @IsClosed X (instCWConstructorTopology (CWC := CWC)) ((↑) '' b) := by
+lemma closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), IsClosed b ↔ IsClosed (((↑): CWC.Fsk n → X) '' b) := by
   intro b
   refine Iff.intro ?mp ?mpr
   case mp =>
@@ -624,27 +624,39 @@ lemma closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), @IsClosed (CWC.Fsk n
     rw [←@isOpen_compl_iff]
     simpa using b_closed_in_X n
 
-theorem cwc_topology_subspace: ∀ n:ℕ, CWC.Tsk n = @instTopologicalSpaceSubtype X _ (instCWConstructorTopology (CWC := CWC)) := by
+theorem Tsk_eq_subspace: ∀ n:ℕ, CWC.Tsk n = instTopologicalSpaceSubtype := by
   intro n
-  ext s
+  apply aux_subspace_topology_eq
+  apply closed_in_cwc_iff
+
+theorem Fsk_closed: ∀ n:ℕ, IsClosed (CWC.Fsk n) := by
+  intro n
+  rw [←(Subtype.coe_image_univ (CWC.Fsk n)), ←closed_in_cwc_iff]
+  exact isClosed_univ
+
+theorem Fsk_coeherent: IsCoeherent (Set.range CWC.Fsk) := by
+  refine { open_crit := ?_, cover := (by simpa using CWC.Fsk_cover)}
+  simp
+  intro s
   refine Iff.intro ?mp ?mpr
   case mp =>
-    intro s_open_Tsk
-    sorry
+    intro hs
+    exact fun a ↦ IsOpen.preimage_val hs
   case mpr =>
-    intro s_open_subspace
-    rcases s_open_subspace with ⟨s', s'_open_X, rfl⟩
-    exact s'_open_X n
-
+    intro hs
+    intro n
+    have: @IsOpen _ (CWC.Tsk n) (((↑): CWC.Fsk n → X) ⁻¹' s) ↔ @IsOpen _ (instTopologicalSpaceSubtype) (((↑): CWC.Fsk n → X) ⁻¹' s) := by
+      exact Eq.to_iff (congrFun (congrArg (@IsOpen (CWC.Fsk n)) (Tsk_eq_subspace n)) (((↑): CWC.Fsk n → X) ⁻¹' s))
+    rw [this]
+    exact hs n
 end
 end Chp5
 
 section
-variable {X Y Z: Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+variable {X Y Z: Type*} [TX: TopologicalSpace X] [TY: TopologicalSpace Y] [TZ: TopologicalSpace Z]
 variable {f: X → Y} {g: Y → Z}
+variable [TX1: TopologicalSpace X]
 
-example {S: Set Y} : f ⁻¹' Sᶜ = (f ⁻¹' S)ᶜ := by
-  exact rfl
-example {m n: ℕ}: m ≤ n ∨ n ≤ m := by
-  exact Nat.le_total m n
+example (h: TX = TX1): ∀S:Set X, @IsOpen X TX S ↔ @IsOpen X TX1 S := by
+  exact fun S ↦ Eq.to_iff (congrFun (congrArg (@IsOpen X) h) S)
 end
