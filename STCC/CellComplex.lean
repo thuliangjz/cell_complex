@@ -3,8 +3,9 @@ import Mathlib.Topology.Basic
 import Mathlib.Topology.Constructions
 import Mathlib.Topology.LocallyFinite
 import Mathlib.Topology.MetricSpace.Basic
-import STCC.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
+import Mathlib.Topology.MetricSpace.HausdorffDimension
+import STCC.Basic
 
 open BigOperators
 open Topology
@@ -26,7 +27,6 @@ class CellComplexClass (X: Type*) [TopologicalSpace X] [T2Space X] where
     disjoint: sets.Pairwise Disjoint
     cover: ⋃₀ sets = Set.univ
     dim_map: sets → ℕ
-    hom: ∀ s: sets, b (dim_map s) ≃ₜ s.1
     characteristic_map:
         (s : sets) → cb (dim_map s) → X
     characteristic_map_continuous: ∀ s: sets, Continuous (characteristic_map s)
@@ -530,24 +530,6 @@ def sub_cell_complex_set_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: C
     simp
     tauto
 
-def sub_cell_complex_hom {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (Y: SubCellComplex X): ∀ s: sub_cell_complex_sets Y, b (sub_cell_complex_dim_map Y s) ≃ₜ s.1 := by
-    intro s
-    simp[sub_cell_complex_dim_map]
-    have aux: s.1 ≃ₜ ((↑): Y → X) '' s.1 := by
-        have: IsEmbedding ((↑): Y → X) := Topology.IsEmbedding.subtypeVal
-        have hom1: ((↑): Y → X) '' s.1 ≃ₜ Set.range (((↑): Y → X) ∘ ((↑): s.1 → Y)) := by
-            apply Homeomorph.setCongr
-            ext x
-            simp
-        have hom2: s.1 ≃ₜ Set.range (((↑): Y → X) ∘ ((↑): s.1 → Y)) := by
-            apply Topology.IsEmbedding.toHomeomorph
-            apply Topology.IsEmbedding.comp
-            <;> exact Topology.IsEmbedding.subtypeVal
-        exact hom2.trans (id hom1.symm)
-    let bn := b (C.dim_map ⟨Subtype.val '' s.1, s.prop⟩)
-    have: bn ≃ₜ ((↑): Y → X) '' s.1 := by apply C.hom
-    exact (aux.trans (id this.symm)).symm
-
 def sub_cell_complex_characteristic_g {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (Y: SubCellComplex X) (s: sub_cell_complex_sets Y): cb (sub_cell_complex_dim_map Y s) → closure (((↑): Y → X) '' s.1) := by
     set s' := ((↑): Y → X) '' s.1
     intro p
@@ -695,7 +677,6 @@ instance cell_complex_of_sub_cell_complex {X:Type*} [TopologicalSpace X] [T2Spac
     disjoint := sub_cell_complex_set_disjoint Y
     cover := sub_cell_complex_set_cover Y
     dim_map := sub_cell_complex_dim_map Y
-    hom := sub_cell_complex_hom Y
     characteristic_map := sub_cell_complex_characteristic_map Y
     characteristic_map_continuous := sub_cell_complex_characteristic_map_continuous Y
     characteristic_map_inner_range := sub_cell_complex_characteristic_map_inner_range Y
@@ -703,7 +684,7 @@ instance cell_complex_of_sub_cell_complex {X:Type*} [TopologicalSpace X] [T2Spac
     characteristic_map_boundary := sub_cell_complex_characteristic_map_boundary Y
 end
 
-theorem aux_closed_in_subspace_of_sub_complex_coeherent {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] {Y: SubCellComplex X} {s: Set Y} (hs: ∀ ce ∈ {x | ∃ e ∈ sub_cell_complex_sets Y, closure e = x}, IsClosed (((↑): ce → Y) ⁻¹' s)) {e0: Set X} (he0: e0 ∈ C.sets) (h: e0 ⊆ Y.carrier): IsClosed (((↑): closure e0 → X) ⁻¹' (((↑): Y → X) '' s)) := by
+lemma aux_closed_in_subspace_of_sub_complex_coeherent {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] {Y: SubCellComplex X} {s: Set Y} (hs: ∀ ce ∈ {x | ∃ e ∈ sub_cell_complex_sets Y, closure e = x}, IsClosed (((↑): ce → Y) ⁻¹' s)) {e0: Set X} (he0: e0 ∈ C.sets) (h: e0 ⊆ Y.carrier): IsClosed (((↑): closure e0 → X) ⁻¹' (((↑): Y → X) '' s)) := by
     let g : Y → X := (↑);
     let s' := g '' s;
     let φ : closure e0 → X := (↑)
@@ -718,26 +699,31 @@ theorem aux_closed_in_subspace_of_sub_complex_coeherent {X: Type*} [TopologicalS
         simp [e0', sub_cell_complex_sets]
         rw [aux_e0_e0']
         exact he0
-    let hom_to_fun : closure e0 → closure e0' := by
-        rintro  ⟨x, hx⟩
-        have : ⟨x, h' hx⟩ ∈ closure e0' := by
-            rw [mem_closure_iff]
-            intro V hV hyV
-            rcases hV with ⟨V', hV', hV'eq⟩
-            have x_in_V': x ∈ V' := by
-                rw [←hV'eq] at hyV
-                simpa using hyV
-            rw [mem_closure_iff] at hx
-            specialize hx V' hV' x_in_V'
-            rcases hx with ⟨t, ht⟩
-            let t': Y := ⟨t, h ht.2⟩
-            have t'_in_V: t' ∈ V := by rw [←hV'eq]; exact ht.1
-            have t'_in_e0' : t' ∈ e0' := ht.2
-            use t', t'_in_V
-        exact ⟨⟨x, h' hx⟩, this⟩
+    have ce0_sub_ce0' : ∀ x: X, (hx: x ∈ closure e0) → ⟨x, h' hx⟩ ∈ closure e0' := by
+        intro x hx
+        rw [mem_closure_iff]
+        intro V hV hyV
+        rcases hV with ⟨V', hV', hV'eq⟩
+        have x_in_V': x ∈ V' := by
+            rw [←hV'eq] at hyV
+            simpa using hyV
+        rw [mem_closure_iff] at hx
+        specialize hx V' hV' x_in_V'
+        rcases hx with ⟨t, ht⟩
+        let t': Y := ⟨t, h ht.2⟩
+        have t'_in_V: t' ∈ V := by rw [←hV'eq]; exact ht.1
+        have t'_in_e0' : t' ∈ e0' := ht.2
+        use t', t'_in_V
+    let ψ : closure e0 → closure e0' := fun x ↦ ⟨⟨x.1, h' x.2⟩, ce0_sub_ce0' x x.2⟩
+    have ψ_cont: Continuous ψ := by
+        refine { isOpen_preimage := ?_ }
+        rintro _ ⟨_, ⟨W, W_open, rfl⟩, rfl⟩
+        use W, W_open
+        ext x
+        simp [ψ]
     -- this homeomorphisim will not be used but kept here as it might be useful
     have ce0_hom_ce0': closure e0 ≃ₜ closure e0' := {
-        toFun := hom_to_fun
+        toFun := ψ
         invFun := by
             rintro ⟨y, hy⟩
             have : y.1 ∈ closure e0 := by
@@ -759,24 +745,24 @@ theorem aux_closed_in_subspace_of_sub_complex_coeherent {X: Type*} [TopologicalS
     set η : closure e0' → Y := (↑) with η_def
     specialize hs (closure e0') (by use e0', e0'_in_sets)
     rw [←η_def] at hs
-    have : φ ⁻¹' s' = hom_to_fun ⁻¹' (η ⁻¹' s) := by
+    have : φ ⁻¹' s' = ψ ⁻¹' (η ⁻¹' s) := by
         ext x
         constructor
         case mp =>
             intro hx
             rcases hx with ⟨y, hy, hyx⟩
-            have : y = η (hom_to_fun x) := by
+            have : y = η (ψ x) := by
                 exact SetLike.coe_eq_coe.mp hyx
-            show η (hom_to_fun x) ∈ s
+            show η (ψ x) ∈ s
             rwa [←this]
         case mpr =>
             intro hx
-            have : g (η (hom_to_fun x)) = φ x := by rfl
+            have : g (η (ψ x)) = φ x := by rfl
             show φ x ∈ s'
             rw [←this]
-            use (η (hom_to_fun x)), hx
+            use (η (ψ x)), hx
     rw [this]
-    exact IsClosed.preimage (by continuity) hs
+    exact IsClosed.preimage ψ_cont hs
 
 theorem aux_closed_of_sub_complex_coeherent {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] (Y: SubCellComplex X) {s: Set Y} (hs: ∀ b ∈ {x | ∃ s ∈ sub_cell_complex_sets Y, closure s = x}, IsClosed (((↑): b → Y) ⁻¹' s)) : IsClosed (((↑): Y → X) '' s) := by
     let g : Y → X := (↑)

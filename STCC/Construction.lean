@@ -659,4 +659,5 @@ variable [TX1: TopologicalSpace X]
 
 example (h: TX = TX1): ∀S:Set X, @IsOpen X TX S ↔ @IsOpen X TX1 S := by
   exact fun S ↦ Eq.to_iff (congrFun (congrArg (@IsOpen X) h) S)
+variable (h: X ≃ₜ Y)
 end
