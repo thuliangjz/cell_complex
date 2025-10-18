@@ -828,6 +828,26 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem glue_setoid_of_same_im
     use ⟨y₂, y₂_in_A⟩
     simp [←heq, x]
   exact Relation.EqvGen.trans (Sum.inr y₁) (Sum.inl x) (Sum.inr y₂) (relxy₁.symm) relxy₂
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_range_disjoint: Disjoint (Set.range (left_adj_proj A f)) (Set.range (right_adj_proj A f)) := by
+  by_contra goal
+  rw [Set.not_disjoint_iff_nonempty_inter] at goal
+  rcases goal with ⟨w, ⟨x, h_xw⟩, ⟨y, h_yw⟩⟩
+  have hxy: left_adj_proj A f x = right_adj_proj A f y := by rw [h_xw, h_yw]
+  simp [left_adj_proj, right_adj_proj, adj_proj, glue_setoid] at hxy
+  rcases glue_rel_equiv_explicit A f (Sum.inl x) (Sum.inr y.1) hxy with c1 | c2 | c3 | c4 | c5
+  . rcases c1 with ⟨x', h1, h2⟩
+    contradiction
+  . rcases c2 with ⟨x', y₀, y', heq1, heq2, y₀_is_y', heq4⟩
+    have y₀_is_y: y.1 = y₀ := by apply Sum.inr_injective; exact heq2
+    have y₀_in_A: y₀ ∈ A := by rw [y₀_is_y']; exact y'.2
+    have y₀_in_A_compl: y₀ ∈ Aᶜ := by rw [←y₀_is_y]; exact y.2
+    contradiction
+  . rcases c3 with ⟨_, _, _, heq1, _⟩
+    contradiction
+  . rcases c4 with ⟨_, _, _, _, heq1, _⟩
+    contradiction
+  . rcases c5 with ⟨_, heq1, _⟩
+    contradiction
 end
 
 section
