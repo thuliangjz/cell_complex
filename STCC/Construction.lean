@@ -665,7 +665,39 @@ theorem cell_sets_nonempty: ∀ e ∈ cell_sets (CWC := CWC), e.Nonempty := by
   exact e_in_sets.2
 
 lemma cell_np1_Fsk_n_disjoint: ∀ n:ℕ, ∀ i:(CWC.Fι n), Disjoint (CWC.Fsk n) (Set.range (cell_define_map n i)) := by
-  sorry
+  intro n i
+  let f : (CWC.Fsk (n + 1)) → X := (↑)
+  have Xn_eq : CWC.Fsk n = f '' ((CWC.Fφ n) '' (Set.range (left_adj_proj _ (CWC.Ff n)))) := by
+    rw [←Set.image_univ]
+    nth_rw 2 [←Set.image_comp]
+    rw [CWC.Fφ_fix, ←Set.image_comp]
+    have : f ∘ (fun (x:CWC.Fsk n) ↦ ⟨x.1, (CWC.Fsk_chain n) x.2⟩) = Subtype.val := by
+      ext x
+      simp [f]
+    rw [this]
+    exact Eq.symm (Subtype.coe_image_univ (CWComplexConstructor.Fsk n))
+  have cell_eq: Set.range (cell_define_map n i) ⊆ f '' ((CWC.Fφ n) '' (Set.range (right_adj_proj _ (CWC.Ff n)))) := by
+    intro x hx
+    simp [cell_define_map] at hx
+    rcases hx with ⟨u, hu, u_maps_to_x⟩
+    rw [pre_characteristic_map] at u_maps_to_x
+    let v: cb (n + 1) := ⟨u, b_in_cb hu⟩
+    have iv_not_in_boundary : ⟨i, v⟩ ∈ {x:Σ_:(CWC.Fι n), cb (n + 1) | x.2 ∈ cb_boundary}ᶜ := by
+      simp [←cb_boundary_inner_cmpl]
+      use ⟨u, hu⟩
+      simp [v]
+    let z := (right_adj_proj _ (CWC.Ff n)) ⟨⟨i, v⟩, iv_not_in_boundary⟩
+    use (CWC.Fφ n) z
+    constructor
+    . use z
+      simp [z]
+    simp [←u_maps_to_x, f]
+    rfl
+  suffices Disjoint (f '' (((CWC.Fφ n) '' (Set.range (left_adj_proj _ (CWC.Ff n)))))) (f '' (((CWC.Fφ n)'' (Set.range (right_adj_proj _ (CWC.Ff n)))))) by
+    rw [Xn_eq]
+    exact Disjoint.symm (Set.disjoint_of_subset cell_eq (fun ⦃a⦄ a ↦ a) (id (Disjoint.symm this)))
+  rw [Set.disjoint_image_iff Subtype.val_injective, Set.disjoint_image_iff (CWC.Fφ_heomorph n).injective]
+  apply left_adj_right_adj_range_disjoint
 
 theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
   intro e₁ e₁_in_sets e₂ e₂_in_sets e₁_ne_e₂
@@ -681,7 +713,6 @@ theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
       sorry
   sorry
 end CWCellConstructor
-
 end
 end Chp5
 
@@ -690,7 +721,4 @@ variable {X Y Z: Type*} [TX: TopologicalSpace X] [TY: TopologicalSpace Y] [TZ: T
 variable {f: X → Y} {g: Y → Z}
 variable [TX1: TopologicalSpace X]
 
-example (h: TX = TX1): ∀S:Set X, @IsOpen X TX S ↔ @IsOpen X TX1 S := by
-  exact fun S ↦ Eq.to_iff (congrFun (congrArg (@IsOpen X) h) S)
-variable (h: X ≃ₜ Y)
 end
