@@ -664,7 +664,7 @@ theorem cell_sets_nonempty: ∀ e ∈ cell_sets (CWC := CWC), e.Nonempty := by
   intro e e_in_sets
   exact e_in_sets.2
 
-lemma cell_np1_Fsk_n_disjoint: ∀ n:ℕ, ∀ i:(CWC.Fι n), Disjoint (CWC.Fsk n) (Set.range (cell_define_map n i)) := by
+lemma Fsk_n_cell_np1_disjoint: ∀ n:ℕ, ∀ i:(CWC.Fι n), Disjoint (CWC.Fsk n) (Set.range (cell_define_map n i)) := by
   intro n i
   let f : (CWC.Fsk (n + 1)) → X := (↑)
   have Xn_eq : CWC.Fsk n = f '' ((CWC.Fφ n) '' (Set.range (left_adj_proj _ (CWC.Ff n)))) := by
@@ -699,6 +699,39 @@ lemma cell_np1_Fsk_n_disjoint: ∀ n:ℕ, ∀ i:(CWC.Fι n), Disjoint (CWC.Fsk n
   rw [Set.disjoint_image_iff Subtype.val_injective, Set.disjoint_image_iff (CWC.Fφ_heomorph n).injective]
   apply left_adj_right_adj_range_disjoint
 
+lemma Fsk_0_cell_disjoint : ∀ n:ℕ, ∀ i:(CWC.Fι n), Disjoint (CWC.Fsk 0) (Set.range (cell_define_map n i)) := by
+  intro n
+  induction' n with n ih
+  . apply Fsk_n_cell_np1_disjoint
+  intro i
+  apply Set.disjoint_of_subset (Fsk_incl (Nat.le_add_left 0 (n + 1))) (fun ⦃a⦄ a ↦ a)
+  apply Fsk_n_cell_np1_disjoint
+
+lemma cell0_sub_Fsk0: ∀ e ∈ cell_of_dim0, e ⊆ CWC.Fsk 0 := by
+  rintro _ ⟨x, x_in_cd0, rfl⟩
+  exact Set.singleton_subset_iff.mpr x_in_cd0
+
+lemma cell_n_in_Fsk_np1: ∀ n:ℕ, ∀ i:(CWC.Fι n), (Set.range (cell_define_map n i)) ⊆ CWC.Fsk (n + 1) := by
+  intro n i
+  intro x hx
+  simp [cell_define_map] at hx
+  rcases hx with ⟨u, hu, u_maps_to_x⟩
+  rw [pre_characteristic_map] at u_maps_to_x
+  have: CWC.Fsk (n + 1) = Set.range (((↑): CWC.Fsk (n + 1) → X) ∘ (CWC.Fφ n)) := by
+    sorry
+  sorry
+
+lemma cell_of_different_n_disjoint: ∀ n₁:ℕ, ∀ i₁:(CWC.Fι n₁), ∀ n₂:ℕ, ∀ i₂:(CWC.Fι n₂), n₁ ≠ n₂ → Disjoint (Set.range (cell_define_map n₁ i₁)) (Set.range (cell_define_map n₂ i₂)) := by
+  intro n₁ i₁ n₂ i₂ n₁n₂_ne
+  wlog n₁_lt_n₂:n₁ < n₂ generalizing n₁ i₁ n₂ i₂
+  . have n₂_lt_n₁: n₂ < n₁ := by
+      rcases Nat.lt_or_lt_of_ne n₁n₂_ne with h₁ | h₂
+      . contradiction
+      exact h₂
+    apply Disjoint.symm
+    exact this n₂ i₂ n₁ i₁ n₁n₂_ne.symm n₂_lt_n₁
+  sorry
+
 theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
   intro e₁ e₁_in_sets e₂ e₂_in_sets e₁_ne_e₂
   rcases e₁_in_sets with ⟨e₁_in_X0|e₁_in_Xn, e₁_nonempty⟩
@@ -710,8 +743,17 @@ theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
       exact Set.disjoint_singleton.mpr fun a ↦ e₁_ne_e₂ (congrArg singleton a)
     . simp at e₂_in_Xn
       rcases e₂_in_Xn with ⟨n, i, rfl⟩
+      apply Set.disjoint_of_subset (cell0_sub_Fsk0 _ e₁_in_X0) (fun ⦃a⦄ a ↦ a)
+      apply Fsk_0_cell_disjoint
+  . simp at e₁_in_Xn
+    rcases e₁_in_Xn with ⟨n₁, i₁, rfl⟩
+    rcases e₂_in_sets with ⟨e₂_in_X0|e₂_in_Xn, e₂_nonempty⟩
+    . apply Disjoint.symm
+      apply Set.disjoint_of_subset (cell0_sub_Fsk0 _ e₂_in_X0) (fun ⦃a⦄ a ↦ a)
+      apply Fsk_0_cell_disjoint
+    . simp at e₂_in_Xn
+      rcases e₂_in_Xn with ⟨n₂, i₂, rfl⟩
       sorry
-  sorry
 end CWCellConstructor
 end
 end Chp5
@@ -720,5 +762,8 @@ section
 variable {X Y Z: Type*} [TX: TopologicalSpace X] [TY: TopologicalSpace Y] [TZ: TopologicalSpace Z]
 variable {f: X → Y} {g: Y → Z}
 variable [TX1: TopologicalSpace X]
-
+example {s1 s2 s3: Set X} (h12: s1 ⊆ s2) (h23: Disjoint s2 s3): Disjoint s1 s3 := by
+  exact Set.disjoint_of_subset h12 (fun ⦃a⦄ a ↦ a) h23
+example {n: ℕ} : 0 <= n +1 := by
+  exact Nat.le_add_left 0 (n + 1)
 end
