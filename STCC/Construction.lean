@@ -718,8 +718,10 @@ lemma cell_n_in_Fsk_np1: ∀ n:ℕ, ∀ i:(CWC.Fι n), (Set.range (cell_define_m
   rcases hx with ⟨u, hu, u_maps_to_x⟩
   rw [pre_characteristic_map] at u_maps_to_x
   have: CWC.Fsk (n + 1) = Set.range (((↑): CWC.Fsk (n + 1) → X) ∘ (CWC.Fφ n)) := by
-    sorry
-  sorry
+    rw [Set.range_comp, Set.range_eq_univ.mpr (CWC.Fφ_heomorph n).surjective]
+    exact Eq.symm (Subtype.coe_image_univ (CWComplexConstructor.Fsk (n + 1)))
+  rw [this, ←u_maps_to_x]
+  simp
 
 lemma cell_of_different_n_disjoint: ∀ n₁:ℕ, ∀ i₁:(CWC.Fι n₁), ∀ n₂:ℕ, ∀ i₂:(CWC.Fι n₂), n₁ ≠ n₂ → Disjoint (Set.range (cell_define_map n₁ i₁)) (Set.range (cell_define_map n₂ i₂)) := by
   intro n₁ i₁ n₂ i₂ n₁n₂_ne
@@ -730,6 +732,19 @@ lemma cell_of_different_n_disjoint: ∀ n₁:ℕ, ∀ i₁:(CWC.Fι n₁), ∀ n
       exact h₂
     apply Disjoint.symm
     exact this n₂ i₂ n₁ i₁ n₁n₂_ne.symm n₂_lt_n₁
+  rcases Nat.exists_eq_add_of_le n₁_lt_n₂ with ⟨k, rfl⟩
+  induction' k with k ih
+  . apply Set.disjoint_of_subset (cell_n_in_Fsk_np1 n₁ i₁) (fun ⦃a⦄ a ↦ a)
+    exact Fsk_n_cell_np1_disjoint (n₁ + 1) i₂
+  have: Set.range (cell_define_map n₁ i₁) ⊆ CWC.Fsk (n₁.succ + (k + 1)) := by
+    trans CWC.Fsk (n₁ + 1)
+    . apply cell_n_in_Fsk_np1
+    apply Fsk_incl
+    exact n₁_lt_n₂
+  apply Set.disjoint_of_subset (this) (fun ⦃a⦄ a ↦ a)
+  apply Fsk_n_cell_np1_disjoint
+
+lemma cell_of_same_n_different_i_disjoint: ∀ n:ℕ, ∀ (i₁ i₂:(CWC.Fι n)), i₁ ≠ i₂ → Disjoint (Set.range (cell_define_map n i₁)) (Set.range (cell_define_map n i₂)) := by
   sorry
 
 theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
@@ -753,7 +768,16 @@ theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
       apply Fsk_0_cell_disjoint
     . simp at e₂_in_Xn
       rcases e₂_in_Xn with ⟨n₂, i₂, rfl⟩
-      sorry
+      rcases eq_or_ne n₁ n₂ with n₁_eq_n₂ | n₁_ne_n₂
+      . have e₂_eq: Set.range (cell_define_map n₂ i₂) = Set.range (cell_define_map n₁ ((congrArg CWC.Fι n₁_eq_n₂).mpr i₂)) := by
+          apply Eq.rec (motive := (fun n₂ eq ↦ ∀ i:(CWC.Fι n₂), Set.range (cell_define_map n₂ i) = Set.range (cell_define_map n₁ ((congrArg CWC.Fι eq).mpr i)))) (fun i ↦ rfl) n₁_eq_n₂
+        rw [e₂_eq]
+        have: i₁ ≠ ((congrArg CWC.Fι n₁_eq_n₂).mpr i₂) := by
+          contrapose! e₁_ne_e₂
+          rw [e₂_eq, e₁_ne_e₂]
+        sorry
+      . apply cell_of_different_n_disjoint
+        exact n₁_ne_n₂
 end CWCellConstructor
 end
 end Chp5
@@ -761,9 +785,4 @@ end Chp5
 section
 variable {X Y Z: Type*} [TX: TopologicalSpace X] [TY: TopologicalSpace Y] [TZ: TopologicalSpace Z]
 variable {f: X → Y} {g: Y → Z}
-variable [TX1: TopologicalSpace X]
-example {s1 s2 s3: Set X} (h12: s1 ⊆ s2) (h23: Disjoint s2 s3): Disjoint s1 s3 := by
-  exact Set.disjoint_of_subset h12 (fun ⦃a⦄ a ↦ a) h23
-example {n: ℕ} : 0 <= n +1 := by
-  exact Nat.le_add_left 0 (n + 1)
 end
