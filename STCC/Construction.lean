@@ -745,7 +745,64 @@ lemma cell_of_different_n_disjoint: ∀ n₁:ℕ, ∀ i₁:(CWC.Fι n₁), ∀ n
   apply Fsk_n_cell_np1_disjoint
 
 lemma cell_of_same_n_different_i_disjoint: ∀ n:ℕ, ∀ (i₁ i₂:(CWC.Fι n)), i₁ ≠ i₂ → Disjoint (Set.range (cell_define_map n i₁)) (Set.range (cell_define_map n i₂)) := by
-  sorry
+  intro n i₁ i₂ i₁_ne_i₂
+  let A: (Set (Σ_:(CWC.Fι n), cb (n + 1))) := {x | x.2 ∈ cb_boundary}
+  let B: (Set (Σ_:(CWC.Fι n), cb (n + 1))) := {x | x.2 ∈ cb_inner}
+  have B_eq_A_compl: B = Aᶜ := by
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      intro x_in_B
+      show x.2 ∈ cb_boundaryᶜ
+      simp [←cb_boundary_inner_cmpl]
+      exact x_in_B
+    case mpr =>
+      intro x_in_A
+      have : x.2 ∈ cb_boundaryᶜ := x_in_A
+      simp [←cb_boundary_inner_cmpl] at this
+      exact this
+  let f: (Aᶜ: (Set (Σ_:(CWC.Fι n), cb (n + 1))))→ X := fun x ↦ Subtype.val <| (CWC.Fφ n) <| (right_adj_proj _ (CWC.Ff n)) x
+  let S: (CWC.Fι n) → (Set (Aᶜ: (Set (Σ_:(CWC.Fι n), cb (n + 1))))) := fun i ↦ {x | x.1.1 = i}
+  have cell_rw: ∀ i:(CWC.Fι n), (Set.range (cell_define_map n i)) = f '' (S i) := by
+    intro i
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      intro x_in_range
+      rcases x_in_range with ⟨w, rfl⟩
+      rw [cell_define_map, pre_characteristic_map]
+      let u : (Σ_:(CWC.Fι n), cb (n + 1)) := ⟨i, ⟨w.1, b_in_cb w.2⟩⟩
+      have u_in_A_compl : u ∈ Aᶜ := by
+        rw [←B_eq_A_compl]
+        use w
+        rfl
+      use ⟨u, u_in_A_compl⟩, rfl
+      simp [f, u, right_adj_proj]
+    case mpr =>
+      intro x_in_fSi
+      rcases x_in_fSi with ⟨w, w_in_S, rfl⟩
+      have w'_in_B: w.1 ∈ B := by
+        rw [B_eq_A_compl]
+        exact w.2
+      rcases w'_in_B with ⟨u, hu⟩
+      have heq: w.1 = ⟨i, ⟨u,  b_in_cb u.2⟩ ⟩ := by
+        exact Sigma.subtype_ext w_in_S (congrArg Subtype.val (id (Eq.symm hu)))
+      use u
+      simp [cell_define_map, pre_characteristic_map, f, right_adj_proj, heq]
+  have f_inj: Function.Injective f := by
+    apply Function.Injective.comp
+    . exact Subtype.val_injective
+    apply Function.Injective.comp
+    . exact (CWC.Fφ_heomorph n).injective
+    apply right_adj_proj_injective
+  rw [cell_rw i₁, cell_rw i₂]
+  refine (Set.disjoint_image_iff f_inj).mpr ?_
+  refine Set.disjoint_iff_forall_ne.mpr ?_
+  intro a ha b hb
+  suffices a.1.1 ≠ b.1.1 by
+    exact fun a_1 ↦ this (congrArg Sigma.fst (congrArg Subtype.val a_1))
+  rw [ha, hb]
+  exact i₁_ne_i₂
 
 theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
   intro e₁ e₁_in_sets e₂ e₂_in_sets e₁_ne_e₂
@@ -775,7 +832,8 @@ theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
         have: i₁ ≠ ((congrArg CWC.Fι n₁_eq_n₂).mpr i₂) := by
           contrapose! e₁_ne_e₂
           rw [e₂_eq, e₁_ne_e₂]
-        sorry
+        apply cell_of_same_n_different_i_disjoint
+        exact this
       . apply cell_of_different_n_disjoint
         exact n₁_ne_n₂
 end CWCellConstructor
