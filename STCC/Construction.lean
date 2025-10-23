@@ -1,4 +1,5 @@
 import STCC.TopologicalProperties
+import Mathlib.Order.WellFounded
 
 open BigOperators
 namespace Chp5
@@ -836,6 +837,36 @@ theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
         exact this
       . apply cell_of_different_n_disjoint
         exact n₁_ne_n₂
+
+lemma Fsk_cover' : ∀ x:X, ∃ n:ℕ, x ∈ CWC.Fsk n := by
+  rw [←Set.iUnion_eq_univ_iff]
+  exact CWC.Fsk_cover
+
+lemma mem_cell_in_adj_sk {x: X} {n: ℕ} (x_not_in_Fsk_n: x ∉ CWC.Fsk n) (x_in_Fsk_np1: x ∈ CWC.Fsk (n + 1)) : ∃ (i:CWC.Fι n), x ∈ Set.range (cell_define_map n i) := by
+  sorry
+
+theorem cell_sets_cover: ⋃₀ (cell_sets (CWC := CWC)) = Set.univ := by
+  rw [Set.sUnion_eq_univ_iff]
+  intro x
+  let Sn := {n:ℕ | x ∈ CWC.Fsk n}
+  have Sn_nonempty:  Sn.Nonempty := by
+    rcases Fsk_cover' x with ⟨n₀, hn₀⟩
+    use n₀, hn₀
+  let n := WellFounded.min wellFounded_lt Sn Sn_nonempty
+  have x_in_Fskn : x ∈ CWC.Fsk n := WellFounded.min_mem wellFounded_lt Sn Sn_nonempty
+  rcases Nat.eq_zero_or_pos n with n_eq_0 | n_gt_0
+  . rw [n_eq_0] at x_in_Fskn
+    use {x}
+    simp [cell_sets, cell_of_dim0, x_in_Fskn]
+  . have:  0 < n := n_gt_0
+    rw [←Nat.exists_eq_add_one] at this
+    rcases this with ⟨k, n_eq_k_succ⟩
+    have k_lt_n: k < n := by linarith
+    have x_not_in_Fsk_k : x ∉ CWC.Fsk k := by
+      contrapose! k_lt_n
+      apply WellFounded.min_le
+      exact k_lt_n
+    sorry
 end CWCellConstructor
 end
 end Chp5
