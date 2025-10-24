@@ -843,6 +843,18 @@ lemma Fsk_cover' : ∀ x:X, ∃ n:ℕ, x ∈ CWC.Fsk n := by
   exact CWC.Fsk_cover
 
 lemma mem_cell_in_adj_sk {x: X} {n: ℕ} (x_not_in_Fsk_n: x ∉ CWC.Fsk n) (x_in_Fsk_np1: x ∈ CWC.Fsk (n + 1)) : ∃ (i:CWC.Fι n), x ∈ Set.range (cell_define_map n i) := by
+  let y : (CWC.Fsk (n + 1)) := ⟨x, x_in_Fsk_np1⟩
+  rcases (CWC.Fφ_heomorph n).surjective y with ⟨w, w_maps_to_y⟩
+  have w_not_in_left_adj_range : w ∉ Set.range (left_adj_proj _ (CWC.Ff n)) := by
+    contrapose! x_not_in_Fsk_n
+    rw [Set.mem_range] at x_not_in_Fsk_n
+    rcases x_not_in_Fsk_n with ⟨x', x'_mapsto_w⟩
+    have: (CWC.Fφ n) ((left_adj_proj _ (CWC.Ff n)) x') = ((CWC.Fφ n) ∘ (left_adj_proj _ (CWC.Ff n))) x' := rfl
+    rw [←x'_mapsto_w, this, CWC.Fφ_fix, ←SetCoe.ext_iff] at w_maps_to_y
+    simp at w_maps_to_y
+    show y.1 ∈ CWC.Fsk n
+    rw [←w_maps_to_y]
+    exact x'.2
   sorry
 
 theorem cell_sets_cover: ⋃₀ (cell_sets (CWC := CWC)) = Set.univ := by

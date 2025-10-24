@@ -848,6 +848,26 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_ran
     contradiction
   . rcases c5 with ⟨_, heq1, _⟩
     contradiction
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_cover: (Set.range (left_adj_proj A f)) ∪ (Set.range (right_adj_proj A f)) = Set.univ := by
+  ext t
+  simp
+  rcases Quotient.exists_rep t with ⟨w, rfl⟩
+  match w with
+  | Sum.inl x =>
+    left
+    use x
+    simp [left_adj_proj, adj_proj]
+  | Sum.inr y =>
+    rcases Classical.em (y ∈ A) with y_in_A | y_not_in_A
+    . left
+      use f ⟨y, y_in_A ⟩
+      simp [left_adj_proj, adj_proj, glue_setoid]
+      apply Relation.EqvGen.rel
+      use ⟨y, y_in_A⟩
+    . right
+      use y, y_not_in_A
+      simp [right_adj_proj, adj_proj]
 end
 
 section
