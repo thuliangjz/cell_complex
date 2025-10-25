@@ -844,8 +844,11 @@ lemma Fsk_cover' : ∀ x:X, ∃ n:ℕ, x ∈ CWC.Fsk n := by
 
 lemma mem_cell_in_adj_sk {x: X} {n: ℕ} (x_not_in_Fsk_n: x ∉ CWC.Fsk n) (x_in_Fsk_np1: x ∈ CWC.Fsk (n + 1)) : ∃ (i:CWC.Fι n), x ∈ Set.range (cell_define_map n i) := by
   let y : (CWC.Fsk (n + 1)) := ⟨x, x_in_Fsk_np1⟩
+  have y_coe_to_x: x = Subtype.val y := rfl
   rcases (CWC.Fφ_heomorph n).surjective y with ⟨w, w_maps_to_y⟩
-  have w_not_in_left_adj_range : w ∉ Set.range (left_adj_proj _ (CWC.Ff n)) := by
+  have w_in_right_range: w ∈ Set.range (right_adj_proj _ (CWC.Ff n)) := by
+    rw [right_range_eq_left_range_compl]
+    show w ∉ (Set.range (left_adj_proj _ (CWC.Ff n)))
     contrapose! x_not_in_Fsk_n
     rw [Set.mem_range] at x_not_in_Fsk_n
     rcases x_not_in_Fsk_n with ⟨x', x'_mapsto_w⟩
@@ -855,7 +858,18 @@ lemma mem_cell_in_adj_sk {x: X} {n: ℕ} (x_not_in_Fsk_n: x ∉ CWC.Fsk n) (x_in
     show y.1 ∈ CWC.Fsk n
     rw [←w_maps_to_y]
     exact x'.2
-  sorry
+  rcases w_in_right_range with ⟨z, rfl⟩
+  have : z.1.2 ∈ cb_inner := by rw [cb_inner_eq_boundary_compl]; exact z.2
+  rcases this with ⟨q, q_is_z⟩
+  use z.1.1, q
+  have z_coe: ⟨z.1.1, ⟨q.1, b_in_cb q.2⟩⟩ = Subtype.val z := by
+    have: Subtype.val z = ⟨z.1.1, z.1.2⟩ := rfl
+    nth_rw 2 [this]
+    apply congrArg (Sigma.mk z.1.1)
+    rw [←q_is_z]
+    rfl
+  rw [cell_define_map, pre_characteristic_map, y_coe_to_x, Subtype.val_inj, ←w_maps_to_y, (CWC.Fφ_heomorph n).injective.eq_iff, z_coe]
+  rfl
 
 theorem cell_sets_cover: ⋃₀ (cell_sets (CWC := CWC)) = Set.univ := by
   rw [Set.sUnion_eq_univ_iff]

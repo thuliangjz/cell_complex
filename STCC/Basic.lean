@@ -193,6 +193,14 @@ theorem cb_boundary_inner_cmpl {n : ℕ} : Set.univ \ @cb_inner n = cb_boundary 
             simp
         linarith
 
+theorem cb_boundary_eq_inner_compl {n: ℕ}: @cb_boundary n = cb_innerᶜ := by
+  ext x
+  simp [←cb_boundary_inner_cmpl]
+
+theorem cb_inner_eq_boundary_compl {n: ℕ}: @cb_inner n = cb_boundaryᶜ := by
+  ext x
+  simp [←cb_boundary_inner_cmpl]
+
 theorem cb_boundary_closed {n: ℕ}: IsClosed (@cb_boundary n) := by
   rw [←cb_boundary_inner_cmpl, ←Set.compl_eq_univ_diff, isClosed_compl_iff]
   exact cb_inner_open
@@ -868,6 +876,31 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_cov
     . right
       use y, y_not_in_A
       simp [right_adj_proj, adj_proj]
+
+lemma eq_compl_iff {Z: Type*} {s1 s2: Set Z} (h1: Disjoint s1 s2) (h2: s1 ∪ s2 = Set.univ) : s1 = s2ᶜ := by
+  rw [Set.disjoint_iff_inter_eq_empty] at h1
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro x_in_s1
+    contrapose! h1
+    simp at h1
+    use x
+    exact ⟨x_in_s1, h1⟩
+  case mpr =>
+    intro x_not_in_s2
+    have: x ∈ s1 ∪ s2 := by rw [h2]; trivial
+    rcases this with x_in_s1 | x_in_s2
+    . exact x_in_s1
+    contradiction
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_eq_right_range_compl: Set.range (left_adj_proj A f) = (Set.range (right_adj_proj A f))ᶜ := by
+  apply eq_compl_iff
+  apply left_adj_right_adj_range_disjoint
+  exact left_adj_right_adj_cover A f
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_range_eq_left_range_compl: Set.range (right_adj_proj A f) = (Set.range (left_adj_proj A f))ᶜ := by
+  simp [left_range_eq_right_range_compl]
 end
 
 section
