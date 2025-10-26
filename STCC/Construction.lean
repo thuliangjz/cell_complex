@@ -892,7 +892,54 @@ theorem cell_sets_cover: ⋃₀ (cell_sets (CWC := CWC)) = Set.univ := by
       contrapose! k_lt_n
       apply WellFounded.min_le
       exact k_lt_n
-    sorry
+    rw [n_eq_k_succ] at x_in_Fskn
+    rcases mem_cell_in_adj_sk (CWC := CWC) x_not_in_Fsk_k x_in_Fskn with ⟨i, x_in_ki⟩
+    use Set.range (cell_define_map k i)
+    rw [and_comm]; use x_in_ki
+    constructor
+    . right
+      rw [Set.mem_iUnion]
+      use k
+      simp
+    use x
+
+lemma exists_skn_contain_cell: ∀ e ∈ cell_sets, ∃ n, e ⊆ CWC.Fsk n := by
+  intro e e_in_sets
+  rcases e_in_sets with ⟨e_in_sk0 | e_in_skn, e_nonempty⟩
+  . use 0
+    apply cell0_sub_Fsk0 _ e_in_sk0
+  . simp at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, rfl⟩⟩
+    use (n + 1)
+    exact cell_n_in_Fsk_np1 n i
+
+lemma cell_of_dim0_in_sets: ∀ e ∈ cell_of_dim0, e ∈ cell_sets (CWC:=CWC) := by
+  rintro e ⟨x, x_in_sk0, rfl⟩
+  constructor
+  . left
+    use x
+  . exact Set.singleton_nonempty x
+
+lemma cell_define_map_range_in_sets: ∀ n, ∀ (i:CWC.Fι n), Set.range (cell_define_map n i) ∈ cell_sets := by
+  intro n i
+  constructor
+  . right
+    simp
+    use n, i
+  . exact Set.range_nonempty (cell_define_map n i)
+
+noncomputable def dim_map : (cell_sets (CWC := CWC)) → ℕ := fun e ↦ WellFounded.min wellFounded_lt {n | e.1 ⊆ CWC.Fsk n} (by rcases exists_skn_contain_cell e.1 e.2 with ⟨n, hn ⟩; use n, hn)
+
+lemma dim_map_cell_dim0_is_0 : ∀e, ∀ h:(e ∈ cell_of_dim0), dim_map ⟨e, cell_of_dim0_in_sets (CWC := CWC) e h⟩ = 0 := by
+  rintro e ⟨x, x_in_sk0, e_is_x⟩
+  suffices dim_map ⟨e, cell_of_dim0_in_sets e ⟨x, x_in_sk0, e_is_x⟩⟩ ≤ 0 by
+    exact Nat.eq_zero_of_le_zero this
+  apply WellFounded.min_le
+  simp [←e_is_x, x_in_sk0]
+
+lemma dim_map_cell_n_is_n : ∀ n:ℕ, ∀ (i: CWC.Fι n), dim_map ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ = (n + 1) := by
+  intro n i
+  sorry
 end CWCellConstructor
 end
 end Chp5
