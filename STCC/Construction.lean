@@ -937,9 +937,27 @@ lemma dim_map_cell_dim0_is_0 : ∀e, ∀ h:(e ∈ cell_of_dim0), dim_map ⟨e, c
   apply WellFounded.min_le
   simp [←e_is_x, x_in_sk0]
 
-lemma dim_map_cell_n_is_n : ∀ n:ℕ, ∀ (i: CWC.Fι n), dim_map ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ = (n + 1) := by
+lemma dim_map_cell_n_is_np1 : ∀ n:ℕ, ∀ (i: CWC.Fι n), dim_map ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ = (n + 1) := by
   intro n i
-  sorry
+  let e : cell_sets := ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩
+  show dim_map e = n + 1
+  have h_le: dim_map e ≤ n + 1 := by
+    apply WellFounded.min_le
+    apply cell_n_in_Fsk_np1
+  have h_ge: dim_map e ≥ n + 1 := by
+    by_contra! dim_map_e_lt_np1
+    have dim_map_e_le_n: dim_map e ≤ n := Nat.le_of_lt_succ dim_map_e_lt_np1
+    have e_in_skn: e.1 ⊆ CWC.Fsk n := by
+      trans CWC.Fsk (dim_map e)
+      . show dim_map e ∈ {n | e.1 ⊆ CWC.Fsk n}
+        apply WellFounded.min_mem
+      . exact Fsk_incl dim_map_e_le_n
+    have e_eq_empty: e.1 = ∅ := Set.subset_empty_iff.mp ((Fsk_n_cell_np1_disjoint n i) e_in_skn (fun ⦃a⦄ a ↦ a))
+    have e_ne_empty: e.1 ≠ ∅ := by
+      rw [←Set.nonempty_iff_ne_empty]
+      exact e.2.2
+    contradiction
+  linarith
 end CWCellConstructor
 end
 end Chp5
@@ -947,4 +965,6 @@ end Chp5
 section
 variable {X Y Z: Type*} [TX: TopologicalSpace X] [TY: TopologicalSpace Y] [TZ: TopologicalSpace Z]
 variable {f: X → Y} {g: Y → Z}
+example {s1 s2: Set X} (h12: s1 ⊆ s2) (h12': Disjoint s1 s2) : s1 = ∅ := by
+  exact Set.subset_empty_iff.mp (h12' (fun ⦃a⦄ a ↦ a) h12)
 end
