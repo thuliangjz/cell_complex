@@ -958,6 +958,34 @@ lemma dim_map_cell_n_is_np1 : ∀ n:ℕ, ∀ (i: CWC.Fι n), dim_map ⟨Set.rang
       exact e.2.2
     contradiction
   linarith
+
+lemma dim_map0_in_sk0: ∀ e:cell_sets, dim_map e = 0 → ∃ x:X, e.1 = {x} ∧ x ∈ CWC.Fsk 0 := by
+  rintro ⟨e, e_in_sets⟩ dim_map_e_to_0
+  rcases e_in_sets with ⟨e_in_cell0 | e_in_celln, e_non_empty⟩
+  . rcases e_in_cell0 with ⟨x, x_in_sk0, rfl⟩
+    use x
+  . rw [Set.mem_iUnion] at e_in_celln
+    rcases e_in_celln with ⟨n, ⟨i, e_eq⟩⟩
+    simp at e_eq
+    have e_sub_sk0: e ⊆ CWC.Fsk 0 := by
+      show 0 ∈ {n | (⟨e, ⟨Or.inr e_in_celln, e_non_empty⟩⟩:cell_sets).1 ⊆ CWC.Fsk n}
+      rw [←dim_map_e_to_0]
+      apply WellFounded.min_mem
+    have inter_empty: e ∩ CWC.Fsk 0 = ∅ := by
+      rw [←Set.disjoint_iff_inter_eq_empty, ←e_eq, disjoint_comm]
+      exact Fsk_0_cell_disjoint n i
+    have inter_non_empty: e ∩ CWC.Fsk 0 ≠ ∅ := by
+      rw [←Set.left_eq_inter] at e_sub_sk0
+      rwa [←e_sub_sk0, ←Set.nonempty_iff_ne_empty]
+    contradiction
+
+-- match clause accepts only concrete types instead of Prop
+-- the if clause is only possible to use when the condition is Decidable
+noncomputable def cell_characteristic_map : (s: cell_sets) → cb (dim_map (CWC:=CWC) s) → X := fun s ↦ match (dim_map s) with
+| 0 => fun t ↦ by
+  sorry
+| (n:ℕ) + 1 => sorry
+
 end CWCellConstructor
 end
 end Chp5
@@ -967,4 +995,13 @@ variable {X Y Z: Type*} [TX: TopologicalSpace X] [TY: TopologicalSpace Y] [TZ: T
 variable {f: X → Y} {g: Y → Z}
 example {s1 s2: Set X} (h12: s1 ⊆ s2) (h12': Disjoint s1 s2) : s1 = ∅ := by
   exact Set.subset_empty_iff.mp (h12' (fun ⦃a⦄ a ↦ a) h12)
+#check Classical.choose_spec
+#check if_pos
+end
+
+section
+variable {X Y: Type*}
+variable {p: X → Prop} {q: X → Prop}
+variable {h: ∀ x: X, p x ∨ q x}
+variable {f1: (x:X) → p x → Y} {f2: (x: X) → q x → Y}
 end
