@@ -979,29 +979,51 @@ lemma dim_map0_in_sk0: ∀ e:cell_sets, dim_map e = 0 → ∃ x:X, e.1 = {x} ∧
       rwa [←e_sub_sk0, ←Set.nonempty_iff_ne_empty]
     contradiction
 
--- match clause accepts only concrete types instead of Prop
--- the if clause is only possible to use when the condition is Decidable
-noncomputable def cell_characteristic_map : (s: cell_sets) → cb (dim_map (CWC:=CWC) s) → X := fun s ↦ match (dim_map s) with
-| 0 => fun t ↦ by
-  sorry
-| (n:ℕ) + 1 => sorry
+def cell_sets₀ : Set (cell_sets (CWC:= CWC)) := {e | dim_map e = 0}
 
+def cell_sets_indices := (CWC.Fsk 0) ⊕ (Σ(n:ℕ), CWC.Fι n)
+
+def cell_sets_indices_to_Nat : (cell_sets_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
+| Sum.inl _ => 0
+| Sum.inr ⟨n, _⟩ => n + 1
+
+def cell_sets_indices_to_cb_to_X : (I: (cell_sets_indices (CWC := CWC))) → cb (cell_sets_indices_to_Nat (CWC := CWC) I) → X := fun I ↦ match I with
+| Sum.inl ⟨x, _⟩ => fun _ ↦ x
+| Sum.inr ⟨n, i⟩ => (Subtype.val) ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ (@Sum.inr (CWC.Fsk n) _) ∘ (@Sigma.mk _ (fun _ ↦ cb (n + 1)) i)
+
+def indices_to_cell: (cell_sets_indices (CWC := CWC)) → (cell_sets (CWC := CWC)) := fun I ↦ match I with
+| Sum.inl ⟨x, x_in_sk0⟩ => ⟨{x}, ⟨by left; simp[cell_of_dim0, x_in_sk0] , Set.singleton_nonempty x ⟩⟩
+| Sum.inr ⟨n, i⟩ => ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩
+
+lemma indices_to_cell_lr_ne (n: ℕ) (i: CWC.Fι n) (x: X) (hx: x ∈ CWC.Fsk 0) : indices_to_cell (Sum.inl ⟨x, hx⟩) ≠ indices_to_cell (Sum.inr ⟨n, i⟩) := by
+  by_contra heq
+  simp [indices_to_cell] at heq
+  have : {x} ⊆ CWC.Fsk 0 := Set.singleton_subset_iff.mpr hx
+  rw [heq] at this
+  have: Set.range (cell_define_map n i) ≤ ⊥ := Fsk_0_cell_disjoint n i this (fun ⦃a⦄ a ↦ a)
+  have eq_empty: Set.range (cell_define_map n i) = ∅ := Set.subset_eq_empty this rfl
+  have ne_empty: Set.range (cell_define_map n i) ≠ ∅ := by
+        rw [←Set.nonempty_iff_ne_empty]
+        exact Set.range_nonempty (cell_define_map n i)
+  contradiction
+
+theorem indices_to_cell_injective: Function.Injective (indices_to_cell (CWC := CWC)):= by
+  intro I1 I2 I1_I2_img_eq
+  match I1 with
+  | Sum.inl ⟨x₁, x₁_in_sk0⟩ =>
+    match I2 with
+    | Sum.inl ⟨x₂, x₂_in_sk0⟩ =>
+      simp [indices_to_cell] at I1_I2_img_eq
+      apply congrArg
+      exact SetCoe.ext I1_I2_img_eq
+    | Sum.inr ⟨n₂, i₂⟩ =>
+      apply False.elim ((indices_to_cell_lr_ne n₂ i₂ x₁ x₁_in_sk0) I1_I2_img_eq)
+  | Sum.inr ⟨n₁, i₁⟩ =>
+    match I2 with
+    | Sum.inl ⟨x₂, x₂_in_sk0⟩ =>
+      apply False.elim ((indices_to_cell_lr_ne n₁ i₁ x₂ x₂_in_sk0) I1_I2_img_eq.symm)
+    | Sum.inr ⟨n₂, i₂⟩ =>
+      sorry
 end CWCellConstructor
 end
 end Chp5
-
-section
-variable {X Y Z: Type*} [TX: TopologicalSpace X] [TY: TopologicalSpace Y] [TZ: TopologicalSpace Z]
-variable {f: X → Y} {g: Y → Z}
-example {s1 s2: Set X} (h12: s1 ⊆ s2) (h12': Disjoint s1 s2) : s1 = ∅ := by
-  exact Set.subset_empty_iff.mp (h12' (fun ⦃a⦄ a ↦ a) h12)
-#check Classical.choose_spec
-#check if_pos
-end
-
-section
-variable {X Y: Type*}
-variable {p: X → Prop} {q: X → Prop}
-variable {h: ∀ x: X, p x ∨ q x}
-variable {f1: (x:X) → p x → Y} {f2: (x: X) → q x → Y}
-end
