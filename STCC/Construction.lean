@@ -983,11 +983,11 @@ def cell_sets₀ : Set (cell_sets (CWC:= CWC)) := {e | dim_map e = 0}
 
 def cell_sets_indices := (CWC.Fsk 0) ⊕ (Σ(n:ℕ), CWC.Fι n)
 
-def cell_sets_indices_to_Nat : (cell_sets_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
+def indices_to_Nat : (cell_sets_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
 | Sum.inl _ => 0
 | Sum.inr ⟨n, _⟩ => n + 1
 
-def cell_sets_indices_to_cb_to_X : (I: (cell_sets_indices (CWC := CWC))) → cb (cell_sets_indices_to_Nat (CWC := CWC) I) → X := fun I ↦ match I with
+def indices_to_cb_to_X : (I: (cell_sets_indices (CWC := CWC))) → cb (indices_to_Nat (CWC := CWC) I) → X := fun I ↦ match I with
 | Sum.inl ⟨x, _⟩ => fun _ ↦ x
 | Sum.inr ⟨n, i⟩ => (Subtype.val) ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ (@Sum.inr (CWC.Fsk n) _) ∘ (@Sigma.mk _ (fun _ ↦ cb (n + 1)) i)
 
@@ -1023,7 +1023,85 @@ theorem indices_to_cell_injective: Function.Injective (indices_to_cell (CWC := C
     | Sum.inl ⟨x₂, x₂_in_sk0⟩ =>
       apply False.elim ((indices_to_cell_lr_ne n₁ i₁ x₂ x₂_in_sk0) I1_I2_img_eq.symm)
     | Sum.inr ⟨n₂, i₂⟩ =>
-      sorry
+      simp [indices_to_cell] at I1_I2_img_eq
+      have n₁_n₂_eq: n₁ = n₂ := by
+        by_contra! n₁_ne_n₂
+        have hd: Disjoint (Set.range (cell_define_map n₁ i₁)) (Set.range (cell_define_map n₂ i₂)) := cell_of_different_n_disjoint n₁ i₁ n₂ i₂ n₁_ne_n₂
+        rw [I1_I2_img_eq, Set.disjoint_iff_inter_eq_empty, Set.inter_self] at hd
+        have h_nonempty: (Set.range (cell_define_map n₂ i₂)) ≠ ∅  := by
+          rw [←Set.nonempty_iff_ne_empty]
+          exact Set.range_nonempty (cell_define_map n₂ i₂)
+        contradiction
+      have: (⟨n₁, i₁⟩: Σn:ℕ, CWC.Fι n) = ⟨n₂, (congrArg CWC.Fι n₁_n₂_eq).mp i₁⟩ := by
+        refine Sigma.mk.inj_iff.mpr ⟨n₁_n₂_eq, ?_⟩
+        exact heq_of_eqRec_eq (congrArg (CWComplexConstructor.Fι X) n₁_n₂_eq) rfl
+      rw [this]
+      have range_rw: Set.range (cell_define_map n₁ i₁) = Set.range (cell_define_map n₂ ((congrArg CWC.Fι n₁_n₂_eq).mp i₁)) := by
+        exact @Eq.rec ℕ n₁ (fun m n₁_eq_m ↦ Set.range (cell_define_map n₁ i₁) = Set.range (cell_define_map m ((congrArg CWC.Fι n₁_eq_m).mp i₁))) rfl n₂ n₁_n₂_eq
+      rw [range_rw] at I1_I2_img_eq
+      suffices (congrArg CWC.Fι n₁_n₂_eq).mp i₁ = i₂ by congr
+      let i₁' := (congrArg CWC.Fι n₁_n₂_eq).mp i₁
+      show i₁' = i₂
+      by_contra! i₁'_ne_i₂
+      have hd : Disjoint (Set.range (cell_define_map n₂ i₁')) (Set.range (cell_define_map n₂ i₂)) := cell_of_same_n_different_i_disjoint n₂ i₁' i₂ i₁'_ne_i₂
+      rw [I1_I2_img_eq, Set.disjoint_iff_inter_eq_empty, Set.inter_self] at hd
+      have h_nonempty: Set.range (cell_define_map n₂ i₂) ≠ ∅ := by
+        rw [←Set.nonempty_iff_ne_empty]
+        exact Set.range_nonempty (cell_define_map n₂ i₂)
+      contradiction
+
+theorem indices_to_cell_surjective : Function.Surjective (indices_to_cell (CWC := CWC)) := by
+  rintro ⟨e, e_in_sets⟩
+  rcases e_in_sets with ⟨e_in_sk0|e_in_skn, e_nonempty⟩
+  . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+    use Sum.inl ⟨x, x_in_sk0⟩
+    rfl
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, range_eq⟩⟩
+    simp at range_eq
+    use Sum.inr ⟨n, i⟩
+    simp [indices_to_cell, range_eq]
+
+instance cell_sets_indices_nonempty: Nonempty (cell_sets_indices (CWC := CWC)) := by
+  rcases CWC.Fsk0_nonempty with ⟨x, x_in_sk0⟩
+  use Sum.inl ⟨x, x_in_sk0 ⟩
+
+noncomputable def cell_to_indices: (cell_sets (CWC := CWC)) → (cell_sets_indices (CWC := CWC)) := Function.invFun indices_to_cell
+
+theorem cell_to_indices_left_inv: cell_to_indices ∘ (indices_to_cell (CWC := CWC))= id := by
+  rw [cell_to_indices]
+  refine Function.invFun_comp ?_
+  exact indices_to_cell_injective
+
+lemma cell_to_indices_left_inv': ∀ I, cell_to_indices (indices_to_cell (CWC := CWC) I) = I := by
+  intro I
+  show (cell_to_indices ∘ indices_to_cell) I = I
+  rw [cell_to_indices_left_inv]
+  rfl
+
+theorem cell_to_indices_right_inv: (indices_to_cell (CWC := CWC)) ∘ cell_to_indices = id := by
+  funext x
+  simp [cell_to_indices]
+  apply Function.invFun_eq
+  revert x
+  exact indices_to_cell_surjective
+
+theorem dim_map_indices_to_nat_comm : ∀ e: (cell_sets (CWC := CWC)), indices_to_Nat (cell_to_indices e) = dim_map e := by
+  rintro ⟨e, e_in_sets⟩
+  rcases e_in_sets with ⟨e_in_sk0|e_in_skn, e_nonempty⟩
+  . rw [dim_map_cell_dim0_is_0 e e_in_sk0]
+    rcases e_in_sk0 with ⟨x, x_in_sk0, e_eq⟩
+    have: ⟨e, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, e_eq⟩), e_nonempty⟩⟩ = indices_to_cell (Sum.inl ⟨x, x_in_sk0⟩) := by simp [indices_to_cell, ←e_eq]
+    simp [this, cell_to_indices_left_inv', indices_to_Nat]
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, i, rfl⟩
+    simp
+    rw [dim_map_cell_n_is_np1]
+    have : ⟨Set.range (cell_define_map n i), ⟨Or.inr e_in_skn, e_nonempty ⟩⟩ = indices_to_cell (Sum.inr ⟨n, i⟩) := by simp [indices_to_cell]
+    simp [this, cell_to_indices_left_inv', indices_to_Nat]
+
+noncomputable def characteristic_map : (e : (cell_sets (CWC := CWC))) → cb (dim_map e) → X := fun e ↦ (indices_to_cb_to_X (cell_to_indices e)) ∘ (congrArg (fun n ↦ (cb n:Type)) (dim_map_indices_to_nat_comm e).symm).mp
+
 end CWCellConstructor
 end
 end Chp5
