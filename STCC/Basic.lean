@@ -193,6 +193,18 @@ theorem cb_boundary_inner_cmpl {n : ℕ} : Set.univ \ @cb_inner n = cb_boundary 
             simp
         linarith
 
+theorem cb_boundary_eq_inner_compl {n: ℕ}: @cb_boundary n = cb_innerᶜ := by
+  ext x
+  simp [←cb_boundary_inner_cmpl]
+
+theorem cb_inner_eq_boundary_compl {n: ℕ}: @cb_inner n = cb_boundaryᶜ := by
+  ext x
+  simp [←cb_boundary_inner_cmpl]
+
+theorem cb_boundary_closed {n: ℕ}: IsClosed (@cb_boundary n) := by
+  rw [←cb_boundary_inner_cmpl, ←Set.compl_eq_univ_diff, isClosed_compl_iff]
+  exact cb_inner_open
+
 theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n) := by
     rw [cb_boundary,←Set.image_univ]
     apply IsConnected.image
@@ -824,6 +836,71 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem glue_setoid_of_same_im
     use ⟨y₂, y₂_in_A⟩
     simp [←heq, x]
   exact Relation.EqvGen.trans (Sum.inr y₁) (Sum.inl x) (Sum.inr y₂) (relxy₁.symm) relxy₂
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_range_disjoint: Disjoint (Set.range (left_adj_proj A f)) (Set.range (right_adj_proj A f)) := by
+  by_contra goal
+  rw [Set.not_disjoint_iff_nonempty_inter] at goal
+  rcases goal with ⟨w, ⟨x, h_xw⟩, ⟨y, h_yw⟩⟩
+  have hxy: left_adj_proj A f x = right_adj_proj A f y := by rw [h_xw, h_yw]
+  simp [left_adj_proj, right_adj_proj, adj_proj, glue_setoid] at hxy
+  rcases glue_rel_equiv_explicit A f (Sum.inl x) (Sum.inr y.1) hxy with c1 | c2 | c3 | c4 | c5
+  . rcases c1 with ⟨x', h1, h2⟩
+    contradiction
+  . rcases c2 with ⟨x', y₀, y', heq1, heq2, y₀_is_y', heq4⟩
+    have y₀_is_y: y.1 = y₀ := by apply Sum.inr_injective; exact heq2
+    have y₀_in_A: y₀ ∈ A := by rw [y₀_is_y']; exact y'.2
+    have y₀_in_A_compl: y₀ ∈ Aᶜ := by rw [←y₀_is_y]; exact y.2
+    contradiction
+  . rcases c3 with ⟨_, _, _, heq1, _⟩
+    contradiction
+  . rcases c4 with ⟨_, _, _, _, heq1, _⟩
+    contradiction
+  . rcases c5 with ⟨_, heq1, _⟩
+    contradiction
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_cover: (Set.range (left_adj_proj A f)) ∪ (Set.range (right_adj_proj A f)) = Set.univ := by
+  ext t
+  simp
+  rcases Quotient.exists_rep t with ⟨w, rfl⟩
+  match w with
+  | Sum.inl x =>
+    left
+    use x
+    simp [left_adj_proj, adj_proj]
+  | Sum.inr y =>
+    rcases Classical.em (y ∈ A) with y_in_A | y_not_in_A
+    . left
+      use f ⟨y, y_in_A ⟩
+      simp [left_adj_proj, adj_proj, glue_setoid]
+      apply Relation.EqvGen.rel
+      use ⟨y, y_in_A⟩
+    . right
+      use y, y_not_in_A
+      simp [right_adj_proj, adj_proj]
+
+lemma eq_compl_iff {Z: Type*} {s1 s2: Set Z} (h1: Disjoint s1 s2) (h2: s1 ∪ s2 = Set.univ) : s1 = s2ᶜ := by
+  rw [Set.disjoint_iff_inter_eq_empty] at h1
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro x_in_s1
+    contrapose! h1
+    simp at h1
+    use x
+    exact ⟨x_in_s1, h1⟩
+  case mpr =>
+    intro x_not_in_s2
+    have: x ∈ s1 ∪ s2 := by rw [h2]; trivial
+    rcases this with x_in_s1 | x_in_s2
+    . exact x_in_s1
+    contradiction
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_eq_right_range_compl: Set.range (left_adj_proj A f) = (Set.range (right_adj_proj A f))ᶜ := by
+  apply eq_compl_iff
+  apply left_adj_right_adj_range_disjoint
+  exact left_adj_right_adj_cover A f
+
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_range_eq_left_range_compl: Set.range (right_adj_proj A f) = (Set.range (left_adj_proj A f))ᶜ := by
+  simp [left_range_eq_right_range_compl]
 end
 
 section

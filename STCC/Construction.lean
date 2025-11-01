@@ -1,4 +1,5 @@
 import STCC.TopologicalProperties
+import Mathlib.Order.WellFounded
 
 open BigOperators
 namespace Chp5
@@ -439,4 +440,668 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
 
 end
 
+section helper
+variable {X: Type*} [TopologicalSpace X]
+theorem aux_subspace_topology_eq {S: Set X} [TS: TopologicalSpace S] (h: ∀ (b: Set S), @IsClosed S TS b ↔ @IsClosed X _ ((↑) '' b)): TS = instTopologicalSpaceSubtype := by
+  suffices ∀ (b:Set S), @IsClosed _ TS b ↔ @IsClosed _ instTopologicalSpaceSubtype b by
+    ext s
+    simp only [←isClosed_compl_iff, this]
+  have S_closed : IsClosed S := by
+    rw [←Subtype.coe_image_univ S, ←h]
+    exact isClosed_univ
+  intro b
+  rw [h]
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hb
+    use ((↑) '' b)ᶜ, hb.isOpen_compl
+    simp
+  case mpr =>
+    intro hb
+    exact S_closed.isClosedMap_subtype_val b hb
+theorem is_closed_map_id : IsClosedMap (id: X → X) := by
+  intro U UClosed
+  simp [UClosed]
+end helper
+
+section
+class CWComplexConstructor (X: Type*) where
+  Fsk: ℕ → Set X
+  Fsk0_nonempty: (Fsk 0).Nonempty
+  Fsk_chain: ∀ n: ℕ, Fsk n ⊆ Fsk (n + 1)
+  Fsk_cover: ⋃n:ℕ, Fsk n = Set.univ
+  Tsk: (n:ℕ) → TopologicalSpace (Fsk n)  -- topology on skeletons
+  Tsk0_discrete: DiscreteTopology (Fsk 0)
+  Fι: ℕ → Type*   -- indexing type for gluing closed balls
+  Ff: (n:ℕ) → {(x: Σ_:(Fι n), cb (n + 1)) | x.2 ∈ cb_boundary} → (Fsk n)  -- gluing function sending set of closed ball's boundary to skeleton n
+  Ff_continuous: ∀ n, Continuous (Ff n)
+  Fφ: (n:ℕ) → (AdjointSpace _ (Ff n)) → (Fsk (n + 1))
+  Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
+  Fφ_fix: ∀ n:ℕ, (Fφ n) ∘ (left_adj_proj _ (Ff n)) = fun x ↦ ⟨x.1,  (Fsk_chain n) x.2⟩
+
+variable {X: Type*}
+variable [CWC: CWComplexConstructor X]
+instance {n:ℕ}: TopologicalSpace (CWC.Fsk n) := CWC.Tsk n
+
+-- this topology is the same with what is defined by text
+instance instCWConstructorTopology : TopologicalSpace X where
+  IsOpen := fun s ↦ ∀ n:ℕ, IsOpen ((Subtype.val : (CWC.Fsk n) → X) ⁻¹' s)
+  isOpen_univ := by simp
+  isOpen_inter := by
+    intro s t hs ht n
+    rw [Set.preimage_inter]
+    apply IsOpen.inter (hs n) (ht n)
+  isOpen_sUnion := by
+    intro ss hss n
+    rw [Set.preimage_sUnion]
+    apply isOpen_sUnion
+    intro t ht
+    simp at ht
+    rcases ht with ⟨y, hy, rfl⟩
+    apply isOpen_sUnion
+    intro t ht
+    simp at ht
+    rcases ht with ⟨y', hy', rfl⟩
+    apply hss y y'
+
+theorem Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
+  rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
+  induction' k with k ik
+  . simp
+  trans (CWC.Fsk (m + k))
+  . exact ik (Nat.le_add_right m k)
+  rw [←add_assoc]
+  apply CWC.Fsk_chain
+
+lemma Fsk_chain_incl_continuous {n: ℕ}: Continuous ((fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩): CWC.Fsk n → CWC.Fsk (n + 1)) := by
+  rw [←CWC.Fφ_fix]
+  refine Continuous.comp ?φ_cont ?left_adj_proj_cont
+  case φ_cont => exact (CWC.Fφ_heomorph n).continuous
+  case left_adj_proj_cont =>
+    apply Topology.IsEmbedding.continuous
+    refine left_adj_proj_is_embedding _ _ ?hAClosed (CWC.Ff_continuous n)
+    rw [isClosed_sigma_iff]
+    intro i
+    simp [cb_boundary_closed]
+
+theorem Fsk_incl_continuous {m n: ℕ} (hmn: m ≤ n): Continuous ((fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩): CWC.Fsk m → CWC.Fsk n) := by
+  rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
+  have aux: ∀ p q:ℕ, (h:p = q) → Continuous ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq h) x.2⟩):CWC.Fsk p → CWC.Fsk q) := by
+    intro p q h
+    exact @Eq.rec ℕ p (fun (p':ℕ) (eq:p=p') ↦ Continuous ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq eq) x.2⟩): CWC.Fsk p → CWC.Fsk p')) continuous_id q h
+  induction' k with k ik
+  . apply aux
+    norm_num
+  let f₁ : CWC.Fsk m → CWC.Fsk (m + k) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_add_right m k) x.2⟩
+  let f₂ : CWC.Fsk (m + k) → CWC.Fsk (m + k + 1) := fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩
+  let f₃ : CWC.Fsk (m + k + 1) → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq (by rw[add_assoc])) x.2⟩
+  let f : CWC.Fsk m → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩
+  show Continuous f
+  have: f = f₃ ∘ f₂ ∘ f₁ := by
+    ext x
+    simp [f, f₁, f₂, f₃]
+  rw [this]
+  have cont₁: Continuous f₁ := ik (Nat.le_add_right m k)
+  have cont₂: Continuous f₂ := by apply Fsk_chain_incl_continuous
+  have cont₃: Continuous f₃ := by
+    apply aux
+    rw [add_assoc]
+  exact Continuous.comp cont₃ (Continuous.comp cont₂ cont₁)
+
+lemma Fsk_chain_incl_closed_map {n:ℕ}: IsClosedMap ((fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩): CWC.Fsk n → CWC.Fsk (n + 1)) := by
+  rw [←CWC.Fφ_fix]
+  refine IsClosedMap.comp ?φ_closed ?left_adj_proj_closed
+  case φ_closed => exact (CWC.Fφ_heomorph n).isClosedMap
+  case left_adj_proj_closed =>
+    refine left_adj_proj_closed_map _ _ ?hAClosed (CWC.Ff_continuous n)
+    rw [isClosed_sigma_iff]
+    intro i
+    simp [cb_boundary_closed]
+
+theorem Fsk_incl_closed_map {m n: ℕ} (hmn: m ≤ n): IsClosedMap ((fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩): CWC.Fsk m → CWC.Fsk n) := by
+  rcases Nat.exists_eq_add_of_le hmn with ⟨k, rfl⟩
+  have aux: ∀ p q:ℕ, (h:p = q) → IsClosedMap ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq h) x.2⟩):CWC.Fsk p → CWC.Fsk q) := by
+    intro p q h
+    exact @Eq.rec ℕ p (fun (p':ℕ) (eq:p=p') ↦ IsClosedMap ((fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq eq) x.2⟩): CWC.Fsk p → CWC.Fsk p')) is_closed_map_id q h
+  induction' k with k ik
+  . apply aux
+    simp
+  let f₁ : CWC.Fsk m → CWC.Fsk (m + k) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_add_right m k) x.2⟩
+  let f₂ : CWC.Fsk (m + k) → CWC.Fsk (m + k + 1) := fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩
+  let f₃ : CWC.Fsk (m + k + 1) → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_of_eq (by rw[add_assoc])) x.2⟩
+  let f : CWC.Fsk m → CWC.Fsk (m + (k + 1)) := fun x ↦ ⟨x.1, Fsk_incl hmn x.2⟩
+  show IsClosedMap f
+  have: f = f₃ ∘ f₂ ∘ f₁ := by
+    ext x
+    simp [f, f₁, f₂, f₃]
+  rw [this]
+  have c₁: IsClosedMap f₁ := ik (Nat.le_add_right m k)
+  have c₂: IsClosedMap f₂ := by apply Fsk_chain_incl_closed_map
+  have c₃: IsClosedMap f₃ := by
+    apply aux
+    rw [add_assoc]
+  exact IsClosedMap.comp c₃ (IsClosedMap.comp c₂ c₁)
+
+lemma closed_in_cwc_iff {n: ℕ}: ∀ (b: Set (CWC.Fsk n)), IsClosed b ↔ IsClosed (((↑): CWC.Fsk n → X) '' b) := by
+  intro b
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hb
+    rw [←@isOpen_compl_iff]
+    intro m
+    show IsOpen ((((↑): CWC.Fsk m → X) ⁻¹' ((↑) '' b))ᶜ)
+    rw [@isOpen_compl_iff]
+    rcases Nat.le_total m n with m_le_n | n_le_m
+    . let f : CWC.Fsk m → CWC.Fsk n := fun x ↦ ⟨x.1, Fsk_incl m_le_n x.2⟩
+      have: ((↑): CWC.Fsk m → X) ⁻¹' (((↑): CWC.Fsk n → X) '' b) = f ⁻¹' b := by
+        ext x
+        simp [f]
+        refine Iff.intro ?mp' ?mpr'
+        case mp' =>
+          rintro ⟨hx, x_in_b⟩
+          exact x_in_b
+        case mpr' =>
+          intro x_in_b
+          use Fsk_incl m_le_n x.2
+      rw [this]
+      exact IsClosed.preimage (Fsk_incl_continuous m_le_n) hb
+    . let f : CWC.Fsk n → CWC.Fsk m := fun x ↦ ⟨x.1, Fsk_incl n_le_m x.2⟩
+      have: ((↑): CWC.Fsk m → X) ⁻¹' (((↑): CWC.Fsk n → X) '' b) = f '' b := by
+        ext x
+        simp [f]
+        refine Iff.intro ?mp' ?mpr'
+        case mp' =>
+          rintro ⟨x_in_skn, x_in_b⟩
+          use x.1, x_in_skn
+        case mpr' =>
+          rintro ⟨x', ⟨x'_in_skn, x'_in_b, rfl⟩⟩
+          use x'_in_skn
+      rw [this]
+      apply (Fsk_incl_closed_map n_le_m)
+      exact hb
+  case mpr =>
+    intro b_closed_in_X
+    rw [←@isOpen_compl_iff] at b_closed_in_X
+    rw [←@isOpen_compl_iff]
+    simpa using b_closed_in_X n
+
+theorem Tsk_eq_subspace: ∀ n:ℕ, CWC.Tsk n = instTopologicalSpaceSubtype := by
+  intro n
+  apply aux_subspace_topology_eq
+  apply closed_in_cwc_iff
+
+theorem Fsk_closed: ∀ n:ℕ, IsClosed (CWC.Fsk n) := by
+  intro n
+  rw [←(Subtype.coe_image_univ (CWC.Fsk n)), ←closed_in_cwc_iff]
+  exact isClosed_univ
+
+theorem Fsk_coeherent: IsCoeherent (Set.range CWC.Fsk) := by
+  refine { open_crit := ?_, cover := (by simpa using CWC.Fsk_cover)}
+  simp
+  intro s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hs
+    exact fun a ↦ IsOpen.preimage_val hs
+  case mpr =>
+    intro hs
+    intro n
+    have: @IsOpen _ (CWC.Tsk n) (((↑): CWC.Fsk n → X) ⁻¹' s) ↔ @IsOpen _ (instTopologicalSpaceSubtype) (((↑): CWC.Fsk n → X) ⁻¹' s) := by
+      exact Eq.to_iff (congrFun (congrArg (@IsOpen (CWC.Fsk n)) (Tsk_eq_subspace n)) (((↑): CWC.Fsk n → X) ⁻¹' s))
+    rw [this]
+    exact hs n
+
+namespace CWCellConstructor
+def cell_of_dim0: Set (Set X) := {{x} | x ∈ CWC.Fsk 0}
+-- using haskell pipe operator to ease expression of function composition
+def pre_characteristic_map: (n: ℕ) → (Σ_:(CWC.Fι n), cb (n + 1)) → X :=
+  fun n x ↦ Subtype.val <| (CWC.Fφ n) <| (adj_proj _ (CWC.Ff n)) <| Sum.inr x
+
+def cell_define_map: (n:ℕ) → (CWC.Fι n) → b (n + 1) → X := fun n i x ↦ pre_characteristic_map n ⟨i, ⟨x.1, b_in_cb x.2⟩⟩
+
+def cell_sets : Set (Set X) := {e | e ∈ cell_of_dim0 ∪ ⋃ n:ℕ, Set.range (fun (i: CWC.Fι n) ↦ Set.range <| cell_define_map n i) ∧ e.Nonempty}
+
+theorem cell_sets_nonempty: ∀ e ∈ cell_sets (CWC := CWC), e.Nonempty := by
+  intro e e_in_sets
+  exact e_in_sets.2
+
+lemma Fsk_n_cell_np1_disjoint: ∀ n:ℕ, ∀ i:(CWC.Fι n), Disjoint (CWC.Fsk n) (Set.range (cell_define_map n i)) := by
+  intro n i
+  let f : (CWC.Fsk (n + 1)) → X := (↑)
+  have Xn_eq : CWC.Fsk n = f '' ((CWC.Fφ n) '' (Set.range (left_adj_proj _ (CWC.Ff n)))) := by
+    rw [←Set.image_univ]
+    nth_rw 2 [←Set.image_comp]
+    rw [CWC.Fφ_fix, ←Set.image_comp]
+    have : f ∘ (fun (x:CWC.Fsk n) ↦ ⟨x.1, (CWC.Fsk_chain n) x.2⟩) = Subtype.val := by
+      ext x
+      simp [f]
+    rw [this]
+    exact Eq.symm (Subtype.coe_image_univ (CWComplexConstructor.Fsk n))
+  have cell_eq: Set.range (cell_define_map n i) ⊆ f '' ((CWC.Fφ n) '' (Set.range (right_adj_proj _ (CWC.Ff n)))) := by
+    intro x hx
+    simp [cell_define_map] at hx
+    rcases hx with ⟨u, hu, u_maps_to_x⟩
+    rw [pre_characteristic_map] at u_maps_to_x
+    let v: cb (n + 1) := ⟨u, b_in_cb hu⟩
+    have iv_not_in_boundary : ⟨i, v⟩ ∈ {x:Σ_:(CWC.Fι n), cb (n + 1) | x.2 ∈ cb_boundary}ᶜ := by
+      simp [←cb_boundary_inner_cmpl]
+      use ⟨u, hu⟩
+      simp [v]
+    let z := (right_adj_proj _ (CWC.Ff n)) ⟨⟨i, v⟩, iv_not_in_boundary⟩
+    use (CWC.Fφ n) z
+    constructor
+    . use z
+      simp [z]
+    simp [←u_maps_to_x, f]
+    rfl
+  suffices Disjoint (f '' (((CWC.Fφ n) '' (Set.range (left_adj_proj _ (CWC.Ff n)))))) (f '' (((CWC.Fφ n)'' (Set.range (right_adj_proj _ (CWC.Ff n)))))) by
+    rw [Xn_eq]
+    exact Disjoint.symm (Set.disjoint_of_subset cell_eq (fun ⦃a⦄ a ↦ a) (id (Disjoint.symm this)))
+  rw [Set.disjoint_image_iff Subtype.val_injective, Set.disjoint_image_iff (CWC.Fφ_heomorph n).injective]
+  apply left_adj_right_adj_range_disjoint
+
+lemma Fsk_0_cell_disjoint : ∀ n:ℕ, ∀ i:(CWC.Fι n), Disjoint (CWC.Fsk 0) (Set.range (cell_define_map n i)) := by
+  intro n
+  induction' n with n ih
+  . apply Fsk_n_cell_np1_disjoint
+  intro i
+  apply Set.disjoint_of_subset (Fsk_incl (Nat.le_add_left 0 (n + 1))) (fun ⦃a⦄ a ↦ a)
+  apply Fsk_n_cell_np1_disjoint
+
+lemma cell0_sub_Fsk0: ∀ e ∈ cell_of_dim0, e ⊆ CWC.Fsk 0 := by
+  rintro _ ⟨x, x_in_cd0, rfl⟩
+  exact Set.singleton_subset_iff.mpr x_in_cd0
+
+lemma cell_n_in_Fsk_np1: ∀ n:ℕ, ∀ i:(CWC.Fι n), (Set.range (cell_define_map n i)) ⊆ CWC.Fsk (n + 1) := by
+  intro n i
+  intro x hx
+  simp [cell_define_map] at hx
+  rcases hx with ⟨u, hu, u_maps_to_x⟩
+  rw [pre_characteristic_map] at u_maps_to_x
+  have: CWC.Fsk (n + 1) = Set.range (((↑): CWC.Fsk (n + 1) → X) ∘ (CWC.Fφ n)) := by
+    rw [Set.range_comp, Set.range_eq_univ.mpr (CWC.Fφ_heomorph n).surjective]
+    exact Eq.symm (Subtype.coe_image_univ (CWComplexConstructor.Fsk (n + 1)))
+  rw [this, ←u_maps_to_x]
+  simp
+
+lemma cell_of_different_n_disjoint: ∀ n₁:ℕ, ∀ i₁:(CWC.Fι n₁), ∀ n₂:ℕ, ∀ i₂:(CWC.Fι n₂), n₁ ≠ n₂ → Disjoint (Set.range (cell_define_map n₁ i₁)) (Set.range (cell_define_map n₂ i₂)) := by
+  intro n₁ i₁ n₂ i₂ n₁n₂_ne
+  wlog n₁_lt_n₂:n₁ < n₂ generalizing n₁ i₁ n₂ i₂
+  . have n₂_lt_n₁: n₂ < n₁ := by
+      rcases Nat.lt_or_lt_of_ne n₁n₂_ne with h₁ | h₂
+      . contradiction
+      exact h₂
+    apply Disjoint.symm
+    exact this n₂ i₂ n₁ i₁ n₁n₂_ne.symm n₂_lt_n₁
+  rcases Nat.exists_eq_add_of_le n₁_lt_n₂ with ⟨k, rfl⟩
+  induction' k with k ih
+  . apply Set.disjoint_of_subset (cell_n_in_Fsk_np1 n₁ i₁) (fun ⦃a⦄ a ↦ a)
+    exact Fsk_n_cell_np1_disjoint (n₁ + 1) i₂
+  have: Set.range (cell_define_map n₁ i₁) ⊆ CWC.Fsk (n₁.succ + (k + 1)) := by
+    trans CWC.Fsk (n₁ + 1)
+    . apply cell_n_in_Fsk_np1
+    apply Fsk_incl
+    exact n₁_lt_n₂
+  apply Set.disjoint_of_subset (this) (fun ⦃a⦄ a ↦ a)
+  apply Fsk_n_cell_np1_disjoint
+
+lemma cell_of_same_n_different_i_disjoint: ∀ n:ℕ, ∀ (i₁ i₂:(CWC.Fι n)), i₁ ≠ i₂ → Disjoint (Set.range (cell_define_map n i₁)) (Set.range (cell_define_map n i₂)) := by
+  intro n i₁ i₂ i₁_ne_i₂
+  let A: (Set (Σ_:(CWC.Fι n), cb (n + 1))) := {x | x.2 ∈ cb_boundary}
+  let B: (Set (Σ_:(CWC.Fι n), cb (n + 1))) := {x | x.2 ∈ cb_inner}
+  have B_eq_A_compl: B = Aᶜ := by
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      intro x_in_B
+      show x.2 ∈ cb_boundaryᶜ
+      simp [←cb_boundary_inner_cmpl]
+      exact x_in_B
+    case mpr =>
+      intro x_in_A
+      have : x.2 ∈ cb_boundaryᶜ := x_in_A
+      simp [←cb_boundary_inner_cmpl] at this
+      exact this
+  let f: (Aᶜ: (Set (Σ_:(CWC.Fι n), cb (n + 1))))→ X := fun x ↦ Subtype.val <| (CWC.Fφ n) <| (right_adj_proj _ (CWC.Ff n)) x
+  let S: (CWC.Fι n) → (Set (Aᶜ: (Set (Σ_:(CWC.Fι n), cb (n + 1))))) := fun i ↦ {x | x.1.1 = i}
+  have cell_rw: ∀ i:(CWC.Fι n), (Set.range (cell_define_map n i)) = f '' (S i) := by
+    intro i
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      intro x_in_range
+      rcases x_in_range with ⟨w, rfl⟩
+      rw [cell_define_map, pre_characteristic_map]
+      let u : (Σ_:(CWC.Fι n), cb (n + 1)) := ⟨i, ⟨w.1, b_in_cb w.2⟩⟩
+      have u_in_A_compl : u ∈ Aᶜ := by
+        rw [←B_eq_A_compl]
+        use w
+        rfl
+      use ⟨u, u_in_A_compl⟩, rfl
+      simp [f, u, right_adj_proj]
+    case mpr =>
+      intro x_in_fSi
+      rcases x_in_fSi with ⟨w, w_in_S, rfl⟩
+      have w'_in_B: w.1 ∈ B := by
+        rw [B_eq_A_compl]
+        exact w.2
+      rcases w'_in_B with ⟨u, hu⟩
+      have heq: w.1 = ⟨i, ⟨u,  b_in_cb u.2⟩ ⟩ := by
+        exact Sigma.subtype_ext w_in_S (congrArg Subtype.val (id (Eq.symm hu)))
+      use u
+      simp [cell_define_map, pre_characteristic_map, f, right_adj_proj, heq]
+  have f_inj: Function.Injective f := by
+    apply Function.Injective.comp
+    . exact Subtype.val_injective
+    apply Function.Injective.comp
+    . exact (CWC.Fφ_heomorph n).injective
+    apply right_adj_proj_injective
+  rw [cell_rw i₁, cell_rw i₂]
+  refine (Set.disjoint_image_iff f_inj).mpr ?_
+  refine Set.disjoint_iff_forall_ne.mpr ?_
+  intro a ha b hb
+  suffices a.1.1 ≠ b.1.1 by
+    exact fun a_1 ↦ this (congrArg Sigma.fst (congrArg Subtype.val a_1))
+  rw [ha, hb]
+  exact i₁_ne_i₂
+
+theorem cell_sets_disjoint: (cell_sets (CWC := CWC)).Pairwise Disjoint := by
+  intro e₁ e₁_in_sets e₂ e₂_in_sets e₁_ne_e₂
+  rcases e₁_in_sets with ⟨e₁_in_X0|e₁_in_Xn, e₁_nonempty⟩
+  . rcases e₂_in_sets with ⟨e₂_in_X0|e₂_in_Xn, e₂_nonempty⟩
+    . -- e₁ and e₂ are singleton
+      rcases e₁_in_X0 with ⟨x₁, x₁_in_Fsk0, rfl⟩
+      rcases e₂_in_X0 with ⟨x₂, x₂_in_Fsk0, rfl⟩
+      -- generated by apply?
+      exact Set.disjoint_singleton.mpr fun a ↦ e₁_ne_e₂ (congrArg singleton a)
+    . simp at e₂_in_Xn
+      rcases e₂_in_Xn with ⟨n, i, rfl⟩
+      apply Set.disjoint_of_subset (cell0_sub_Fsk0 _ e₁_in_X0) (fun ⦃a⦄ a ↦ a)
+      apply Fsk_0_cell_disjoint
+  . simp at e₁_in_Xn
+    rcases e₁_in_Xn with ⟨n₁, i₁, rfl⟩
+    rcases e₂_in_sets with ⟨e₂_in_X0|e₂_in_Xn, e₂_nonempty⟩
+    . apply Disjoint.symm
+      apply Set.disjoint_of_subset (cell0_sub_Fsk0 _ e₂_in_X0) (fun ⦃a⦄ a ↦ a)
+      apply Fsk_0_cell_disjoint
+    . simp at e₂_in_Xn
+      rcases e₂_in_Xn with ⟨n₂, i₂, rfl⟩
+      rcases eq_or_ne n₁ n₂ with n₁_eq_n₂ | n₁_ne_n₂
+      . have e₂_eq: Set.range (cell_define_map n₂ i₂) = Set.range (cell_define_map n₁ ((congrArg CWC.Fι n₁_eq_n₂).mpr i₂)) := by
+          apply Eq.rec (motive := (fun n₂ eq ↦ ∀ i:(CWC.Fι n₂), Set.range (cell_define_map n₂ i) = Set.range (cell_define_map n₁ ((congrArg CWC.Fι eq).mpr i)))) (fun i ↦ rfl) n₁_eq_n₂
+        rw [e₂_eq]
+        have: i₁ ≠ ((congrArg CWC.Fι n₁_eq_n₂).mpr i₂) := by
+          contrapose! e₁_ne_e₂
+          rw [e₂_eq, e₁_ne_e₂]
+        apply cell_of_same_n_different_i_disjoint
+        exact this
+      . apply cell_of_different_n_disjoint
+        exact n₁_ne_n₂
+
+lemma Fsk_cover' : ∀ x:X, ∃ n:ℕ, x ∈ CWC.Fsk n := by
+  rw [←Set.iUnion_eq_univ_iff]
+  exact CWC.Fsk_cover
+
+lemma mem_cell_in_adj_sk {x: X} {n: ℕ} (x_not_in_Fsk_n: x ∉ CWC.Fsk n) (x_in_Fsk_np1: x ∈ CWC.Fsk (n + 1)) : ∃ (i:CWC.Fι n), x ∈ Set.range (cell_define_map n i) := by
+  let y : (CWC.Fsk (n + 1)) := ⟨x, x_in_Fsk_np1⟩
+  have y_coe_to_x: x = Subtype.val y := rfl
+  rcases (CWC.Fφ_heomorph n).surjective y with ⟨w, w_maps_to_y⟩
+  have w_in_right_range: w ∈ Set.range (right_adj_proj _ (CWC.Ff n)) := by
+    rw [right_range_eq_left_range_compl]
+    show w ∉ (Set.range (left_adj_proj _ (CWC.Ff n)))
+    contrapose! x_not_in_Fsk_n
+    rw [Set.mem_range] at x_not_in_Fsk_n
+    rcases x_not_in_Fsk_n with ⟨x', x'_mapsto_w⟩
+    have: (CWC.Fφ n) ((left_adj_proj _ (CWC.Ff n)) x') = ((CWC.Fφ n) ∘ (left_adj_proj _ (CWC.Ff n))) x' := rfl
+    rw [←x'_mapsto_w, this, CWC.Fφ_fix, ←SetCoe.ext_iff] at w_maps_to_y
+    simp at w_maps_to_y
+    show y.1 ∈ CWC.Fsk n
+    rw [←w_maps_to_y]
+    exact x'.2
+  rcases w_in_right_range with ⟨z, rfl⟩
+  have : z.1.2 ∈ cb_inner := by rw [cb_inner_eq_boundary_compl]; exact z.2
+  rcases this with ⟨q, q_is_z⟩
+  use z.1.1, q
+  have z_coe: ⟨z.1.1, ⟨q.1, b_in_cb q.2⟩⟩ = Subtype.val z := by
+    have: Subtype.val z = ⟨z.1.1, z.1.2⟩ := rfl
+    nth_rw 2 [this]
+    apply congrArg (Sigma.mk z.1.1)
+    rw [←q_is_z]
+    rfl
+  rw [cell_define_map, pre_characteristic_map, y_coe_to_x, Subtype.val_inj, ←w_maps_to_y, (CWC.Fφ_heomorph n).injective.eq_iff, z_coe]
+  rfl
+
+theorem cell_sets_cover: ⋃₀ (cell_sets (CWC := CWC)) = Set.univ := by
+  rw [Set.sUnion_eq_univ_iff]
+  intro x
+  let Sn := {n:ℕ | x ∈ CWC.Fsk n}
+  have Sn_nonempty:  Sn.Nonempty := by
+    rcases Fsk_cover' x with ⟨n₀, hn₀⟩
+    use n₀, hn₀
+  let n := WellFounded.min wellFounded_lt Sn Sn_nonempty
+  have x_in_Fskn : x ∈ CWC.Fsk n := WellFounded.min_mem wellFounded_lt Sn Sn_nonempty
+  rcases Nat.eq_zero_or_pos n with n_eq_0 | n_gt_0
+  . rw [n_eq_0] at x_in_Fskn
+    use {x}
+    simp [cell_sets, cell_of_dim0, x_in_Fskn]
+  . have:  0 < n := n_gt_0
+    rw [←Nat.exists_eq_add_one] at this
+    rcases this with ⟨k, n_eq_k_succ⟩
+    have k_lt_n: k < n := by linarith
+    have x_not_in_Fsk_k : x ∉ CWC.Fsk k := by
+      contrapose! k_lt_n
+      apply WellFounded.min_le
+      exact k_lt_n
+    rw [n_eq_k_succ] at x_in_Fskn
+    rcases mem_cell_in_adj_sk (CWC := CWC) x_not_in_Fsk_k x_in_Fskn with ⟨i, x_in_ki⟩
+    use Set.range (cell_define_map k i)
+    rw [and_comm]; use x_in_ki
+    constructor
+    . right
+      rw [Set.mem_iUnion]
+      use k
+      simp
+    use x
+
+lemma exists_skn_contain_cell: ∀ e ∈ cell_sets, ∃ n, e ⊆ CWC.Fsk n := by
+  intro e e_in_sets
+  rcases e_in_sets with ⟨e_in_sk0 | e_in_skn, e_nonempty⟩
+  . use 0
+    apply cell0_sub_Fsk0 _ e_in_sk0
+  . simp at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, rfl⟩⟩
+    use (n + 1)
+    exact cell_n_in_Fsk_np1 n i
+
+lemma cell_of_dim0_in_sets: ∀ e ∈ cell_of_dim0, e ∈ cell_sets (CWC:=CWC) := by
+  rintro e ⟨x, x_in_sk0, rfl⟩
+  constructor
+  . left
+    use x
+  . exact Set.singleton_nonempty x
+
+lemma cell_define_map_range_in_sets: ∀ n, ∀ (i:CWC.Fι n), Set.range (cell_define_map n i) ∈ cell_sets := by
+  intro n i
+  constructor
+  . right
+    simp
+    use n, i
+  . exact Set.range_nonempty (cell_define_map n i)
+
+noncomputable def dim_map : (cell_sets (CWC := CWC)) → ℕ := fun e ↦ WellFounded.min wellFounded_lt {n | e.1 ⊆ CWC.Fsk n} (by rcases exists_skn_contain_cell e.1 e.2 with ⟨n, hn ⟩; use n, hn)
+
+lemma dim_map_cell_dim0_is_0 : ∀e, ∀ h:(e ∈ cell_of_dim0), dim_map ⟨e, cell_of_dim0_in_sets (CWC := CWC) e h⟩ = 0 := by
+  rintro e ⟨x, x_in_sk0, e_is_x⟩
+  suffices dim_map ⟨e, cell_of_dim0_in_sets e ⟨x, x_in_sk0, e_is_x⟩⟩ ≤ 0 by
+    exact Nat.eq_zero_of_le_zero this
+  apply WellFounded.min_le
+  simp [←e_is_x, x_in_sk0]
+
+lemma dim_map_cell_n_is_np1 : ∀ n:ℕ, ∀ (i: CWC.Fι n), dim_map ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ = (n + 1) := by
+  intro n i
+  let e : cell_sets := ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩
+  show dim_map e = n + 1
+  have h_le: dim_map e ≤ n + 1 := by
+    apply WellFounded.min_le
+    apply cell_n_in_Fsk_np1
+  have h_ge: dim_map e ≥ n + 1 := by
+    by_contra! dim_map_e_lt_np1
+    have dim_map_e_le_n: dim_map e ≤ n := Nat.le_of_lt_succ dim_map_e_lt_np1
+    have e_in_skn: e.1 ⊆ CWC.Fsk n := by
+      trans CWC.Fsk (dim_map e)
+      . show dim_map e ∈ {n | e.1 ⊆ CWC.Fsk n}
+        apply WellFounded.min_mem
+      . exact Fsk_incl dim_map_e_le_n
+    have e_eq_empty: e.1 = ∅ := Set.subset_empty_iff.mp ((Fsk_n_cell_np1_disjoint n i) e_in_skn (fun ⦃a⦄ a ↦ a))
+    have e_ne_empty: e.1 ≠ ∅ := by
+      rw [←Set.nonempty_iff_ne_empty]
+      exact e.2.2
+    contradiction
+  linarith
+
+lemma dim_map0_in_sk0: ∀ e:cell_sets, dim_map e = 0 → ∃ x:X, e.1 = {x} ∧ x ∈ CWC.Fsk 0 := by
+  rintro ⟨e, e_in_sets⟩ dim_map_e_to_0
+  rcases e_in_sets with ⟨e_in_cell0 | e_in_celln, e_non_empty⟩
+  . rcases e_in_cell0 with ⟨x, x_in_sk0, rfl⟩
+    use x
+  . rw [Set.mem_iUnion] at e_in_celln
+    rcases e_in_celln with ⟨n, ⟨i, e_eq⟩⟩
+    simp at e_eq
+    have e_sub_sk0: e ⊆ CWC.Fsk 0 := by
+      show 0 ∈ {n | (⟨e, ⟨Or.inr e_in_celln, e_non_empty⟩⟩:cell_sets).1 ⊆ CWC.Fsk n}
+      rw [←dim_map_e_to_0]
+      apply WellFounded.min_mem
+    have inter_empty: e ∩ CWC.Fsk 0 = ∅ := by
+      rw [←Set.disjoint_iff_inter_eq_empty, ←e_eq, disjoint_comm]
+      exact Fsk_0_cell_disjoint n i
+    have inter_non_empty: e ∩ CWC.Fsk 0 ≠ ∅ := by
+      rw [←Set.left_eq_inter] at e_sub_sk0
+      rwa [←e_sub_sk0, ←Set.nonempty_iff_ne_empty]
+    contradiction
+
+def cell_sets₀ : Set (cell_sets (CWC:= CWC)) := {e | dim_map e = 0}
+
+def cell_sets_indices := (CWC.Fsk 0) ⊕ (Σ(n:ℕ), CWC.Fι n)
+
+def indices_to_Nat : (cell_sets_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
+| Sum.inl _ => 0
+| Sum.inr ⟨n, _⟩ => n + 1
+
+def indices_to_cb_to_X : (I: (cell_sets_indices (CWC := CWC))) → cb (indices_to_Nat (CWC := CWC) I) → X := fun I ↦ match I with
+| Sum.inl ⟨x, _⟩ => fun _ ↦ x
+| Sum.inr ⟨n, i⟩ => (Subtype.val) ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ (@Sum.inr (CWC.Fsk n) _) ∘ (@Sigma.mk _ (fun _ ↦ cb (n + 1)) i)
+
+def indices_to_cell: (cell_sets_indices (CWC := CWC)) → (cell_sets (CWC := CWC)) := fun I ↦ match I with
+| Sum.inl ⟨x, x_in_sk0⟩ => ⟨{x}, ⟨by left; simp[cell_of_dim0, x_in_sk0] , Set.singleton_nonempty x ⟩⟩
+| Sum.inr ⟨n, i⟩ => ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩
+
+lemma indices_to_cell_lr_ne (n: ℕ) (i: CWC.Fι n) (x: X) (hx: x ∈ CWC.Fsk 0) : indices_to_cell (Sum.inl ⟨x, hx⟩) ≠ indices_to_cell (Sum.inr ⟨n, i⟩) := by
+  by_contra heq
+  simp [indices_to_cell] at heq
+  have : {x} ⊆ CWC.Fsk 0 := Set.singleton_subset_iff.mpr hx
+  rw [heq] at this
+  have: Set.range (cell_define_map n i) ≤ ⊥ := Fsk_0_cell_disjoint n i this (fun ⦃a⦄ a ↦ a)
+  have eq_empty: Set.range (cell_define_map n i) = ∅ := Set.subset_eq_empty this rfl
+  have ne_empty: Set.range (cell_define_map n i) ≠ ∅ := by
+        rw [←Set.nonempty_iff_ne_empty]
+        exact Set.range_nonempty (cell_define_map n i)
+  contradiction
+
+theorem indices_to_cell_injective: Function.Injective (indices_to_cell (CWC := CWC)):= by
+  intro I1 I2 I1_I2_img_eq
+  match I1 with
+  | Sum.inl ⟨x₁, x₁_in_sk0⟩ =>
+    match I2 with
+    | Sum.inl ⟨x₂, x₂_in_sk0⟩ =>
+      simp [indices_to_cell] at I1_I2_img_eq
+      apply congrArg
+      exact SetCoe.ext I1_I2_img_eq
+    | Sum.inr ⟨n₂, i₂⟩ =>
+      apply False.elim ((indices_to_cell_lr_ne n₂ i₂ x₁ x₁_in_sk0) I1_I2_img_eq)
+  | Sum.inr ⟨n₁, i₁⟩ =>
+    match I2 with
+    | Sum.inl ⟨x₂, x₂_in_sk0⟩ =>
+      apply False.elim ((indices_to_cell_lr_ne n₁ i₁ x₂ x₂_in_sk0) I1_I2_img_eq.symm)
+    | Sum.inr ⟨n₂, i₂⟩ =>
+      simp [indices_to_cell] at I1_I2_img_eq
+      have n₁_n₂_eq: n₁ = n₂ := by
+        by_contra! n₁_ne_n₂
+        have hd: Disjoint (Set.range (cell_define_map n₁ i₁)) (Set.range (cell_define_map n₂ i₂)) := cell_of_different_n_disjoint n₁ i₁ n₂ i₂ n₁_ne_n₂
+        rw [I1_I2_img_eq, Set.disjoint_iff_inter_eq_empty, Set.inter_self] at hd
+        have h_nonempty: (Set.range (cell_define_map n₂ i₂)) ≠ ∅  := by
+          rw [←Set.nonempty_iff_ne_empty]
+          exact Set.range_nonempty (cell_define_map n₂ i₂)
+        contradiction
+      have: (⟨n₁, i₁⟩: Σn:ℕ, CWC.Fι n) = ⟨n₂, (congrArg CWC.Fι n₁_n₂_eq).mp i₁⟩ := by
+        refine Sigma.mk.inj_iff.mpr ⟨n₁_n₂_eq, ?_⟩
+        exact heq_of_eqRec_eq (congrArg (CWComplexConstructor.Fι X) n₁_n₂_eq) rfl
+      rw [this]
+      have range_rw: Set.range (cell_define_map n₁ i₁) = Set.range (cell_define_map n₂ ((congrArg CWC.Fι n₁_n₂_eq).mp i₁)) := by
+        exact @Eq.rec ℕ n₁ (fun m n₁_eq_m ↦ Set.range (cell_define_map n₁ i₁) = Set.range (cell_define_map m ((congrArg CWC.Fι n₁_eq_m).mp i₁))) rfl n₂ n₁_n₂_eq
+      rw [range_rw] at I1_I2_img_eq
+      suffices (congrArg CWC.Fι n₁_n₂_eq).mp i₁ = i₂ by congr
+      let i₁' := (congrArg CWC.Fι n₁_n₂_eq).mp i₁
+      show i₁' = i₂
+      by_contra! i₁'_ne_i₂
+      have hd : Disjoint (Set.range (cell_define_map n₂ i₁')) (Set.range (cell_define_map n₂ i₂)) := cell_of_same_n_different_i_disjoint n₂ i₁' i₂ i₁'_ne_i₂
+      rw [I1_I2_img_eq, Set.disjoint_iff_inter_eq_empty, Set.inter_self] at hd
+      have h_nonempty: Set.range (cell_define_map n₂ i₂) ≠ ∅ := by
+        rw [←Set.nonempty_iff_ne_empty]
+        exact Set.range_nonempty (cell_define_map n₂ i₂)
+      contradiction
+
+theorem indices_to_cell_surjective : Function.Surjective (indices_to_cell (CWC := CWC)) := by
+  rintro ⟨e, e_in_sets⟩
+  rcases e_in_sets with ⟨e_in_sk0|e_in_skn, e_nonempty⟩
+  . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+    use Sum.inl ⟨x, x_in_sk0⟩
+    rfl
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, range_eq⟩⟩
+    simp at range_eq
+    use Sum.inr ⟨n, i⟩
+    simp [indices_to_cell, range_eq]
+
+instance cell_sets_indices_nonempty: Nonempty (cell_sets_indices (CWC := CWC)) := by
+  rcases CWC.Fsk0_nonempty with ⟨x, x_in_sk0⟩
+  use Sum.inl ⟨x, x_in_sk0 ⟩
+
+noncomputable def cell_to_indices: (cell_sets (CWC := CWC)) → (cell_sets_indices (CWC := CWC)) := Function.invFun indices_to_cell
+
+theorem cell_to_indices_left_inv: cell_to_indices ∘ (indices_to_cell (CWC := CWC))= id := by
+  rw [cell_to_indices]
+  refine Function.invFun_comp ?_
+  exact indices_to_cell_injective
+
+lemma cell_to_indices_left_inv': ∀ I, cell_to_indices (indices_to_cell (CWC := CWC) I) = I := by
+  intro I
+  show (cell_to_indices ∘ indices_to_cell) I = I
+  rw [cell_to_indices_left_inv]
+  rfl
+
+theorem cell_to_indices_right_inv: (indices_to_cell (CWC := CWC)) ∘ cell_to_indices = id := by
+  funext x
+  simp [cell_to_indices]
+  apply Function.invFun_eq
+  revert x
+  exact indices_to_cell_surjective
+
+theorem dim_map_indices_to_nat_comm : ∀ e: (cell_sets (CWC := CWC)), indices_to_Nat (cell_to_indices e) = dim_map e := by
+  rintro ⟨e, e_in_sets⟩
+  rcases e_in_sets with ⟨e_in_sk0|e_in_skn, e_nonempty⟩
+  . rw [dim_map_cell_dim0_is_0 e e_in_sk0]
+    rcases e_in_sk0 with ⟨x, x_in_sk0, e_eq⟩
+    have: ⟨e, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, e_eq⟩), e_nonempty⟩⟩ = indices_to_cell (Sum.inl ⟨x, x_in_sk0⟩) := by simp [indices_to_cell, ←e_eq]
+    simp [this, cell_to_indices_left_inv', indices_to_Nat]
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, i, rfl⟩
+    simp
+    rw [dim_map_cell_n_is_np1]
+    have : ⟨Set.range (cell_define_map n i), ⟨Or.inr e_in_skn, e_nonempty ⟩⟩ = indices_to_cell (Sum.inr ⟨n, i⟩) := by simp [indices_to_cell]
+    simp [this, cell_to_indices_left_inv', indices_to_Nat]
+
+noncomputable def characteristic_map : (e : (cell_sets (CWC := CWC))) → cb (dim_map e) → X := fun e ↦ (indices_to_cb_to_X (cell_to_indices e)) ∘ (congrArg (fun n ↦ (cb n:Type)) (dim_map_indices_to_nat_comm e).symm).mp
+
+end CWCellConstructor
+end
 end Chp5
