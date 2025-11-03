@@ -651,7 +651,7 @@ theorem Fsk_coeherent: IsCoeherent (Set.range CWC.Fsk) := by
     rw [this]
     exact hs n
 
-namespace CWCellConstructor
+namespace CWComplexConstructor
 def cell_of_dim0: Set (Set X) := {{x} | x ∈ CWC.Fsk 0}
 -- using haskell pipe operator to ease expression of function composition
 def pre_characteristic_map: (n: ℕ) → (Σ_:(CWC.Fι n), cb (n + 1)) → X :=
@@ -920,6 +920,11 @@ lemma cell_of_dim0_in_sets: ∀ e ∈ cell_of_dim0, e ∈ cell_sets (CWC:=CWC) :
     use x
   . exact Set.singleton_nonempty x
 
+lemma cell_of_dim0_in_sets': ∀ x: X, x ∈ CWC.Fsk 0 → {x} ∈ cell_sets := by
+  intro x x_in_sk0
+  refine ⟨Or.inl ?_, Set.singleton_nonempty x⟩
+  use x
+
 lemma cell_define_map_range_in_sets: ∀ n, ∀ (i:CWC.Fι n), Set.range (cell_define_map n i) ∈ cell_sets := by
   intro n i
   constructor
@@ -1068,7 +1073,7 @@ instance cell_sets_indices_nonempty: Nonempty (cell_sets_indices (CWC := CWC)) :
 
 noncomputable def cell_to_indices: (cell_sets (CWC := CWC)) → (cell_sets_indices (CWC := CWC)) := Function.invFun indices_to_cell
 
-theorem cell_to_indices_left_inv: cell_to_indices ∘ (indices_to_cell (CWC := CWC))= id := by
+lemma cell_to_indices_left_inv: cell_to_indices ∘ (indices_to_cell (CWC := CWC))= id := by
   rw [cell_to_indices]
   refine Function.invFun_comp ?_
   exact indices_to_cell_injective
@@ -1079,12 +1084,20 @@ lemma cell_to_indices_left_inv': ∀ I, cell_to_indices (indices_to_cell (CWC :=
   rw [cell_to_indices_left_inv]
   rfl
 
-theorem cell_to_indices_right_inv: (indices_to_cell (CWC := CWC)) ∘ cell_to_indices = id := by
+lemma cell_to_indices_right_inv: (indices_to_cell (CWC := CWC)) ∘ cell_to_indices = id := by
   funext x
   simp [cell_to_indices]
   apply Function.invFun_eq
   revert x
   exact indices_to_cell_surjective
+
+lemma cell_to_indices_on_dim0_cell {x: X} (x_in_sk0: x ∈ CWC.Fsk 0): cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩ = Sum.inl ⟨x, x_in_sk0⟩ := by
+  have: ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩ = indices_to_cell (Sum.inl ⟨x, x_in_sk0⟩) := by rw [indices_to_cell]
+  rw [this, cell_to_indices_left_inv']
+
+lemma cell_to_indices_on_dimn_cell {n: ℕ} (i: CWC.Fι n): cell_to_indices ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ = Sum.inr ⟨n, i⟩ := by
+  have: ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ = indices_to_cell (Sum.inr ⟨n, i⟩) := by rw [indices_to_cell]
+  rw [this, cell_to_indices_left_inv']
 
 theorem dim_map_indices_to_nat_comm : ∀ e: (cell_sets (CWC := CWC)), indices_to_Nat (cell_to_indices e) = dim_map e := by
   rintro ⟨e, e_in_sets⟩
@@ -1102,6 +1115,28 @@ theorem dim_map_indices_to_nat_comm : ∀ e: (cell_sets (CWC := CWC)), indices_t
 
 noncomputable def characteristic_map : (e : (cell_sets (CWC := CWC))) → cb (dim_map e) → X := fun e ↦ (indices_to_cb_to_X (cell_to_indices e)) ∘ (congrArg (fun n ↦ (cb n:Type)) (dim_map_indices_to_nat_comm e).symm).mp
 
-end CWCellConstructor
+theorem characteristic_map_continuous : ∀ e: (cell_sets (CWC := CWC)),  Continuous (characteristic_map e) := by
+  intro e
+  rw [characteristic_map]
+  refine Continuous.comp ?cont1 ?cont2
+  case cont2 => exact @Eq.rec ℕ (dim_map e) (fun n heq ↦ Continuous (congrArg (fun m ↦ (cb m: Type)) heq).mp) continuous_id _ (dim_map_indices_to_nat_comm e).symm
+  case cont1 =>
+    rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
+    . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+      rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_cb_to_X]
+      exact continuous_const
+    . rw [Set.mem_iUnion] at e_in_skn
+      rcases e_in_skn with ⟨n, ⟨i, heq⟩⟩
+      have eq1: e = Set.range (cell_define_map n i) := by exact heq.symm
+      have eq2: (⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩: cell_sets) = ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ := by simp [eq1]
+      rw [eq2, cell_to_indices_on_dimn_cell, indices_to_cb_to_X]
+      have cont0: Continuous (@Sigma.mk (CWC.Fι n) (fun x ↦ ↑(cb (n + 1))) i) := continuous_sigmaMk
+      have cont1: Continuous (@Sum.inr (↑(CWC.Fsk n)) ((_ : Fι X n) × ↑(cb (n + 1)))) := continuous_inr
+      have cont2: Continuous (adj_proj _ (CWC.Ff n)) := by exact { isOpen_preimage := fun s a ↦ a }
+      have cont3: Continuous (CWC.Fφ n) := (CWC.Fφ_heomorph n).continuous
+      have cont4: Continuous (Subtype.val : CWC.Fsk (n + 1) → X) := { isOpen_preimage := fun s a ↦ a (n + 1)}
+      exact (((cont4.comp cont3).comp cont2).comp cont1).comp cont0
+
+end CWComplexConstructor
 end
 end Chp5
