@@ -1137,6 +1137,32 @@ theorem characteristic_map_continuous : ∀ e: (cell_sets (CWC := CWC)),  Contin
       have cont4: Continuous (Subtype.val : CWC.Fsk (n + 1) → X) := { isOpen_preimage := fun s a ↦ a (n + 1)}
       exact (((cont4.comp cont3).comp cont2).comp cont1).comp cont0
 
+theorem characteristic_map_inner_range: ∀ e:(cell_sets (CWC := CWC)), Set.range (cb_inner_map (characteristic_map e)) = e := by
+  intro e
+  rw [inner_map_range, characteristic_map, Set.image_comp]
+  have : (congrArg (fun n ↦ (cb n:Type)) (dim_map_indices_to_nat_comm e).symm).mp '' cb_inner = cb_inner := by
+    exact @Eq.rec ℕ (dim_map e) (fun m h ↦ (congrArg (fun p ↦ (cb p : Type)) h).mp '' cb_inner = cb_inner) (Set.image_id cb_inner) (indices_to_Nat (cell_to_indices e)) (dim_map_indices_to_nat_comm e).symm
+  rw [this]
+  rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
+  . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+    rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_cb_to_X]
+    simp
+    ext t
+    refine Iff.intro ?mp ?mpr
+    case mp=>
+      rintro ⟨p, p_in_cb_inner, hp⟩
+      simp at hp
+      exact id (Eq.symm hp)
+    case mpr =>
+      intro ht
+      simp at ht
+      use ⟨0, zero_in_cb⟩, zero_in_cb_inner
+      simp [ht]
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, heq⟩⟩
+    simp at heq
+    sorry
+
 end CWComplexConstructor
 end
 end Chp5

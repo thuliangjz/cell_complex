@@ -231,15 +231,26 @@ instance : Subsingleton (cb 0) := by
 instance : Subsingleton (b 0) := by
     exact Set.subsingleton_coe_of_subsingleton
 
+theorem zero_in_b {n: ℕ}: 0 ∈ b n := by
+  rw [b, Metric.mem_ball]
+  norm_num
+
+theorem zero_in_cb {n: ℕ}: 0 ∈ cb n:= by
+  apply b_in_cb
+  exact zero_in_b
+
+theorem zero_in_cb_inner {n: ℕ}: ⟨0, zero_in_cb⟩ ∈ @cb_inner n := by
+  rw [cb_inner]
+  use ⟨0, zero_in_b⟩
+  rfl
+
 instance {n: ℕ} : Inhabited (cb n) := by
     use 0
-    rw [cb, Metric.mem_closedBall]
-    norm_num
+    exact zero_in_cb
 
 instance {n: ℕ} : Inhabited (b n) := by
     use 0
-    rw [b, Metric.mem_ball]
-    norm_num
+    exact zero_in_b
 
 theorem b0_singleton : b 0 = {0} := by
     simp [b]
