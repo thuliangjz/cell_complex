@@ -1161,8 +1161,30 @@ theorem characteristic_map_inner_range: ∀ e:(cell_sets (CWC := CWC)), Set.rang
   . rw [Set.mem_iUnion] at e_in_skn
     rcases e_in_skn with ⟨n, ⟨i, heq⟩⟩
     simp at heq
-    sorry
+    have eq1: cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩ = cell_to_indices ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ := by
+      congr
+      exact heq.symm
+    rw [eq1, cell_to_indices_on_dimn_cell]
+    show indices_to_cb_to_X (Sum.inr ⟨n, i⟩) '' (@cb_inner (n + 1)) = e
+    rw [←heq]
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      rintro ⟨t, ⟨u, rfl⟩, t_eq⟩
+      use u
+      rw [←t_eq]
+      rfl
+    case mpr =>
+      rintro ⟨u, hu⟩
+      use b_to_cb u, (by use u)
+      rw [←hu]
+      rfl
 
+theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Function.Injective (cb_inner_map (characteristic_map e)) := by
+  intro e
+  intro u₁ u₂ h_img_eq
+  simp only [cb_inner_map, characteristic_map] at h_img_eq
+  sorry
 end CWComplexConstructor
 end
 end Chp5
