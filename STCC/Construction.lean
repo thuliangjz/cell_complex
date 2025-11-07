@@ -1180,11 +1180,48 @@ theorem characteristic_map_inner_range: ∀ e:(cell_sets (CWC := CWC)), Set.rang
       rw [←hu]
       rfl
 
+lemma cb_cast_mp_inj {m n: ℕ} (heq: m = n): Function.Injective (congrArg (fun p ↦ (cb p: Type)) heq).mp := by
+  apply @Eq.rec ℕ m (fun t eq ↦ Function.Injective (congrArg (fun p ↦ (cb p: Type)) eq).mp) (fun ⦃a₁ a₂⦄ a ↦ a)
+  exact heq
+
+lemma indices_to_cb_to_X_inj_on_dim0_cells {x: X} (x_in_sk0: x ∈ CWC.Fsk 0) (u₁ u₂: cb (indices_to_Nat (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩ ))) (heq: indices_to_cb_to_X (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩) u₁ = indices_to_cb_to_X (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩) u₂): u₁ = u₂ := by
+  have dim_is_0: indices_to_Nat (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩) = 0 := by rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_Nat]
+  let f := (congrArg (fun n ↦ (cb n : Type)) dim_is_0).mp
+  have f_inj: Function.Injective f := cb_cast_mp_inj dim_is_0
+  have: f u₁ = f u₂ := by apply Subsingleton.allEq
+  exact f_inj this
+
 theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Function.Injective (cb_inner_map (characteristic_map e)) := by
   intro e
   intro u₁ u₂ h_img_eq
   simp only [cb_inner_map, characteristic_map] at h_img_eq
-  sorry
+  let f := (congrArg (fun n ↦ (cb n: Type)) (dim_map_indices_to_nat_comm e).symm).mp
+  have f_inj: Function.Injective f := cb_cast_mp_inj (dim_map_indices_to_nat_comm e).symm
+  let u₁' := f ⟨u₁, b_in_cb u₁.2⟩
+  let u₂' := f ⟨u₂, b_in_cb u₂.2⟩
+  have heq': (indices_to_cb_to_X (cell_to_indices e)) u₁' = (indices_to_cb_to_X (cell_to_indices e)) u₂' := h_img_eq
+  suffices u₁' = u₂' by
+    apply SetCoe.ext
+    simpa using f_inj this
+  rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
+  . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+    apply indices_to_cb_to_X_inj_on_dim0_cells x_in_sk0
+    exact heq'
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, e_eq⟩⟩
+    simp at e_eq
+    have indice_eq: cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩ = Sum.inr ⟨n, i⟩ := by
+      have: (⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩: cell_sets) = ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ := by apply SetCoe.ext;simp [e_eq]
+      rw [this, cell_to_indices_on_dimn_cell]
+    have dim_eq: indices_to_Nat (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) = n + 1 := by rw [indice_eq, indices_to_Nat]
+    let g := (congrArg (fun p ↦ (cb p: Type)) dim_eq).mp
+    let u₁'' := g u₁'
+    let u₂'' := g u₂'
+    have eq₁: indices_to_cb_to_X (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) = indices_to_cb_to_X (Sum.inr ⟨n, i⟩) ∘ g := by
+      apply @Eq.rec _ (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) (fun e' eq ↦ indices_to_cb_to_X (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) = (indices_to_cb_to_X e') ∘ (congrArg (fun p ↦ (cb (indices_to_Nat p): Type)) eq).mp) rfl
+      exact indice_eq
+    rw [eq₁] at heq'
+    sorry
 end CWComplexConstructor
 end
 end Chp5
