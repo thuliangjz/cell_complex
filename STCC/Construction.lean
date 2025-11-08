@@ -1184,12 +1184,24 @@ lemma cb_cast_mp_inj {m n: ℕ} (heq: m = n): Function.Injective (congrArg (fun 
   apply @Eq.rec ℕ m (fun t eq ↦ Function.Injective (congrArg (fun p ↦ (cb p: Type)) eq).mp) (fun ⦃a₁ a₂⦄ a ↦ a)
   exact heq
 
-lemma indices_to_cb_to_X_inj_on_dim0_cells {x: X} (x_in_sk0: x ∈ CWC.Fsk 0) (u₁ u₂: cb (indices_to_Nat (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩ ))) (heq: indices_to_cb_to_X (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩) u₁ = indices_to_cb_to_X (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩) u₂): u₁ = u₂ := by
+lemma cb_cast_mp_inner_to_inner {m n: ℕ} (heq: m = n) {x: cb m} (hx: x ∈ cb_inner) : (congrArg (fun p ↦ (cb p: Type)) heq).mp x ∈ cb_inner := by
+  apply @Eq.rec ℕ m (fun t eq ↦ (congrArg (fun p ↦ (cb p: Type)) eq).mp x ∈ cb_inner) hx
+  exact heq
+
+lemma indices_to_cb_to_X_inj_on_dim0_cells {x: X} (x_in_sk0: x ∈ CWC.Fsk 0) (u₁ u₂: cb (indices_to_Nat (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩ ))): u₁ = u₂ := by
   have dim_is_0: indices_to_Nat (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩) = 0 := by rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_Nat]
   let f := (congrArg (fun n ↦ (cb n : Type)) dim_is_0).mp
   have f_inj: Function.Injective f := cb_cast_mp_inj dim_is_0
   have: f u₁ = f u₂ := by apply Subsingleton.allEq
   exact f_inj this
+
+lemma indices_to_cb_to_X_inj_on_dimn_cells {n: ℕ} {i: CWC.Fι n} {u₁ u₂: cb (n + 1)} (hu₁: u₁ ∈ cb_inner) (hu₂: u₂ ∈ cb_inner) (heq: indices_to_cb_to_X (Sum.inr ⟨n, i⟩) u₁ = indices_to_cb_to_X (Sum.inr ⟨n, i ⟩) u₂) : u₁ = u₂ := by
+  simp [indices_to_cb_to_X] at heq
+  let A: (Set (Σ_:CWC.Fι n, cb (n + 1))) := {x | x.2 ∈ cb_boundary}
+  have aux_mem: ∀ u : cb (n + 1), u ∈ cb_inner → ⟨i, u⟩ ∈ Aᶜ := by intro u u_mem ;simp [A]; rw [cb_boundary_eq_inner_compl]; simpa
+  have aux_proj_eq: ∀ u: cb (n + 1), (h:(u ∈ cb_inner)) → adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, u⟩) = right_adj_proj _ _ ⟨⟨i, u⟩, aux_mem u h⟩ := by intro u hu;simp [right_adj_proj]
+  rw [aux_proj_eq u₁ hu₁, aux_proj_eq u₂ hu₂, Subtype.val_inj, (CWC.Fφ_heomorph n).injective.eq_iff, (right_adj_proj_injective _ _).eq_iff] at heq
+  simpa using heq
 
 theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Function.Injective (cb_inner_map (characteristic_map e)) := by
   intro e
@@ -1199,6 +1211,8 @@ theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Functio
   have f_inj: Function.Injective f := cb_cast_mp_inj (dim_map_indices_to_nat_comm e).symm
   let u₁' := f ⟨u₁, b_in_cb u₁.2⟩
   let u₂' := f ⟨u₂, b_in_cb u₂.2⟩
+  have mem_inner₁ : u₁' ∈ cb_inner := by apply cb_cast_mp_inner_to_inner (Eq.symm (dim_map_indices_to_nat_comm e));use u₁;rfl
+  have mem_inner₂ : u₂' ∈ cb_inner := by apply cb_cast_mp_inner_to_inner (Eq.symm (dim_map_indices_to_nat_comm e));use u₂;rfl
   have heq': (indices_to_cb_to_X (cell_to_indices e)) u₁' = (indices_to_cb_to_X (cell_to_indices e)) u₂' := h_img_eq
   suffices u₁' = u₂' by
     apply SetCoe.ext
@@ -1206,7 +1220,6 @@ theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Functio
   rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
   . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
     apply indices_to_cb_to_X_inj_on_dim0_cells x_in_sk0
-    exact heq'
   . rw [Set.mem_iUnion] at e_in_skn
     rcases e_in_skn with ⟨n, ⟨i, e_eq⟩⟩
     simp at e_eq
@@ -1215,13 +1228,16 @@ theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Functio
       rw [this, cell_to_indices_on_dimn_cell]
     have dim_eq: indices_to_Nat (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) = n + 1 := by rw [indice_eq, indices_to_Nat]
     let g := (congrArg (fun p ↦ (cb p: Type)) dim_eq).mp
-    let u₁'' := g u₁'
-    let u₂'' := g u₂'
     have eq₁: indices_to_cb_to_X (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) = indices_to_cb_to_X (Sum.inr ⟨n, i⟩) ∘ g := by
       apply @Eq.rec _ (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) (fun e' eq ↦ indices_to_cb_to_X (cell_to_indices ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩) = (indices_to_cb_to_X e') ∘ (congrArg (fun p ↦ (cb (indices_to_Nat p): Type)) eq).mp) rfl
       exact indice_eq
-    rw [eq₁] at heq'
-    sorry
+    simp [eq₁] at heq'
+    suffices g u₁' = g u₂' by
+      exact cb_cast_mp_inj dim_eq this
+    have mem_inner₁' : g u₁' ∈ cb_inner := cb_cast_mp_inner_to_inner dim_eq mem_inner₁
+    have mem_inner₂' : g u₂' ∈ cb_inner := cb_cast_mp_inner_to_inner dim_eq mem_inner₂
+    apply indices_to_cb_to_X_inj_on_dimn_cells mem_inner₁' mem_inner₂' heq'
+
 end CWComplexConstructor
 end
 end Chp5
