@@ -442,6 +442,7 @@ end
 
 section helper
 variable {X: Type*} [TopologicalSpace X]
+variable {Y: Type*} [TopologicalSpace Y]
 theorem aux_subspace_topology_eq {S: Set X} [TS: TopologicalSpace S] (h: ∀ (b: Set S), @IsClosed S TS b ↔ @IsClosed X _ ((↑) '' b)): TS = instTopologicalSpaceSubtype := by
   suffices ∀ (b:Set S), @IsClosed _ TS b ↔ @IsClosed _ instTopologicalSpaceSubtype b by
     ext s
@@ -462,6 +463,20 @@ theorem aux_subspace_topology_eq {S: Set X} [TS: TopologicalSpace S] (h: ∀ (b:
 theorem is_closed_map_id : IsClosedMap (id: X → X) := by
   intro U UClosed
   simp [UClosed]
+theorem induced_of_cont {f: X → Y} (hf: ∀ s: Set X, IsClosed s → ∃ t: Set Y, IsClosed t ∧ s = f ⁻¹' t) (fcont: Continuous f): Topology.IsInducing f := by
+  refine { eq_induced := ?_ }
+  ext s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hs
+    have : IsClosed sᶜ := isClosed_compl_iff.mpr hs
+    show ∃ t, IsOpen t ∧ f ⁻¹' t = s
+    rcases (hf sᶜ) (isClosed_compl_iff.mpr hs) with ⟨t, t_closed, s_compl_eq⟩
+    use tᶜ
+    simp [t_closed, ←s_compl_eq]
+  case mpr =>
+    rintro ⟨t, t_open, rfl⟩
+    exact fcont.isOpen_preimage t t_open
 end helper
 
 section
@@ -1203,7 +1218,7 @@ lemma indices_to_cb_to_X_inj_on_dimn_cells {n: ℕ} {i: CWC.Fι n} {u₁ u₂: c
   rw [aux_proj_eq u₁ hu₁, aux_proj_eq u₂ hu₂, Subtype.val_inj, (CWC.Fφ_heomorph n).injective.eq_iff, (right_adj_proj_injective _ _).eq_iff] at heq
   simpa using heq
 
-theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Function.Injective (cb_inner_map (characteristic_map e)) := by
+lemma characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Function.Injective (cb_inner_map (characteristic_map e)) := by
   intro e
   intro u₁ u₂ h_img_eq
   simp only [cb_inner_map, characteristic_map] at h_img_eq
@@ -1238,6 +1253,35 @@ theorem characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Functio
     have mem_inner₂' : g u₂' ∈ cb_inner := cb_cast_mp_inner_to_inner dim_eq mem_inner₂
     apply indices_to_cb_to_X_inj_on_dimn_cells mem_inner₁' mem_inner₂' heq'
 
+lemma characteristic_map_inducing_on_inner: ∀ e:(cell_sets (CWC := CWC)), Topology.IsInducing (cb_inner_map (characteristic_map e)) := by
+  intro e
+  apply induced_of_cont
+  case hf =>
+    intro s s_closed_in_b
+    set t := (cb_inner_map (characteristic_map e)) '' s with t_def
+    use t
+    refine ⟨?_, Eq.symm ((characteristic_map_inj_on_inner e).preimage_image s)⟩
+    rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
+    . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+      rw [characteristic_map] at t_def
+      have : indices_to_cb_to_X (cell_to_indices ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩) = fun y ↦ x := by
+        rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_cb_to_X]
+      simp [this, inner_map_eq_comp] at t_def
+      -- discuss case when s is empty!
+      sorry
+    . sorry
+  case fcont =>
+    apply Continuous.comp
+    . exact characteristic_map_continuous e
+    . exact Isometry.continuous fun x1 ↦ congrFun rfl
+
 end CWComplexConstructor
 end
+
+section
+variable {X Y: Type*} {f: X → Y}
+example (hf: Function.Injective f) (s: Set X) : f ⁻¹' (f '' s) = s := by
+  exact Function.Injective.preimage_image hf s
+end
+
 end Chp5

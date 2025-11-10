@@ -75,7 +75,7 @@ def cb_inner {n : ℕ} : Set (cb n) := Set.range b_to_cb
 def sph_to_cb {n : ℕ} : (sph n) → (cb n) := fun x ↦ ⟨x.val, sph_in_cb x.prop⟩
 
 def cb_boundary {n : ℕ} : Set (cb n) := Set.range sph_to_cb
-
+theorem inner_map_eq_comp {n: ℕ} {X: Type*} (f: cb n → X) : cb_inner_map f = f ∘ b_to_cb := rfl
 theorem inner_map_range {n : ℕ} {X: Type*} (f : cb n → X) : Set.range (cb_inner_map f) = f '' cb_inner := by
     have : cb_inner_map f = f ∘ b_to_cb := by
         ext x
