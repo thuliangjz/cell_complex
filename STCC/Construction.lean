@@ -666,6 +666,14 @@ theorem Fsk_coeherent: IsCoeherent (Set.range CWC.Fsk) := by
     rw [this]
     exact hs n
 
+lemma singleton_in_sk0_closed: ∀ x:X, x ∈ CWC.Fsk 0 → IsClosed {x} := by
+  intro x x_in_sk0
+  let x' : CWC.Fsk 0 := ⟨x, x_in_sk0⟩
+  have singleton_eq: {x} = ((↑): CWC.Fsk 0 → X) '' {x'} := Eq.symm Set.image_singleton
+  rw [singleton_eq]
+  rw [←closed_in_cwc_iff]
+  apply @isClosed_discrete (CWC.Fsk 0) (CWC.Tsk 0) (CWC.Tsk0_discrete)
+
 namespace CWComplexConstructor
 def cell_of_dim0: Set (Set X) := {{x} | x ∈ CWC.Fsk 0}
 -- using haskell pipe operator to ease expression of function composition
@@ -1267,9 +1275,30 @@ lemma characteristic_map_inducing_on_inner: ∀ e:(cell_sets (CWC := CWC)), Topo
       have : indices_to_cb_to_X (cell_to_indices ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩) = fun y ↦ x := by
         rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_cb_to_X]
       simp [this, inner_map_eq_comp] at t_def
-      -- discuss case when s is empty!
+      rcases eq_or_ne s ∅ with s_eq_empty | s_ne_empty
+      . simp [s_eq_empty] at t_def
+        simp [t_def]
+      . rw [←Set.nonempty_iff_ne_empty] at s_ne_empty
+        rcases s_ne_empty with ⟨w, hw⟩
+        have t_eq_x_singleton: t = {x} := by
+          ext y
+          refine Iff.intro ?mp ?mpr
+          case mp =>
+            intro hy
+            simp [t_def] at hy
+            exact hy.2.symm
+          case mpr =>
+            intro hy
+            simp at hy
+            rw [t_def]
+            use w, hw, hy.symm
+        rw [t_eq_x_singleton]
+        exact singleton_in_sk0_closed x x_in_sk0
+    . rw [Set.mem_iUnion] at e_in_skn
+      rcases e_in_skn with ⟨n, i, heq⟩
+      simp at heq
+      rw [characteristic_map, inner_map_eq_comp] at t_def
       sorry
-    . sorry
   case fcont =>
     apply Continuous.comp
     . exact characteristic_map_continuous e
@@ -1279,9 +1308,6 @@ end CWComplexConstructor
 end
 
 section
-variable {X Y: Type*} {f: X → Y}
-example (hf: Function.Injective f) (s: Set X) : f ⁻¹' (f '' s) = s := by
-  exact Function.Injective.preimage_image hf s
 end
 
 end Chp5
