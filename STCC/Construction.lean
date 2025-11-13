@@ -1342,6 +1342,157 @@ lemma characteristic_map_inducing_on_inner: ∀ e:(cell_sets (CWC := CWC)), Topo
     . exact characteristic_map_continuous e
     . exact Isometry.continuous fun x1 ↦ congrFun rfl
 
+def b_to_sigma_b (n: ℕ) (i: CWC.Fι n): (b (n + 1)) → (↑{(x:Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}ᶜ) := fun u ↦ ⟨⟨i, b_to_cb u⟩, (by simp[cb_boundary_eq_inner_compl]; use u; rfl)⟩
+
+lemma b_to_sigma_b_inj {n:ℕ} {i: CWC.Fι n}: Function.Injective (b_to_sigma_b n i) := by
+  intro t1 t2 heq
+  simp [b_to_sigma_b] at heq
+  exact SetCoe.ext heq
+
+lemma sigma_boundary_closed (n: ℕ): IsClosed ({(x:Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}) := by
+  rw [isClosed_sigma_iff]
+  intro i
+  have: Sigma.mk i ⁻¹' ({(x:Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}) = cb_boundary := by
+    ext x
+    simp
+  rw [this]
+  exact cb_boundary_closed
+
+lemma b_to_sigma_b_is_induced {n: ℕ} {i: CWC.Fι n}: Topology.IsInducing (b_to_sigma_b n i) := by
+  refine { eq_induced := ?_ }
+  ext s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hs
+    use (b_to_sigma_b n i) '' s
+    constructor
+    . use (Subtype.val '' ((b_to_sigma_b n i) '' s))
+      refine ⟨?_,  by apply (Subtype.val_injective).preimage_image⟩
+      rw [isOpen_sigma_iff]
+      intro i'
+      rcases eq_or_ne i i' with i_eq_i' | i_ne_i'
+      . rw [←i_eq_i']
+        have: Sigma.mk i ⁻¹' (Subtype.val '' (b_to_sigma_b n i '' s)) = b_to_cb '' s := by
+          ext x
+          refine Iff.intro ?mp' ?mpr'
+          case mp' =>
+            rintro ⟨_, ⟨w, w_in_s, rfl⟩, heq⟩
+            simp [b_to_sigma_b] at heq
+            use w, w_in_s
+            rw [←heq]; rfl
+          case mpr' =>
+            rintro ⟨y, y_in_s, rfl⟩
+            use b_to_sigma_b n i y
+            constructor
+            . use y
+            . rfl
+        rw [this]
+        use Subtype.val '' s
+        constructor
+        . refine IsOpen.trans hs ?_
+          exact Metric.isOpen_ball
+        . ext x
+          refine Iff.intro ?mp' ?mpr'
+          case mp' =>
+            rintro ⟨y, y_in_s, hy⟩
+            use y, y_in_s
+            simp [b_to_cb, hy]
+          case mpr' =>
+            rintro ⟨y, y_in_s, rfl⟩
+            use y, y_in_s
+            rfl
+      . have: Sigma.mk i' ⁻¹' (Subtype.val '' (b_to_sigma_b n i '' s)) = ∅ := by
+          ext x
+          refine Iff.intro ?mp' ?mpr'
+          case mp' =>
+            rintro ⟨y, ⟨z, z_in_s, rfl⟩, hy⟩
+            simp [b_to_sigma_b] at hy
+            rcases hy with ⟨i_eq_i', _⟩
+            contradiction
+          case mpr' =>
+            intro hx
+            contradiction
+        simp [this]
+    . apply (b_to_sigma_b_inj).preimage_image
+  case mpr =>
+    rintro ⟨t, ⟨u, u_open, rfl⟩, ht⟩
+    have: s = b_to_cb ⁻¹' (((@Sigma.mk (CWC.Fι n) (fun p ↦ (cb (n + 1): Type)) i)) ⁻¹' u) := by
+      ext x
+      refine Iff.intro ?mp' ?mpr'
+      case mp' =>
+        intro hx
+        rw [←ht] at hx
+        exact hx
+      case mpr' =>
+        intro hx
+        rw [←ht]
+        exact hx
+    rw [this]
+    refine Continuous.isOpen_preimage ?_ (Sigma.mk i ⁻¹' u) ?_
+    . exact b_to_cb_cont
+    . refine IsOpen.preimage ?_ u_open
+      exact continuous_sigmaMk
+
+theorem characteristic_map_inducing_on_inner': ∀ e:(cell_sets (CWC := CWC)), Topology.IsInducing (cb_inner_map (characteristic_map e)) := by
+  intro e
+  rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
+  . sorry
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, i, e_rw⟩
+    simp at e_rw
+    let e' : cell_sets := ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩
+    have dim_eq_np1 : dim_map e' = n + 1 := by
+      have: e' = ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ := by
+        apply SetCoe.ext;simp [e_rw]; rfl
+      rw [this, dim_map_cell_n_is_np1]
+    have ind_eq_np1: indices_to_Nat (cell_to_indices e') = n + 1 := by
+      trans dim_map e'
+      . exact dim_map_indices_to_nat_comm e'
+      exact dim_eq_np1
+    have ind_eq : cell_to_indices e' = Sum.inr ⟨n, i⟩ := by
+      simp [e', ←e_rw]
+      exact cell_to_indices_on_dimn_cell i
+    let g := (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp
+    let f := b_to_sigma_b n i
+    let h := (Subtype.val) ∘ (CWC.Fφ n) ∘ (right_adj_proj _ (CWC.Ff n)) ∘ f
+    have g_inducing: Topology.IsInducing g := by
+      apply @Eq.rec _ (dim_map e') (fun m eq ↦ Topology.IsInducing (congrArg (fun p ↦ (b p: Type)) eq).mp) Topology.IsInducing.id
+      exact dim_eq_np1
+    have f_inducing: Topology.IsInducing f := b_to_sigma_b_is_induced
+    have h_inducing: Topology.IsInducing h := by
+      apply Topology.IsInducing.comp
+      . -- note  here the topology is Tsk, not the usual subspace topology, but we have proven such equality!
+        apply @Eq.rec (TopologicalSpace (CWC.Fsk (n + 1))) instTopologicalSpaceSubtype (fun T Teq ↦ @Topology.IsInducing (CWC.Fsk (n + 1)) X T instCWConstructorTopology Subtype.val) Topology.IsInducing.subtypeVal
+        exact Eq.symm (Tsk_eq_subspace (n + 1))
+      . apply (CWC.Fφ_heomorph n).isInducing.comp
+        apply (right_adj_proj_is_embedding _ (CWC.Ff n) (sigma_boundary_closed n)).isInducing.comp
+        exact f_inducing
+    have aux_decomp: cb_inner_map (characteristic_map e') = h ∘ g := by
+      rw [inner_map_eq_comp, characteristic_map]
+      have eq_b_to_cb: @b_to_cb (dim_map e') = (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by
+        apply @Eq.rec ℕ (dim_map e') (fun p eq ↦ @b_to_cb (dim_map e') = (congrArg (fun m ↦ (cb m: Type)) eq.symm).mp ∘ (@b_to_cb p) ∘ (congrArg (fun m ↦ (b m: Type)) eq).mp) rfl
+        exact dim_eq_np1
+      have eq_cast:  (congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp = id := by
+        funext y
+        simp
+      have eq_ind_to_cb_to_X: (indices_to_cb_to_X (cell_to_indices e')) = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq).mp := by
+        apply @Eq.rec _ (cell_to_indices e') (fun ind' ind_eq' ↦ (indices_to_cb_to_X (cell_to_indices e')) = (indices_to_cb_to_X (ind')) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq').mp) rfl
+        exact ind_eq
+      calc
+        (indices_to_cb_to_X (cell_to_indices e')) ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ b_to_cb = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ b_to_cb := by
+          rw [eq_ind_to_cb_to_X]
+          rfl
+        _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by rw [eq_b_to_cb]
+        _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ ((congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp) ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by funext y; simp
+        _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ id ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by rw [eq_cast]
+        _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by funext y; simp
+        _ = h ∘ g := by
+          simp [indices_to_cb_to_X, h, g, right_adj_proj, f]
+          funext y
+          rfl
+    rw [aux_decomp]
+    exact h_inducing.comp g_inducing
+
 end CWComplexConstructor
 end
 

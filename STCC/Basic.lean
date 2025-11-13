@@ -222,6 +222,9 @@ theorem cb_decomp {n: ℕ} {x: cb n} : x ∈ cb_inner ∨ x ∈ cb_boundary := b
   right
   rw [←cb_boundary_inner_cmpl]
   simpa using x_not_in_cb_inner
+theorem b_to_cb_cont {n: ℕ} : Continuous (@b_to_cb n) := by
+  exact Isometry.continuous fun x1 ↦ congrFun rfl
+
 --theorem cb_singleton : cb 0 = {0} := by
 --    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
 
