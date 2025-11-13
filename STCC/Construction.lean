@@ -1295,9 +1295,47 @@ lemma characteristic_map_inducing_on_inner: ∀ e:(cell_sets (CWC := CWC)), Topo
         rw [t_eq_x_singleton]
         exact singleton_in_sk0_closed x x_in_sk0
     . rw [Set.mem_iUnion] at e_in_skn
-      rcases e_in_skn with ⟨n, i, heq⟩
-      simp at heq
+      rcases e_in_skn with ⟨n, i, e_rw⟩
+      simp at e_rw
       rw [characteristic_map, inner_map_eq_comp] at t_def
+      let e' : cell_sets := ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩
+      have dim_eq_np1 : dim_map e' = n + 1 := by
+        have: e' = ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ := by
+          apply SetCoe.ext;simp [e_rw]; rfl
+        rw [this, dim_map_cell_n_is_np1]
+      have ind_eq_np1: indices_to_Nat (cell_to_indices e') = n + 1 := by
+        trans dim_map e'
+        . exact dim_map_indices_to_nat_comm e'
+        exact dim_eq_np1
+      have ind_eq : cell_to_indices e' = Sum.inr ⟨n, i⟩ := by
+        simp [e', ←e_rw]
+        exact cell_to_indices_on_dimn_cell i
+      let g := (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp
+      let f : (b (n + 1) → (↑{(x:Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}ᶜ)) := fun u ↦ ⟨⟨i, b_to_cb u⟩, (by simp[cb_boundary_eq_inner_compl]; use u; rfl)⟩
+      let h := (Subtype.val) ∘ (CWC.Fφ n) ∘ (right_adj_proj _ (CWC.Ff n)) ∘ f
+      have : cb_inner_map (characteristic_map e') = h ∘ g := by
+        rw [inner_map_eq_comp, characteristic_map]
+        have eq_b_to_cb: @b_to_cb (dim_map e') = (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by
+          apply @Eq.rec ℕ (dim_map e') (fun p eq ↦ @b_to_cb (dim_map e') = (congrArg (fun m ↦ (cb m: Type)) eq.symm).mp ∘ (@b_to_cb p) ∘ (congrArg (fun m ↦ (b m: Type)) eq).mp) rfl
+          exact dim_eq_np1
+        have eq_cast:  (congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp = id := by
+          funext y
+          simp
+        have eq_ind_to_cb_to_X: (indices_to_cb_to_X (cell_to_indices e')) = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq).mp := by
+          apply @Eq.rec _ (cell_to_indices e') (fun ind' ind_eq' ↦ (indices_to_cb_to_X (cell_to_indices e')) = (indices_to_cb_to_X (ind')) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq').mp) rfl
+          exact ind_eq
+        calc
+          (indices_to_cb_to_X (cell_to_indices e')) ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ b_to_cb = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ b_to_cb := by
+            rw [eq_ind_to_cb_to_X]
+            rfl
+          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by rw [eq_b_to_cb]
+          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ ((congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp) ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by funext y; simp
+          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ id ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by rw [eq_cast]
+          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by funext y; simp
+          _ = h ∘ g := by
+            simp [indices_to_cb_to_X, h, g, right_adj_proj, f]
+            funext y
+            rfl
       sorry
   case fcont =>
     apply Continuous.comp
