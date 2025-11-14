@@ -1387,20 +1387,7 @@ lemma b_to_sigma_b_is_induced {n: ℕ} {i: CWC.Fι n}: Topology.IsInducing (b_to
             . use y
             . rfl
         rw [this]
-        use Subtype.val '' s
-        constructor
-        . refine IsOpen.trans hs ?_
-          exact Metric.isOpen_ball
-        . ext x
-          refine Iff.intro ?mp' ?mpr'
-          case mp' =>
-            rintro ⟨y, y_in_s, hy⟩
-            use y, y_in_s
-            simp [b_to_cb, hy]
-          case mpr' =>
-            rintro ⟨y, y_in_s, rfl⟩
-            use y, y_in_s
-            rfl
+        exact b_to_cb_open_map s hs
       . have: Sigma.mk i' ⁻¹' (Subtype.val '' (b_to_sigma_b n i '' s)) = ∅ := by
           ext x
           refine Iff.intro ?mp' ?mpr'
@@ -1436,7 +1423,14 @@ lemma b_to_sigma_b_is_induced {n: ℕ} {i: CWC.Fι n}: Topology.IsInducing (b_to
 theorem characteristic_map_inducing_on_inner': ∀ e:(cell_sets (CWC := CWC)), Topology.IsInducing (cb_inner_map (characteristic_map e)) := by
   intro e
   rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
-  . sorry
+  . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+    rw [characteristic_map]
+    have eq₁: indices_to_cb_to_X (cell_to_indices ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩) = fun y ↦ x := by
+      rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_cb_to_X]
+    rw [eq₁, inner_map_eq_comp]
+    have: Subsingleton (cb (indices_to_Nat (cell_to_indices ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩))) := by
+      sorry
+    sorry
   . rw [Set.mem_iUnion] at e_in_skn
     rcases e_in_skn with ⟨n, i, e_rw⟩
     simp at e_rw
@@ -1497,6 +1491,9 @@ end CWComplexConstructor
 end
 
 section
+variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y] [Subsingleton X]
+example {f: X → Y}: Topology.IsInducing f := by
+  exact Topology.IsInducing.of_subsingleton f
 end
 
 end Chp5

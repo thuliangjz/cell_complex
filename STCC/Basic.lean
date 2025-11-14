@@ -225,6 +225,42 @@ theorem cb_decomp {n: ℕ} {x: cb n} : x ∈ cb_inner ∨ x ∈ cb_boundary := b
 theorem b_to_cb_cont {n: ℕ} : Continuous (@b_to_cb n) := by
   exact Isometry.continuous fun x1 ↦ congrFun rfl
 
+theorem b_to_cb_inducing {n: ℕ}: Topology.IsInducing (@b_to_cb n) := by
+  refine { eq_induced := ?_ }
+  ext s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hs
+    have s_open_in_Rn: IsOpen (Subtype.val '' s) := by
+      refine IsOpen.trans hs ?_
+      rw [b]
+      exact Metric.isOpen_ball
+    have s_open_in_cb: IsOpen ((Subtype.val: cb (n) → EuclideanSpace ℝ (Fin n)) ⁻¹' (Subtype.val '' s)) := by
+      exact IsOpen.preimage_val s_open_in_Rn
+    use (Subtype.val: cb (n) → EuclideanSpace ℝ (Fin n)) ⁻¹' (Subtype.val '' s), s_open_in_cb
+    ext x
+    simp
+  case mpr =>
+    rintro ⟨t, ⟨u, u_open_in_Rn, rfl⟩, rfl⟩
+    exact isOpen_induced u_open_in_Rn
+
+theorem b_to_cb_open_map {n: ℕ}: IsOpenMap (@b_to_cb n) := by
+  intro s hs
+  have s_open_in_Rn: IsOpen (Subtype.val '' s) := by
+      refine IsOpen.trans hs ?_
+      rw [b]
+      exact Metric.isOpen_ball
+  use (Subtype.val '' s), s_open_in_Rn
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    rintro ⟨y, y_in_s, heq⟩
+    use y, y_in_s
+    exact SetCoe.ext heq
+  case mpr =>
+    rintro ⟨y, y_in_s, rfl⟩
+    simp [y_in_s]
+
 --theorem cb_singleton : cb 0 = {0} := by
 --    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
 
