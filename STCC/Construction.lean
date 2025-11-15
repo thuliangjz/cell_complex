@@ -1261,87 +1261,6 @@ lemma characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Function.
     have mem_inner₂' : g u₂' ∈ cb_inner := cb_cast_mp_inner_to_inner dim_eq mem_inner₂
     apply indices_to_cb_to_X_inj_on_dimn_cells mem_inner₁' mem_inner₂' heq'
 
-lemma characteristic_map_inducing_on_inner: ∀ e:(cell_sets (CWC := CWC)), Topology.IsInducing (cb_inner_map (characteristic_map e)) := by
-  intro e
-  apply induced_of_cont
-  case hf =>
-    intro s s_closed_in_b
-    set t := (cb_inner_map (characteristic_map e)) '' s with t_def
-    use t
-    refine ⟨?_, Eq.symm ((characteristic_map_inj_on_inner e).preimage_image s)⟩
-    rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
-    . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
-      rw [characteristic_map] at t_def
-      have : indices_to_cb_to_X (cell_to_indices ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩) = fun y ↦ x := by
-        rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_cb_to_X]
-      simp [this, inner_map_eq_comp] at t_def
-      rcases eq_or_ne s ∅ with s_eq_empty | s_ne_empty
-      . simp [s_eq_empty] at t_def
-        simp [t_def]
-      . rw [←Set.nonempty_iff_ne_empty] at s_ne_empty
-        rcases s_ne_empty with ⟨w, hw⟩
-        have t_eq_x_singleton: t = {x} := by
-          ext y
-          refine Iff.intro ?mp ?mpr
-          case mp =>
-            intro hy
-            simp [t_def] at hy
-            exact hy.2.symm
-          case mpr =>
-            intro hy
-            simp at hy
-            rw [t_def]
-            use w, hw, hy.symm
-        rw [t_eq_x_singleton]
-        exact singleton_in_sk0_closed x x_in_sk0
-    . rw [Set.mem_iUnion] at e_in_skn
-      rcases e_in_skn with ⟨n, i, e_rw⟩
-      simp at e_rw
-      rw [characteristic_map, inner_map_eq_comp] at t_def
-      let e' : cell_sets := ⟨e, ⟨Or.inr e_in_skn, e_nonempty⟩⟩
-      have dim_eq_np1 : dim_map e' = n + 1 := by
-        have: e' = ⟨Set.range (cell_define_map n i), cell_define_map_range_in_sets n i⟩ := by
-          apply SetCoe.ext;simp [e_rw]; rfl
-        rw [this, dim_map_cell_n_is_np1]
-      have ind_eq_np1: indices_to_Nat (cell_to_indices e') = n + 1 := by
-        trans dim_map e'
-        . exact dim_map_indices_to_nat_comm e'
-        exact dim_eq_np1
-      have ind_eq : cell_to_indices e' = Sum.inr ⟨n, i⟩ := by
-        simp [e', ←e_rw]
-        exact cell_to_indices_on_dimn_cell i
-      let g := (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp
-      let f : (b (n + 1) → (↑{(x:Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}ᶜ)) := fun u ↦ ⟨⟨i, b_to_cb u⟩, (by simp[cb_boundary_eq_inner_compl]; use u; rfl)⟩
-      let h := (Subtype.val) ∘ (CWC.Fφ n) ∘ (right_adj_proj _ (CWC.Ff n)) ∘ f
-      have : cb_inner_map (characteristic_map e') = h ∘ g := by
-        rw [inner_map_eq_comp, characteristic_map]
-        have eq_b_to_cb: @b_to_cb (dim_map e') = (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by
-          apply @Eq.rec ℕ (dim_map e') (fun p eq ↦ @b_to_cb (dim_map e') = (congrArg (fun m ↦ (cb m: Type)) eq.symm).mp ∘ (@b_to_cb p) ∘ (congrArg (fun m ↦ (b m: Type)) eq).mp) rfl
-          exact dim_eq_np1
-        have eq_cast:  (congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp = id := by
-          funext y
-          simp
-        have eq_ind_to_cb_to_X: (indices_to_cb_to_X (cell_to_indices e')) = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq).mp := by
-          apply @Eq.rec _ (cell_to_indices e') (fun ind' ind_eq' ↦ (indices_to_cb_to_X (cell_to_indices e')) = (indices_to_cb_to_X (ind')) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq').mp) rfl
-          exact ind_eq
-        calc
-          (indices_to_cb_to_X (cell_to_indices e')) ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ b_to_cb = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun ind ↦ (cb (indices_to_Nat ind): Type)) ind_eq).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ b_to_cb := by
-            rw [eq_ind_to_cb_to_X]
-            rfl
-          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by rw [eq_b_to_cb]
-          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ ((congrArg (fun m ↦ (cb m: Type)) ind_eq_np1).mp ∘ (congrArg (fun m ↦ (cb m: Type)) (dim_map_indices_to_nat_comm e').symm).mp ∘ (congrArg (fun m ↦ (cb m: Type)) dim_eq_np1.symm).mp) ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by funext y; simp
-          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ id ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by rw [eq_cast]
-          _ = (indices_to_cb_to_X (Sum.inr ⟨n, i⟩)) ∘ (@b_to_cb (n + 1)) ∘ (congrArg (fun m ↦ (b m: Type)) dim_eq_np1).mp := by funext y; simp
-          _ = h ∘ g := by
-            simp [indices_to_cb_to_X, h, g, right_adj_proj, f]
-            funext y
-            rfl
-      sorry
-  case fcont =>
-    apply Continuous.comp
-    . exact characteristic_map_continuous e
-    . exact Isometry.continuous fun x1 ↦ congrFun rfl
-
 def b_to_sigma_b (n: ℕ) (i: CWC.Fι n): (b (n + 1)) → (↑{(x:Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}ᶜ) := fun u ↦ ⟨⟨i, b_to_cb u⟩, (by simp[cb_boundary_eq_inner_compl]; use u; rfl)⟩
 
 lemma b_to_sigma_b_inj {n:ℕ} {i: CWC.Fι n}: Function.Injective (b_to_sigma_b n i) := by
@@ -1420,17 +1339,23 @@ lemma b_to_sigma_b_is_induced {n: ℕ} {i: CWC.Fι n}: Topology.IsInducing (b_to
     . refine IsOpen.preimage ?_ u_open
       exact continuous_sigmaMk
 
-theorem characteristic_map_inducing_on_inner': ∀ e:(cell_sets (CWC := CWC)), Topology.IsInducing (cb_inner_map (characteristic_map e)) := by
+theorem characteristic_map_inducing_on_inner: ∀ e:(cell_sets (CWC := CWC)), Topology.IsInducing (cb_inner_map (characteristic_map e)) := by
   intro e
   rcases e with ⟨e, ⟨e_in_sk0|e_in_skn, e_nonempty⟩⟩
   . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
     rw [characteristic_map]
-    have eq₁: indices_to_cb_to_X (cell_to_indices ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩) = fun y ↦ x := by
-      rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_cb_to_X]
-    rw [eq₁, inner_map_eq_comp]
-    have: Subsingleton (cb (indices_to_Nat (cell_to_indices ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩))) := by
-      sorry
-    sorry
+    let x': cell_sets := ⟨{x}, ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩
+    rw [inner_map_eq_comp]
+    have: Subsingleton (cb (indices_to_Nat (cell_to_indices x'))) := by
+      rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_Nat]
+      infer_instance
+    have induce₁: Topology.IsInducing (indices_to_cb_to_X (cell_to_indices x')) := by
+      apply Topology.IsInducing.of_subsingleton
+    have induce₂: Topology.IsInducing (congrArg (fun n ↦ (cb n : Type)) (dim_map_indices_to_nat_comm x').symm).mp := by
+      apply @Eq.rec _ (dim_map x') (fun n eq ↦ Topology.IsInducing (congrArg (fun m ↦ (cb m: Type)) eq).mp) (Topology.IsInducing.id)
+      exact (dim_map_indices_to_nat_comm x').symm
+    apply (induce₁.comp induce₂).comp
+    exact b_to_cb_inducing
   . rw [Set.mem_iUnion] at e_in_skn
     rcases e_in_skn with ⟨n, i, e_rw⟩
     simp at e_rw
@@ -1486,6 +1411,11 @@ theorem characteristic_map_inducing_on_inner': ∀ e:(cell_sets (CWC := CWC)), T
           rfl
     rw [aux_decomp]
     exact h_inducing.comp g_inducing
+
+theorem characteristic_map_inner_embedding: ∀ e:(cell_sets (CWC := CWC)), Topology.IsEmbedding (cb_inner_map (characteristic_map e)) := by
+  intro e
+  rw [Topology.isEmbedding_iff]
+  exact ⟨characteristic_map_inducing_on_inner e, characteristic_map_inj_on_inner e⟩
 
 end CWComplexConstructor
 end
