@@ -331,6 +331,15 @@ theorem b_singleton_iff : ∀ n : ℕ, (∃ x, b n = {x}) ↔ n = 0 := by
         rw [hn]
         use 0
         apply b0_singleton
+
+theorem sph0_empty: sph 0 = ∅ := by
+  rw [sph]
+  apply Metric.sphere_eq_empty_of_subsingleton ?_
+  norm_num
+
+theorem cb0_boundary_empty: @cb_boundary 0 = ∅ := by
+  rw [cb_boundary, Set.range_eq_empty_iff, Set.isEmpty_coe_sort]
+  exact sph0_empty
 end Chp5
 
 -- Coeherent Defs

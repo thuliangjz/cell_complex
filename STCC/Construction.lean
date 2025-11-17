@@ -1210,7 +1210,9 @@ lemma cb_cast_mp_inj {m n: ℕ} (heq: m = n): Function.Injective (congrArg (fun 
 lemma cb_cast_mp_inner_to_inner {m n: ℕ} (heq: m = n) {x: cb m} (hx: x ∈ cb_inner) : (congrArg (fun p ↦ (cb p: Type)) heq).mp x ∈ cb_inner := by
   apply @Eq.rec ℕ m (fun t eq ↦ (congrArg (fun p ↦ (cb p: Type)) eq).mp x ∈ cb_inner) hx
   exact heq
-
+lemma cb_cast_mp_boundary_eq_boundary {m n: ℕ} (heq: m = n): (congrArg (fun p ↦ (cb p : Type)) heq).mp '' cb_boundary = cb_boundary := by
+  apply @Eq.rec _ m (fun t eq ↦ (congrArg (fun p ↦ (cb p : Type)) eq).mp '' cb_boundary = cb_boundary) (Set.image_id _)
+  exact heq
 lemma indices_to_cb_to_X_inj_on_dim0_cells {x: X} (x_in_sk0: x ∈ CWC.Fsk 0) (u₁ u₂: cb (indices_to_Nat (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩ ))): u₁ = u₂ := by
   have dim_is_0: indices_to_Nat (cell_to_indices ⟨{x}, cell_of_dim0_in_sets' x x_in_sk0⟩) = 0 := by rw [cell_to_indices_on_dim0_cell x_in_sk0, indices_to_Nat]
   let f := (congrArg (fun n ↦ (cb n : Type)) dim_is_0).mp
@@ -1416,6 +1418,20 @@ theorem characteristic_map_inner_embedding: ∀ e:(cell_sets (CWC := CWC)), Topo
   intro e
   rw [Topology.isEmbedding_iff]
   exact ⟨characteristic_map_inducing_on_inner e, characteristic_map_inj_on_inner e⟩
+
+theorem characteristic_map_boundary: ∀ e:(cell_sets (CWC := CWC)), Set.range (cb_boundary_map (characteristic_map e)) ⊆ ⋃ p:cell_sets, ⋃ _:(dim_map p < dim_map e), p.1 := by
+  rintro ⟨e, e_in_sets⟩
+  rw [boundary_map_range]
+  rcases e_in_sets with ⟨e_in_sk0|e_in_skn, e_nonempty⟩
+  . rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+    let e' : cell_sets := ⟨{x},  ⟨Or.inl (Exists.intro x ⟨x_in_sk0, Eq.refl {x}⟩), e_nonempty⟩⟩
+    have dim_eq_0: dim_map e' = 0 := by
+      rw [dim_map_cell_dim0_is_0]
+      use x
+    have boundary_empty: @cb_boundary (dim_map e') = ∅ := by
+      simp [←cb_cast_mp_boundary_eq_boundary dim_eq_0.symm, cb0_boundary_empty]
+    simp [boundary_empty]
+  . sorry
 
 end CWComplexConstructor
 end
