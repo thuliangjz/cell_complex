@@ -1419,6 +1419,42 @@ theorem characteristic_map_inner_embedding: ∀ e:(cell_sets (CWC := CWC)), Topo
   rw [Topology.isEmbedding_iff]
   exact ⟨characteristic_map_inducing_on_inner e, characteristic_map_inj_on_inner e⟩
 
+lemma skn_sub_cell_iunion (n: ℕ): CWC.Fsk n ⊆ ⋃ p:cell_sets, ⋃ _: (dim_map p < (n + 1)), p.1 := by
+  induction' n with n ih
+  case zero =>
+    intro x hx
+    have x_in_cells: {x} ∈ cell_sets := by
+      exact cell_of_dim0_in_sets' x hx
+    simp
+    use {x}
+    constructor
+    . use cell_of_dim0_in_sets' x hx
+      apply dim_map_cell_dim0_is_0
+      use x
+    . rfl
+  case succ =>
+    intro x hx
+    rcases Classical.em (x ∈ Fsk (n)) with x_in_skn | x_not_in_skn
+    . have hsub: (⋃ p:cell_sets, ⋃ _:(dim_map p < n + 1), p.1) ⊆ (⋃ p:(cell_sets (CWC := CWC)), ⋃ _:(dim_map p < n + 1 + 1), p.1) := by
+        intro t ht
+        simp at ht
+        rcases ht with ⟨e, ⟨e_in_sets, dim_e_lt_np1⟩, t_in_e⟩
+        simp
+        use e
+        constructor
+        . use e_in_sets
+          linarith
+        . exact t_in_e
+      exact hsub (ih x_in_skn)
+    . rcases mem_cell_in_adj_sk x_not_in_skn hx with ⟨i, x_in_cell_ni⟩
+      simp
+      use (Set.range (cell_define_map n i))
+      constructor
+      . use cell_define_map_range_in_sets n i
+        rw [dim_map_cell_n_is_np1]
+        linarith
+      . exact x_in_cell_ni
+
 theorem characteristic_map_boundary: ∀ e:(cell_sets (CWC := CWC)), Set.range (cb_boundary_map (characteristic_map e)) ⊆ ⋃ p:cell_sets, ⋃ _:(dim_map p < dim_map e), p.1 := by
   rintro ⟨e, e_in_sets⟩
   rw [boundary_map_range]
