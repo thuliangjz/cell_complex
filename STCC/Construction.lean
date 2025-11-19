@@ -1467,7 +1467,20 @@ theorem characteristic_map_boundary: ∀ e:(cell_sets (CWC := CWC)), Set.range (
     have boundary_empty: @cb_boundary (dim_map e') = ∅ := by
       simp [←cb_cast_mp_boundary_eq_boundary dim_eq_0.symm, cb0_boundary_empty]
     simp [boundary_empty]
-  . sorry
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, heq⟩⟩
+    simp at heq
+    rw [characteristic_map, Set.image_comp, cb_cast_mp_boundary_eq_boundary (by rw [dim_map_indices_to_nat_comm])]
+    let e' : cell_sets := ⟨e, ⟨Or.inr e_in_skn, e_nonempty ⟩⟩
+    have ind_eq: cell_to_indices e' = Sum.inr ⟨n, i⟩ := by simp [e', ←heq, cell_to_indices_on_dimn_cell]
+    --have left_eq: indices_to_cb_to_X (cell_to_indices e') '' cb_boundary = indices_to_cb_to_X (Sum.inr ⟨n, i⟩) '' (@cb_boundary (n + 1)) := by
+    --  apply @Eq.rec _ (cell_to_indices e') (fun ind h_ind_eq ↦ indices_to_cb_to_X (cell_to_indices e') '' cb_boundary = indices_to_cb_to_X ind '' cb_boundary) rfl
+    --  exact ind_eq
+    rw [ind_eq, indices_to_cb_to_X]
+    have : Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr ∘ Sigma.mk i  = (Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr) ∘ Sigma.mk i := by simp; rfl
+    rw [this, Set.image_comp]
+
+    sorry
 
 end CWComplexConstructor
 end

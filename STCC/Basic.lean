@@ -960,6 +960,12 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_eq_right_ra
 
 omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_range_eq_left_range_compl: Set.range (right_adj_proj A f) = (Set.range (left_adj_proj A f))ᶜ := by
   simp [left_range_eq_right_range_compl]
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_cover_glue_image: ((adj_proj A f) ∘ Sum.inr) '' A ⊆ Set.range (left_adj_proj A f) := by
+  rintro z ⟨y, y_in_A, rfl⟩
+  use f ⟨y, y_in_A⟩
+  simp [left_adj_proj, adj_proj, glue_setoid]
+  apply Relation.EqvGen.rel
+  use ⟨y, y_in_A⟩
 end
 
 section
