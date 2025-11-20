@@ -75,7 +75,7 @@ def cb_inner {n : ℕ} : Set (cb n) := Set.range b_to_cb
 def sph_to_cb {n : ℕ} : (sph n) → (cb n) := fun x ↦ ⟨x.val, sph_in_cb x.prop⟩
 
 def cb_boundary {n : ℕ} : Set (cb n) := Set.range sph_to_cb
-
+theorem inner_map_eq_comp {n: ℕ} {X: Type*} (f: cb n → X) : cb_inner_map f = f ∘ b_to_cb := rfl
 theorem inner_map_range {n : ℕ} {X: Type*} (f : cb n → X) : Set.range (cb_inner_map f) = f '' cb_inner := by
     have : cb_inner_map f = f ∘ b_to_cb := by
         ext x
@@ -222,6 +222,45 @@ theorem cb_decomp {n: ℕ} {x: cb n} : x ∈ cb_inner ∨ x ∈ cb_boundary := b
   right
   rw [←cb_boundary_inner_cmpl]
   simpa using x_not_in_cb_inner
+theorem b_to_cb_cont {n: ℕ} : Continuous (@b_to_cb n) := by
+  exact Isometry.continuous fun x1 ↦ congrFun rfl
+
+theorem b_to_cb_inducing {n: ℕ}: Topology.IsInducing (@b_to_cb n) := by
+  refine { eq_induced := ?_ }
+  ext s
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hs
+    have s_open_in_Rn: IsOpen (Subtype.val '' s) := by
+      refine IsOpen.trans hs ?_
+      rw [b]
+      exact Metric.isOpen_ball
+    have s_open_in_cb: IsOpen ((Subtype.val: cb (n) → EuclideanSpace ℝ (Fin n)) ⁻¹' (Subtype.val '' s)) := by
+      exact IsOpen.preimage_val s_open_in_Rn
+    use (Subtype.val: cb (n) → EuclideanSpace ℝ (Fin n)) ⁻¹' (Subtype.val '' s), s_open_in_cb
+    ext x
+    simp
+  case mpr =>
+    rintro ⟨t, ⟨u, u_open_in_Rn, rfl⟩, rfl⟩
+    exact isOpen_induced u_open_in_Rn
+
+theorem b_to_cb_open_map {n: ℕ}: IsOpenMap (@b_to_cb n) := by
+  intro s hs
+  have s_open_in_Rn: IsOpen (Subtype.val '' s) := by
+      refine IsOpen.trans hs ?_
+      rw [b]
+      exact Metric.isOpen_ball
+  use (Subtype.val '' s), s_open_in_Rn
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    rintro ⟨y, y_in_s, heq⟩
+    use y, y_in_s
+    exact SetCoe.ext heq
+  case mpr =>
+    rintro ⟨y, y_in_s, rfl⟩
+    simp [y_in_s]
+
 --theorem cb_singleton : cb 0 = {0} := by
 --    exact Eq.symm (Set.eq_of_nonempty_of_subsingleton {0} (cb 0))
 
@@ -231,15 +270,26 @@ instance : Subsingleton (cb 0) := by
 instance : Subsingleton (b 0) := by
     exact Set.subsingleton_coe_of_subsingleton
 
+theorem zero_in_b {n: ℕ}: 0 ∈ b n := by
+  rw [b, Metric.mem_ball]
+  norm_num
+
+theorem zero_in_cb {n: ℕ}: 0 ∈ cb n:= by
+  apply b_in_cb
+  exact zero_in_b
+
+theorem zero_in_cb_inner {n: ℕ}: ⟨0, zero_in_cb⟩ ∈ @cb_inner n := by
+  rw [cb_inner]
+  use ⟨0, zero_in_b⟩
+  rfl
+
 instance {n: ℕ} : Inhabited (cb n) := by
     use 0
-    rw [cb, Metric.mem_closedBall]
-    norm_num
+    exact zero_in_cb
 
 instance {n: ℕ} : Inhabited (b n) := by
     use 0
-    rw [b, Metric.mem_ball]
-    norm_num
+    exact zero_in_b
 
 theorem b0_singleton : b 0 = {0} := by
     simp [b]
@@ -281,6 +331,15 @@ theorem b_singleton_iff : ∀ n : ℕ, (∃ x, b n = {x}) ↔ n = 0 := by
         rw [hn]
         use 0
         apply b0_singleton
+
+theorem sph0_empty: sph 0 = ∅ := by
+  rw [sph]
+  apply Metric.sphere_eq_empty_of_subsingleton ?_
+  norm_num
+
+theorem cb0_boundary_empty: @cb_boundary 0 = ∅ := by
+  rw [cb_boundary, Set.range_eq_empty_iff, Set.isEmpty_coe_sort]
+  exact sph0_empty
 end Chp5
 
 -- Coeherent Defs
@@ -901,6 +960,12 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_eq_right_ra
 
 omit [TopologicalSpace X] [TopologicalSpace Y] in theorem right_range_eq_left_range_compl: Set.range (right_adj_proj A f) = (Set.range (left_adj_proj A f))ᶜ := by
   simp [left_range_eq_right_range_compl]
+omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_cover_glue_image: ((adj_proj A f) ∘ Sum.inr) '' A ⊆ Set.range (left_adj_proj A f) := by
+  rintro z ⟨y, y_in_A, rfl⟩
+  use f ⟨y, y_in_A⟩
+  simp [left_adj_proj, adj_proj, glue_setoid]
+  apply Relation.EqvGen.rel
+  use ⟨y, y_in_A⟩
 end
 
 section
