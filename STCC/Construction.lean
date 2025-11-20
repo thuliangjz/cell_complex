@@ -1473,22 +1473,26 @@ theorem characteristic_map_boundary: ∀ e:(cell_sets (CWC := CWC)), Set.range (
     rw [characteristic_map, Set.image_comp, cb_cast_mp_boundary_eq_boundary (by rw [dim_map_indices_to_nat_comm])]
     let e' : cell_sets := ⟨e, ⟨Or.inr e_in_skn, e_nonempty ⟩⟩
     have ind_eq: cell_to_indices e' = Sum.inr ⟨n, i⟩ := by simp [e', ←heq, cell_to_indices_on_dimn_cell]
-    --have left_eq: indices_to_cb_to_X (cell_to_indices e') '' cb_boundary = indices_to_cb_to_X (Sum.inr ⟨n, i⟩) '' (@cb_boundary (n + 1)) := by
-    --  apply @Eq.rec _ (cell_to_indices e') (fun ind h_ind_eq ↦ indices_to_cb_to_X (cell_to_indices e') '' cb_boundary = indices_to_cb_to_X ind '' cb_boundary) rfl
-    --  exact ind_eq
+    have dim_eq: dim_map e' = (n + 1) := by simp [e', ←heq]; rw [dim_map_cell_n_is_np1]
     rw [ind_eq, indices_to_cb_to_X]
-    have : Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr ∘ Sigma.mk i  = (Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr) ∘ Sigma.mk i := by simp; rfl
-    rw [this, Set.image_comp]
+    let A := {(x: Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}
+    have image_sub: Sigma.mk i '' cb_boundary ⊆ A := by rw [Set.image_subset_iff]; exact fun ⦃a⦄ a ↦ a
+    calc
+      Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr ∘ Sigma.mk i '' cb_boundary = (Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr) ∘ Sigma.mk i '' cb_boundary := by simp
+      _ = (Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr) '' (Sigma.mk i '' cb_boundary) := by rw [Set.image_comp]
+      _ ⊆ (Subtype.val ∘ (CWC.Fφ n) ∘ (adj_proj _ (CWC.Ff n)) ∘ Sum.inr) '' A := Set.image_mono image_sub
+      _ = ((Subtype.val ∘ (CWC.Fφ n)) ∘ ((adj_proj _ (CWC.Ff n)) ∘ Sum.inr)) '' A := by simp
+      _ = (Subtype.val ∘ (CWC.Fφ n)) '' (((adj_proj _ (CWC.Ff n)) ∘ Sum.inr) '' A) := by rw [Set.image_comp]
+      _ ⊆ (Subtype.val ∘ (CWC.Fφ n)) '' (Set.range (left_adj_proj _ (CWC.Ff n))) := by apply Set.image_mono; apply left_range_cover_glue_image
+      _ = Set.range ((Subtype.val ∘ (CWC.Fφ n)) ∘ (left_adj_proj _ (CWC.Ff n))) := by rw [←Set.range_comp]
+      _ = Set.range (Subtype.val ∘ ((CWC.Fφ n) ∘ (left_adj_proj _ (CWC.Ff n)))) := by rfl
+      _ = Set.range (Subtype.val ∘ fun x:CWC.Fsk n ↦ ⟨x.1, (CWC.Fsk_chain n x.2)⟩) := by rw [CWC.Fφ_fix]
+      _ = CWC.Fsk n := by ext x; simp
+      _ ⊆ ⋃ p: cell_sets (CWC:=CWC), ⋃ _:(dim_map p < dim_map e'), p.1 := by rw [dim_eq]; exact skn_sub_cell_iunion n
 
-    sorry
 
 end CWComplexConstructor
 end
 
-section
-variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y] [Subsingleton X]
-example {f: X → Y}: Topology.IsInducing f := by
-  exact Topology.IsInducing.of_subsingleton f
-end
 
 end Chp5
