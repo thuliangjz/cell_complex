@@ -1496,3 +1496,31 @@ end
 
 
 end Chp5
+
+section
+variable {X: Type*} [TopologicalSpace X]
+instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) : T2Space X := by
+  refine { t2 := ?_ }
+  intro x y x_ne_y
+  rcases h x with ⟨f, f_cont, hf⟩
+  have fx_eq_0: f x = 0 := by
+    have : x ∈ ({x}: Set X) := by rfl
+    rw [←hf] at this
+    exact this
+  have fy_ne_0: f y ≠ 0 := by
+    by_contra! fy_eq_0
+    have : y ∈ f ⁻¹' {0} := by exact fy_eq_0
+    rw [hf] at this
+    have: x = y := by exact this.symm
+    contradiction
+  have fx_ne_fy: f x ≠ f y := ne_of_eq_of_ne fx_eq_0 (id (Ne.symm fy_ne_0))
+  rcases t2_separation fx_ne_fy with ⟨u', v', u'_open, v'_open, fx_in_u', fy_in_v', u'_v'_disjoint⟩
+  let u := f ⁻¹' u'
+  let v := f ⁻¹' v'
+  have u_open: IsOpen u := by exact f_cont.isOpen_preimage u' u'_open
+  have v_open: IsOpen v := by exact f_cont.isOpen_preimage v' v'_open
+  have x_in_u: x ∈ u := fx_in_u'
+  have y_in_v: y ∈ v := fy_in_v'
+  have uv_disj: Disjoint u v := by exact Disjoint.preimage f u'_v'_disjoint
+  use u, v
+end
