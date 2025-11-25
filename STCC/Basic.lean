@@ -3,6 +3,7 @@ import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Topology.Constructions
 import Mathlib.Analysis.NormedSpace.Connected
+import Mathlib.Topology.UrysohnsLemma
 
 namespace Chp5
 def b := fun n ↦ Metric.ball (0: EuclideanSpace ℝ (Fin n)) 1
@@ -340,6 +341,25 @@ theorem sph0_empty: sph 0 = ∅ := by
 theorem cb0_boundary_empty: @cb_boundary 0 = ∅ := by
   rw [cb_boundary, Set.range_eq_empty_iff, Set.isEmpty_coe_sort]
   exact sph0_empty
+
+lemma cb_inner_pt_boundary_disj {n: ℕ} (p: b n): Disjoint ({b_to_cb p}) cb_boundary := by
+  sorry
+
+noncomputable def pt_sep_fun (n:ℕ): (b n) → C(cb n, ℝ) := by
+  intro p
+  #check exists_continuous_zero_one_of_isClosed ((by exact isClosed_singleton):IsClosed ({b_to_cb p})) (cb_boundary_closed) (cb_inner_pt_boundary_disj p)
+  sorry
+
+section
+variable {n: ℕ} {p: b n}
+
+example : IsClosed ({b_to_cb p}: Set (cb n)) := by
+  exact isClosed_singleton
+
+example : IsClosed (sph n) := by
+  rw [sph]
+  exact Metric.isClosed_sphere
+end
 end Chp5
 
 -- Coeherent Defs
