@@ -342,24 +342,39 @@ theorem cb0_boundary_empty: @cb_boundary 0 = ∅ := by
   rw [cb_boundary, Set.range_eq_empty_iff, Set.isEmpty_coe_sort]
   exact sph0_empty
 
-lemma cb_inner_pt_boundary_disj {n: ℕ} (p: b n): Disjoint ({b_to_cb p}) cb_boundary := by
-  sorry
+noncomputable def pt_sep_fun (n:ℕ): (b n) → cb n → ℝ :=
+  fun p e ↦  if e.1 = p.1 then 0 else (dist p.1 e.1) / (dist p.1 ((1 / dist e.1 p.1) • (e.1 - p.1)))
 
-noncomputable def pt_sep_fun (n:ℕ): (b n) → C(cb n, ℝ) := by
-  intro p
-  #check exists_continuous_zero_one_of_isClosed ((by exact isClosed_singleton):IsClosed ({b_to_cb p})) (cb_boundary_closed) (cb_inner_pt_boundary_disj p)
-  sorry
-
-section
-variable {n: ℕ} {p: b n}
-
-example : IsClosed ({b_to_cb p}: Set (cb n)) := by
-  exact isClosed_singleton
-
-example : IsClosed (sph n) := by
-  rw [sph]
-  exact Metric.isClosed_sphere
-end
+theorem pt_sep_fun_inv_0 {n: ℕ} {p: b n}: (pt_sep_fun n p) ⁻¹' {0} = {b_to_cb p} := by
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    simp [pt_sep_fun] at hx
+    apply SetCoe.ext
+    simp
+    by_contra x_ne_p
+    rcases hx x_ne_p with x_eq_p|p_on_boundary
+    . exact x_ne_p x_eq_p.symm
+    . let norm_eq := congr_arg (‖·‖) p_on_boundary
+      have dist_nonneg : (dist x.1 p.1)⁻¹ > 0 := by apply Right.inv_pos.mpr;exact dist_pos.mpr x_ne_p
+      simp at norm_eq
+      have d₀: dist p.1 0 = 1 := by
+        calc
+          dist p.1 0 = ‖p.1‖ := by rw [dist_zero_right]
+          _ = ‖(dist x.1 p.1)⁻¹ • (x.1 - p.1)‖ := norm_eq
+          _ = ‖(dist x.1 p.1)⁻¹‖ * ‖x.1 - p.1‖ := by apply norm_smul
+          _ = ‖(dist x.1 p.1)⁻¹‖ * dist x.1 p.1 := rfl
+          _ = (dist x.1 p.1)⁻¹ * (dist x.1 p.1) := by rw [Real.norm_of_nonneg (le_of_lt dist_nonneg)]
+          _ = 1 := by apply inv_mul_cancel₀; exact dist_ne_zero.mpr x_ne_p
+      have d₁: dist p.1 0 < 1 := by
+        have: p.1 ∈ Metric.ball 0 1 := p.2
+        rwa [Metric.mem_ball] at this
+      linarith
+  case mpr =>
+    intro hx
+    simp at hx
+    simp [hx, pt_sep_fun]
 end Chp5
 
 -- Coeherent Defs
