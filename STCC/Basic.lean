@@ -342,39 +342,40 @@ theorem cb0_boundary_empty: @cb_boundary 0 = ∅ := by
   rw [cb_boundary, Set.range_eq_empty_iff, Set.isEmpty_coe_sort]
   exact sph0_empty
 
-noncomputable def pt_sep_fun (n:ℕ): (b n) → cb n → ℝ :=
-  fun p e ↦  if e.1 = p.1 then 0 else (dist p.1 e.1) / (dist p.1 ((1 / dist e.1 p.1) • (e.1 - p.1)))
+section
+variable {n: ℕ}
 
-theorem pt_sep_fun_inv_0 {n: ℕ} {p: b n}: (pt_sep_fun n p) ⁻¹' {0} = {b_to_cb p} := by
-  ext x
-  refine Iff.intro ?mp ?mpr
-  case mp =>
-    intro hx
-    simp [pt_sep_fun] at hx
-    apply SetCoe.ext
-    simp
-    by_contra x_ne_p
-    rcases hx x_ne_p with x_eq_p|p_on_boundary
-    . exact x_ne_p x_eq_p.symm
-    . let norm_eq := congr_arg (‖·‖) p_on_boundary
-      have dist_nonneg : (dist x.1 p.1)⁻¹ > 0 := by apply Right.inv_pos.mpr;exact dist_pos.mpr x_ne_p
-      simp at norm_eq
-      have d₀: dist p.1 0 = 1 := by
-        calc
-          dist p.1 0 = ‖p.1‖ := by rw [dist_zero_right]
-          _ = ‖(dist x.1 p.1)⁻¹ • (x.1 - p.1)‖ := norm_eq
-          _ = ‖(dist x.1 p.1)⁻¹‖ * ‖x.1 - p.1‖ := by apply norm_smul
-          _ = ‖(dist x.1 p.1)⁻¹‖ * dist x.1 p.1 := rfl
-          _ = (dist x.1 p.1)⁻¹ * (dist x.1 p.1) := by rw [Real.norm_of_nonneg (le_of_lt dist_nonneg)]
-          _ = 1 := by apply inv_mul_cancel₀; exact dist_ne_zero.mpr x_ne_p
-      have d₁: dist p.1 0 < 1 := by
-        have: p.1 ∈ Metric.ball 0 1 := p.2
-        rwa [Metric.mem_ball] at this
-      linarith
-  case mpr =>
-    intro hx
-    simp at hx
-    simp [hx, pt_sep_fun]
+def f_ray (p x: EuclideanSpace ℝ (Fin n)): ℝ → (EuclideanSpace ℝ (Fin n)) := fun t ↦ p + t • (x - p)
+
+def seg_inside (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))): Set ℝ := (f_ray p x) ⁻¹' A
+
+noncomputable def sep_fun (p: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))): EuclideanSpace ℝ (Fin n) → ℝ := fun x ↦ if x = p then 0 else 1 / sSup (seg_inside p x A)
+
+theorem f_ray_cont (p x: EuclideanSpace ℝ (Fin n)): Continuous (f_ray p x) := by
+  unfold f_ray
+  continuity
+
+lemma seg_inside_nonempty (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hx: x ∈ A): (seg_inside p x A).Nonempty := by
+  use 1
+  simp [seg_inside, f_ray]
+  exact hx
+
+lemma seg_inside_bdd (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p): BddAbove (seg_inside p x A) := by
+  have nxp_gt_0 : ‖x - p‖ > 0 := norm_sub_pos_iff.mpr hxp
+  rcases hA.isBounded.subset_closedBall p with ⟨r, hr⟩
+  use r / ‖x - p‖
+  simp [upperBounds, seg_inside]
+  intro t ht
+  unfold f_ray at ht
+  let ht' := hr ht
+  simp [norm_smul] at ht'
+  rw [le_div_iff₀ nxp_gt_0]
+  trans |t| * ‖x - p‖
+  . rw [mul_le_mul_iff_of_pos_right nxp_gt_0]
+    exact le_abs_self t
+  . exact ht'
+
+end
 end Chp5
 
 -- Coeherent Defs
