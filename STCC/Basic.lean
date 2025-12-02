@@ -343,6 +343,14 @@ theorem cb0_boundary_empty: @cb_boundary 0 = ∅ := by
   exact sph0_empty
 
 section
+variable {X: Type*} [TopologicalSpace X]
+theorem closure_decomposition {A: Set X} : closure A = frontier A ∪ interior A := by
+  unfold frontier
+  refine Eq.symm (Set.diff_union_of_subset ?_)
+  exact interior_subset_closure
+end
+
+section
 variable {n: ℕ}
 
 def f_ray (p x: EuclideanSpace ℝ (Fin n)): ℝ → (EuclideanSpace ℝ (Fin n)) := fun t ↦ p + t • (x - p)
@@ -374,6 +382,38 @@ lemma seg_inside_bdd (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace �
   . rw [mul_le_mul_iff_of_pos_right nxp_gt_0]
     exact le_abs_self t
   . exact ht'
+
+lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (h_A_nonempty: A.Nonempty): (frontier A).Nonempty := by
+  have: PreconnectedSpace (EuclideanSpace ℝ (Fin n)) := by infer_instance
+  by_contra! frontier_empty
+  have A_closed: IsClosed A := IsCompact.isClosed h_A_compact
+  have A_eq_interior: A = interior A := by
+    nth_rw 1 [A_closed.closure_eq.symm]
+    rw [closure_decomposition, frontier_empty]
+    simp
+  have A_open: IsOpen A := interior_eq_iff_isOpen.mp (id (Eq.symm A_eq_interior))
+  have A_compl_nonempty: (Aᶜ).Nonempty := by
+    rw [Set.nonempty_def]
+    rcases h_A_compact.isBounded.subset_closedBall 0 with ⟨r, hr⟩
+    --use (r + 1) • (EuclideanSpace.single  0)
+    sorry
+  sorry
+
+lemma convex_interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∃ d > (0:ℝ), ∀ x ∈ A, x ≠ p → d ≤ sSup (seg_inside p x A) * ‖x - p‖ := by
+  let S := frontier A
+  let d := Metric.infDist p S
+  have d_pos: d > 0 := by
+    #check Metric.infDist_pos_iff_notMem_closure
+    sorry
+  sorry
+
+theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
+  rw [continuous_iff_continuousAt]
+  intro x
+  rcases eq_or_ne x p with x_eq_p | x_ne_p
+  . rw [x_eq_p, Metric.continuousAt_iff]
+    sorry
+  . sorry
 
 end
 end Chp5
