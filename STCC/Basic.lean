@@ -384,7 +384,6 @@ lemma seg_inside_bdd (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace �
   . exact ht'
 
 lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (h_A_nonempty: A.Nonempty): (frontier A).Nonempty := by
-  have: PreconnectedSpace (EuclideanSpace ℝ (Fin n)) := by infer_instance
   by_contra! frontier_empty
   have A_closed: IsClosed A := IsCompact.isClosed h_A_compact
   have A_eq_interior: A = interior A := by
@@ -395,16 +394,40 @@ lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (
   have A_compl_nonempty: (Aᶜ).Nonempty := by
     rw [Set.nonempty_def]
     rcases h_A_compact.isBounded.subset_closedBall 0 with ⟨r, hr⟩
-    --use (r + 1) • (EuclideanSpace.single  0)
-    sorry
-  sorry
+    have r_noneg: r ≥ 0 := by
+      have cb_nonempty: (Metric.closedBall (0: EuclideanSpace ℝ (Fin n)) r).Nonempty := by
+        rcases h_A_nonempty with ⟨p, p_in_A⟩
+        use p
+        exact hr p_in_A
+      exact Metric.nonempty_closedBall.mp cb_nonempty
+    use (r + 1) • (EuclideanSpace.single ⟨0, hn⟩ 1)
+    by_contra! not_mem_compl
+    simp at not_mem_compl
+    let mem_closed_ball := hr not_mem_compl
+    simp [Metric.mem_closedBall, dist_eq_norm, norm_smul] at mem_closed_ball
+    have : |r + 1|= r + 1 := by apply abs_of_nonneg; linarith
+    rw [this] at mem_closed_ball
+    linarith
+  have A_compl_open: IsOpen Aᶜ := by exact IsClosed.isOpen_compl
+  have univ_sub_union: Set.univ ⊆ A ∪ Aᶜ := by intro x; simp
+  have univ_preconnected: IsPreconnected (Set.univ: Set (EuclideanSpace ℝ (Fin n))) := isPreconnected_univ
+  have inter_nonempty: (A ∩ Aᶜ).Nonempty := by simpa using (univ_preconnected A Aᶜ A_open A_compl_open univ_sub_union (by simpa) (by simpa))
+  simp at inter_nonempty
 
 lemma convex_interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∃ d > (0:ℝ), ∀ x ∈ A, x ≠ p → d ≤ sSup (seg_inside p x A) * ‖x - p‖ := by
   let S := frontier A
   let d := Metric.infDist p S
-  have d_pos: d > 0 := by
-    #check Metric.infDist_pos_iff_notMem_closure
-    sorry
+  have A_nonempty: A.Nonempty := by use p; exact interior_subset hp
+  have d_pos: 0 < d := by
+    unfold d S
+    rw[←Metric.infDist_pos_iff_notMem_closure (nonempty_frontier_of_compact_nonempty_subset hn h_A_compact A_nonempty), isClosed_frontier.closure_eq]
+    unfold frontier
+    refine Set.notMem_of_mem_compl ?_
+    rw [Set.compl_diff]
+    left
+    exact hp
+  use d, d_pos
+  intro x x_in_A x_ne_p
   sorry
 
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
@@ -414,6 +437,7 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
   . rw [x_eq_p, Metric.continuousAt_iff]
     sorry
   . sorry
+
 
 end
 end Chp5
