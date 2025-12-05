@@ -383,6 +383,11 @@ lemma seg_inside_bdd (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace �
     exact le_abs_self t
   . exact ht'
 
+lemma seg_inside_has_lub (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p) (hx: x ∈ A): IsLUB (seg_inside p x A) (sSup (seg_inside p x A)) := by
+  refine isLUB_csSup ?_ ?_
+  . exact seg_inside_nonempty p x A hx
+  . exact seg_inside_bdd p x A hA hxp
+
 lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (h_A_nonempty: A.Nonempty): (frontier A).Nonempty := by
   by_contra! frontier_empty
   have A_closed: IsClosed A := IsCompact.isClosed h_A_compact
@@ -413,7 +418,7 @@ lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (
   have univ_preconnected: IsPreconnected (Set.univ: Set (EuclideanSpace ℝ (Fin n))) := isPreconnected_univ
   have inter_nonempty: (A ∩ Aᶜ).Nonempty := by simpa using (univ_preconnected A Aᶜ A_open A_compl_open univ_sub_union (by simpa) (by simpa))
   simp at inter_nonempty
-
+open Topology
 lemma convex_interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∃ d > (0:ℝ), ∀ x ∈ A, x ≠ p → d ≤ sSup (seg_inside p x A) * ‖x - p‖ := by
   let S := frontier A
   let d := Metric.infDist p S
@@ -428,6 +433,18 @@ lemma convex_interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set 
     exact hp
   use d, d_pos
   intro x x_in_A x_ne_p
+  let t₀ := sSup (seg_inside p x A)
+  have limit_in_A: p + t₀ • (x - p) ∈ A := by
+    have A_closed: IsClosed A := by exact IsCompact.isClosed h_A_compact
+    rcases (seg_inside_has_lub p x A h_A_compact x_ne_p x_in_A).exists_seq_monotone_tendsto (seg_inside_nonempty p x A x_in_A) with ⟨u, h_u_monotone, h_u_bound, h_u_tendsto, h_u_mem⟩
+    let f := f_ray p x
+    show f t₀ ∈ A
+    have f_t₀_limit: Filter.Tendsto (f ∘ u) Filter.atTop (𝓝 (f t₀)) := by
+      apply Filter.Tendsto.comp
+      . apply (f_ray_cont p x).continuousAt
+      . exact h_u_tendsto
+    apply A_closed.mem_of_tendsto f_t₀_limit
+    exact Filter.Eventually.of_forall h_u_mem
   sorry
 
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
