@@ -388,6 +388,12 @@ lemma seg_inside_has_lub (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpa
   . exact seg_inside_nonempty p x A hx
   . exact seg_inside_bdd p x A hA hxp
 
+lemma seg_inside_sup_pos (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p) (hx: x ∈ A) : (sSup (seg_inside p x A)) > 0 := by
+  apply lt_of_lt_of_le (b := 1)
+  . norm_num
+  apply le_csSup (seg_inside_bdd p x A hA hxp)
+  simpa [seg_inside, f_ray]
+
 lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (h_A_nonempty: A.Nonempty): (frontier A).Nonempty := by
   by_contra! frontier_empty
   have A_closed: IsClosed A := IsCompact.isClosed h_A_compact
@@ -419,7 +425,7 @@ lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (
   have inter_nonempty: (A ∩ Aᶜ).Nonempty := by simpa using (univ_preconnected A Aᶜ A_open A_compl_open univ_sub_union (by simpa) (by simpa))
   simp at inter_nonempty
 open Topology
-lemma convex_interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∃ d > (0:ℝ), ∀ x ∈ A, x ≠ p → d ≤ sSup (seg_inside p x A) * ‖x - p‖ := by
+lemma interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∃ d > (0:ℝ), ∀ x ∈ A, x ≠ p → d ≤ sSup (seg_inside p x A) * ‖x - p‖ := by
   let S := frontier A
   let d := Metric.infDist p S
   have A_nonempty: A.Nonempty := by use p; exact interior_subset hp
@@ -445,14 +451,54 @@ lemma convex_interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set 
       . exact h_u_tendsto
     apply A_closed.mem_of_tendsto f_t₀_limit
     exact Filter.Eventually.of_forall h_u_mem
-  sorry
+  have limit_not_in_interior_A: p + t₀ • (x - p) ∉ interior A := by
+    by_contra! h_mem_interior
+    let U := (f_ray p x) ⁻¹' (interior A)
+    have t₀_in_U: t₀ ∈ U := h_mem_interior
+    have U_open: IsOpen U := (f_ray_cont p x).isOpen_preimage _ (isOpen_interior (s:= A))
+    have: ∃ t' ∈ U, t' > t₀ := by
+      rcases Metric.eventually_nhds_iff.mp (IsOpen.eventually_mem U_open t₀_in_U) with ⟨δ, δ_pos, hδ⟩
+      use t₀ + δ / 2
+      constructor
+      . apply hδ
+        simpa [abs_of_pos δ_pos]
+      . linarith
+    rcases this with ⟨t', t'_in_U, t'_gt_t₀⟩
+    rcases (seg_inside_has_lub p x A h_A_compact x_ne_p x_in_A) with ⟨t₀_is_upper_bound, _⟩
+    have: t' ≤ t₀ := by
+      apply t₀_is_upper_bound
+      simp [seg_inside]
+      apply interior_subset
+      exact t'_in_U
+    linarith
+  have limit_mem_frontier_A: p + t₀ • (x - p) ∈ frontier A := by
+    unfold frontier
+    rw [Set.mem_diff]
+    refine ⟨?_, limit_not_in_interior_A⟩
+    rwa [h_A_compact.isClosed.closure_eq]
+  calc
+    d ≤ dist p (p + t₀ • (x - p)) := Metric.infDist_le_dist_of_mem limit_mem_frontier_A (x := p)
+    _ = sSup (seg_inside p x A) * ‖x - p‖ := by
+      simp [norm_smul]
+      left
+      rw [abs_of_pos (seg_inside_sup_pos p x A h_A_compact x_ne_p x_in_A)]
 
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
   rw [continuous_iff_continuousAt]
   intro x
   rcases eq_or_ne x p with x_eq_p | x_ne_p
   . rw [x_eq_p, Metric.continuousAt_iff]
-    sorry
+    intro ε ε_pos
+    rcases interior_boundary_min_dist hn h_A_compact hp with ⟨d, d_pos, hd⟩
+    use d * ε
+    constructor
+    . exact Left.mul_pos d_pos ε_pos
+    . intro x' hx'
+      rcases eq_or_ne x' p with x'_eq_p | x'_ne_p
+      . rw [x'_eq_p]
+        simpa
+      . simp [sep_fun, x'_ne_p]
+        sorry
   . sorry
 
 
