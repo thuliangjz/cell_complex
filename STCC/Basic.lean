@@ -490,15 +490,27 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
   . rw [x_eq_p, Metric.continuousAt_iff]
     intro ε ε_pos
     rcases interior_boundary_min_dist hn h_A_compact hp with ⟨d, d_pos, hd⟩
-    use d * ε
+    rcases Metric.eventually_nhds_iff.mp (IsOpen.eventually_mem (isOpen_interior (s := A)) hp) with ⟨δ', δ'_pos, hδ'⟩
+    use (min δ' (d * ε))
     constructor
-    . exact Left.mul_pos d_pos ε_pos
+    . exact lt_min δ'_pos (Left.mul_pos d_pos ε_pos)
     . intro x' hx'
       rcases eq_or_ne x' p with x'_eq_p | x'_ne_p
-      . rw [x'_eq_p]
-        simpa
+      . simpa [x'_eq_p]
       . simp [sep_fun, x'_ne_p]
-        sorry
+        have x'_in_A : x' ∈ A := by
+          apply interior_subset
+          apply hδ'
+          exact lt_of_lt_of_le (b := min δ' (d * ε)) hx' (min_le_left δ' (d * ε))
+        let t := sSup (seg_inside p x' A)
+        have t_pos : t > 0 := seg_inside_sup_pos p x' A h_A_compact x'_ne_p x'_in_A
+        rw [abs_of_pos t_pos]
+        have h_le: t⁻¹ ≤ d⁻¹ * ‖x' - p‖ := (le_inv_mul_iff₀' d_pos).mpr ((mul_inv_le_iff₀' t_pos).mpr (hd _ x'_in_A x'_ne_p))
+        apply lt_of_le_of_lt (b:= d⁻¹ * ‖x' - p‖) h_le
+        have norm_lt: ‖x' - p‖ < d * ε := lt_of_lt_of_le hx' (min_le_right δ' (d * ε))
+        apply lt_of_lt_of_eq (b := d ⁻¹ * (d * ε))
+        . exact (mul_lt_mul_iff_of_pos_left (Right.inv_pos.mpr d_pos)).mpr norm_lt
+        . exact inv_mul_cancel_left₀ (ne_of_lt d_pos).symm ε
   . sorry
 
 
