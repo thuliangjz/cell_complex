@@ -511,9 +511,27 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
         apply lt_of_lt_of_eq (b := d ⁻¹ * (d * ε))
         . exact (mul_lt_mul_iff_of_pos_left (Right.inv_pos.mpr d_pos)).mpr norm_lt
         . exact inv_mul_cancel_left₀ (ne_of_lt d_pos).symm ε
-  . sorry
-
-
+  . have h_eventually_eq: sep_fun p A =ᶠ[𝓝 x] ((fun r:ℝ ↦ 1 / r) ∘ (fun x ↦ sSup (seg_inside p x A))) := by
+      -- this lemma is to show that on a neighbor of x the sep function can be rewritten to composition of two other functions
+      rcases t2_separation x_ne_p with ⟨U, ⟨V, U_open, V_open, x_in_U, p_in_V, U_V_disjoint⟩⟩
+      apply Filter.sets_of_superset (x := U)
+      . show U ∈ (𝓝 x)
+        rw [mem_nhds_iff]
+        use U
+      . intro x' x'_in_U
+        have x'_ne_p: x' ≠ p := by
+          by_contra! heq
+          rw [heq] at x'_in_U
+          have : p ∈ U ∩ V := Set.mem_inter x'_in_U p_in_V
+          rw [Set.disjoint_iff_inter_eq_empty] at U_V_disjoint
+          rw [U_V_disjoint] at this
+          contradiction
+        simp [sep_fun, x'_ne_p]
+    suffices ContinuousAt ((fun r:ℝ ↦ 1 / r) ∘ (fun x ↦ sSup (seg_inside p x A))) x by
+      exact ContinuousAt.congr this (id (Filter.EventuallyEq.symm h_eventually_eq))
+    refine ContinuousAt.comp ?_ ?_
+    . sorry
+    . sorry
 end
 end Chp5
 
