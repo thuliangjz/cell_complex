@@ -394,6 +394,32 @@ lemma seg_inside_sup_pos (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpa
   apply le_csSup (seg_inside_bdd p x A hA hxp)
   simpa [seg_inside, f_ray]
 
+lemma seg_inside_sup_pos_of_interior (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p) (hp: p ∈ interior A): (sSup (seg_inside p x A)) > 0 := by
+  have int_A_is_p_nhds: interior A ∈ nhds p := by
+    rw [mem_nhds_iff]
+    use interior A, (fun a ah ↦ ah), isOpen_interior
+  rw [Metric.mem_nhds_iff] at int_A_is_p_nhds
+  rcases int_A_is_p_nhds with ⟨δ, δpos, hδ⟩
+  let d := δ / (2 * dist x p)
+  have dpos: d > 0 := by
+    apply div_pos δpos
+    suffices dist x p > 0 by
+      linarith
+    exact dist_pos.mpr hxp
+  have d_in_seg_inside: d ∈ seg_inside p x A := by
+    apply interior_subset (s:=A)
+    apply hδ
+    simp [Metric.mem_ball, f_ray, norm_smul]
+    calc
+      |d| * ‖x - p‖ = |(δ / (2 * ‖x - p‖))| * ‖x - p‖ := rfl
+      _ = |δ| / |2 * ‖x - p‖| * ‖x - p‖ := by rw[abs_div]
+      _ = |δ| / (2 * ‖x - p‖) * ‖x - p‖ := by rw [abs_mul]; simp
+      _ = |δ| / 2 := by have: ‖x - p‖ ≠ 0 := ne_of_gt (dist_pos.mpr hxp); field_simp; ring
+      _ < δ := by rw [abs_of_pos δpos]; exact div_two_lt_of_pos δpos
+  apply lt_of_lt_of_le (b := d)
+  . exact dpos
+  . exact le_csSup (seg_inside_bdd p x A hA hxp) d_in_seg_inside
+
 lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (h_A_nonempty: A.Nonempty): (frontier A).Nonempty := by
   by_contra! frontier_empty
   have A_closed: IsClosed A := IsCompact.isClosed h_A_compact
@@ -496,9 +522,7 @@ lemma inv_cont_at_non_zero {x: ℝ} (hx: x ≠ 0): ContinuousAt (fun r:ℝ ↦ 1
   use δ, δpos
   intro y hy
   show |1/y - 1/x| < ε
-  have y_ne_0 : y ≠ 0 := by -- this is required for invoking field_simp
-    suffices |y| > 0 by
-      exact abs_pos.mp this
+  have abs_y_gt_half_abs_x: |y| > |x| / 2 := by
     calc
       |y| = |x - (x - y)| := by simp
       _ ≥ |(|x| - |x - y|)| := by apply abs_abs_sub_abs_le
@@ -506,6 +530,11 @@ lemma inv_cont_at_non_zero {x: ℝ} (hx: x ≠ 0): ContinuousAt (fun r:ℝ ↦ 1
       _ > |x| - δ := by apply sub_lt_sub_left; rwa [dist_eq_norm, Real.norm_eq_abs, abs_sub_comm] at hy
       _ ≥ |x| - (|x| / 2) := by apply tsub_le_tsub_left; apply min_le_right
       _ = |x| / 2 := sub_half |x|
+  have y_ne_0 : y ≠ 0 := by -- this is required for invoking field_simp
+    suffices |y| > 0 by
+      exact abs_pos.mp this
+    calc
+      |y| > |x| / 2 := abs_y_gt_half_abs_x
       _ > 0 := half_pos abs_x_pos
   field_simp
   rw [abs_div, div_lt_iff₀ (abs_pos.mpr ((mul_ne_zero_iff_right hx).mpr y_ne_0))]
@@ -513,7 +542,7 @@ lemma inv_cont_at_non_zero {x: ℝ} (hx: x ≠ 0): ContinuousAt (fun r:ℝ ↦ 1
     |x - y| < δ := by rw [abs_sub_comm]; exact hy
     _ ≤ (|x| * |x| * ε / 2) := by apply min_le_left
     _ = ε * (|x| * |x| / 2) := by field_simp; ring
-    _ < ε * |y * x| := by sorry
+    _ < ε * |y * x| := by rw [mul_lt_mul_left εpos, abs_mul, mul_comm |y| |x|, mul_div_assoc, mul_lt_mul_left abs_x_pos]; exact abs_y_gt_half_abs_x
 
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
   rw [continuous_iff_continuousAt]
@@ -562,7 +591,7 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
     suffices ContinuousAt ((fun r:ℝ ↦ 1 / r) ∘ (fun x ↦ sSup (seg_inside p x A))) x by
       exact ContinuousAt.congr this (id (Filter.EventuallyEq.symm h_eventually_eq))
     refine ContinuousAt.comp ?_ ?_
-    . sorry
+    . exact inv_cont_at_non_zero (ne_of_gt (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp))
     . sorry
 end
 end Chp5
