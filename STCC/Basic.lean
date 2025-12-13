@@ -3,7 +3,6 @@ import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Topology.Constructions
 import Mathlib.Analysis.NormedSpace.Connected
-import Mathlib.Topology.UrysohnsLemma
 
 namespace Chp5
 def b := fun n ↦ Metric.ball (0: EuclideanSpace ℝ (Fin n)) 1
@@ -362,6 +361,68 @@ noncomputable def sep_fun (p: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpac
 theorem f_ray_cont (p x: EuclideanSpace ℝ (Fin n)): Continuous (f_ray p x) := by
   unfold f_ray
   continuity
+
+lemma f_ray_on_cont_prop {p x: EuclideanSpace ℝ (Fin n)} {Pp: EuclideanSpace ℝ (Fin n) → Prop} (hPp: ∀ x, Pp x → ∃ d > 0, ∀ y ∈ Metric.ball x d, Pp y) {t: ℝ} (ht_nz: t ≠ 0) (hft: Pp (f_ray p x t)) : ∃ d > 0, ∀ y, dist x y < d → Pp (f_ray p y t) := by
+  rcases hPp _ hft with ⟨δ, δpos, hδ⟩
+  let d := δ / |t|
+  have dpos: d > 0 := div_pos δpos (abs_pos.mpr ht_nz)
+  use d, dpos
+  intro y hy
+  apply hδ
+  rw [Metric.mem_ball]
+  show ‖(f_ray p y t) - (f_ray p x t)‖ < δ
+  simp [f_ray, ←smul_sub, norm_smul, ←lt_div_iff₀' (abs_pos.mpr ht_nz)]
+  rw [dist_comm] at hy
+  exact hy
+
+lemma f_ray_interior_of_interior_endpoint {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))}
+  (hA: Convex ℝ A) (hp: p ∈ interior A) (hx: x ∈ A): ∀ t ∈ Set.Ico (0:ℝ) 1, (f_ray p x t) ∈ interior A := by
+  intro t ht
+  rw [Set.mem_Ico] at ht
+  rcases eq_or_ne p x with p_eq_x | p_ne_x
+  . simpa [f_ray, ←p_eq_x]
+  . rcases Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior hp) with ⟨δ, δpos, hδ⟩
+    rw [mem_interior_iff_mem_nhds, Metric.mem_nhds_iff]
+    let d := (1 - t) * δ
+    have dpos: d > 0 := by
+      refine mul_pos ?_ δpos
+      linarith
+    use d, dpos
+    intro y hy
+    let y' := x + (1 / (1 - t)) • (y - x)
+    have one_minus_t_ne_zero: 1 - t ≠ 0 := by linarith
+    have one_minus_t_gt_zero: 1 - t > 0 := by linarith
+    have y'_in_A: y' ∈ A := by
+      apply interior_subset
+      apply hδ
+      rw [Metric.mem_ball]
+      show ‖y' - p‖ < δ
+      calc
+        ‖y' - p‖ = ‖x + (1 / (1 - t)) • (y - x) - p‖ := rfl
+        _ = ‖x + (1 / (1 - t)) • (((f_ray p x t) - x) + (y - (f_ray p x t))) - p‖ := by simp
+        _ = ‖(x - p) + (1 / (1 - t)) • ((f_ray p x t) - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by congr! 1; module
+        _ = ‖(x - p) + (1 / (1 - t)) • ((p + t • (x - p)) - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by rfl
+        _ = ‖(x - p) + (1 / (1 - t) * (1 - t)) • (p - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by congr! 1; module
+        _ = ‖(x - p) + (1:ℝ) • (p - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by
+          congr;
+          field_simp
+        _ = ‖(1 / (1 - t)) • (y - (f_ray p x t))‖ := by congr! 1; module
+        _ < δ := by
+          rw [norm_smul]
+          field_simp
+          rw [abs_of_pos one_minus_t_gt_zero, (div_lt_iff₀' one_minus_t_gt_zero)]
+          rw [Metric.mem_ball] at hy
+          exact hy
+    have y_eq_combination: y = t • x + (1 - t) • y' := by
+      unfold y'
+      match_scalars
+      . field_simp
+      . field_simp; ring
+    rw [y_eq_combination]
+    apply hA hx y'_in_A ht.1 (by linarith) (by ring)
+
+-- actually we proved a special case for the following theorem
+#check Convex.add_smul_mem_interior
 
 lemma seg_inside_nonempty (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hx: x ∈ A): (seg_inside p x A).Nonempty := by
   use 1
