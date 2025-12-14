@@ -429,6 +429,11 @@ lemma seg_inside_nonempty (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSp
   simp [seg_inside, f_ray]
   exact hx
 
+lemma seg_inside_nonempty' {p x: EuclideanSpace ℝ (Fin n)} (A: Set (EuclideanSpace ℝ (Fin n))) (hp: p ∈ A): (seg_inside p x A).Nonempty := by
+  use 0
+  simp [seg_inside, f_ray]
+  exact hp
+
 lemma seg_inside_bdd (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p): BddAbove (seg_inside p x A) := by
   have nxp_gt_0 : ‖x - p‖ > 0 := norm_sub_pos_iff.mpr hxp
   rcases hA.isBounded.subset_closedBall p with ⟨r, hr⟩
@@ -605,6 +610,75 @@ lemma inv_cont_at_non_zero {x: ℝ} (hx: x ≠ 0): ContinuousAt (fun r:ℝ ↦ 1
     _ = ε * (|x| * |x| / 2) := by field_simp; ring
     _ < ε * |y * x| := by rw [mul_lt_mul_left εpos, abs_mul, mul_comm |y| |x|, mul_div_assoc, mul_lt_mul_left abs_x_pos]; exact abs_y_gt_half_abs_x
 
+lemma f_ray_interior_of_interior_endpoint' {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hp: p ∈ interior A) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hx: x ≠ p): ∀ t ∈ Set.Ico (0:ℝ) (sSup (seg_inside p x A)), f_ray p x t ∈ interior A := by
+  intro t ht
+  rw [Set.mem_Ico] at ht
+  rcases ht with ⟨ht₀, ht₁⟩
+  rw[lt_csSup_iff (seg_inside_bdd p x A h_A_compact hx) (seg_inside_nonempty' A (interior_subset hp))] at ht₁
+  rcases ht₁ with ⟨t', t'_in_seg_inside, t_lt_t'⟩
+  have t'_gt_0: t' > 0 := by linarith
+  have t'_ne_0: t' ≠ 0 := by linarith
+  let x' := f_ray p x t'
+  have : f_ray p x t = f_ray p x' (t / t') := by
+    simp [f_ray, x']
+    match_scalars
+    . field_simp
+    . field_simp
+  rw [this]
+  apply f_ray_interior_of_interior_endpoint h_A_convex hp t'_in_seg_inside
+  rw [Set.mem_Ico]
+  constructor
+  . trans 0 / t'
+    . field_simp
+    exact (div_le_div_iff_of_pos_right t'_gt_0 (a := 0) (b := t)).mpr ht₀
+  . exact Bound.div_lt_one_of_pos_of_lt t'_gt_0 t_lt_t'
+
+
+lemma seg_inside_sup_left_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) (hx: x ≠ p): ∀ ε > 0, ∃ δ > 0, ∀ y, dist y x < δ → (sSup (seg_inside p y A)) > (sSup (seg_inside p x A)) - ε := by
+  intro ε εpos
+  let t := max (sSup (seg_inside p x A) - ε / 2) (sSup (seg_inside p x A) / 2)
+  have sSup_pos: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hx hp
+  have t_pos: t > 0 := by
+    apply  lt_of_lt_of_le (b := sSup (seg_inside p x A) / 2)
+    . linarith
+    . apply le_max_right
+  have h_t_gt: t > sSup (seg_inside p x A) - ε := by
+    apply lt_of_lt_of_le (b := sSup (seg_inside p x A) - ε / 2)
+    . linarith
+    . apply le_max_left
+  have h_t_lt: t < sSup (seg_inside p x A) := by
+    apply max_lt
+    . linarith
+    . linarith
+  have ray_t_interior: f_ray p x t ∈ interior A := by
+    apply f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hx t ?_
+    rw [Set.mem_Ico]
+    exact ⟨le_of_lt t_pos, h_t_lt⟩
+  let fp := fun y ↦ y ∈ interior A ∧ y ≠ p
+  have hfp: ∀ y, fp y → ∃ d > 0, ∀ z ∈ Metric.ball y d, fp z := by
+    intro y hy
+    rcases  Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior hy.1) with ⟨d, dpos, hd⟩
+    use min d (dist y p / 2)
+    constructor
+    . apply lt_min dpos
+      apply half_pos
+      rw [dist_pos]
+      exact hy.2
+    . intro z hz
+      rw [Metric.mem_ball] at hz
+      constructor
+      . apply hd
+        rw [Metric.mem_ball]
+        apply lt_of_lt_of_le (b := min d (dist y p / 2)) hz
+        exact min_le_left d (dist y p / 2)
+      . rw [←dist_pos]
+        sorry
+  --rcases f_ray_on_cont_prop hfp (ne_of_gt t_pos) ray_t_interior with ⟨d, dpos, hd⟩
+  --use d, dpos
+  --intro y hy
+  --#check seg_inside_bdd p y A h_A_compact
+  sorry
+
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
   rw [continuous_iff_continuousAt]
   intro x
@@ -653,7 +727,8 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
       exact ContinuousAt.congr this (id (Filter.EventuallyEq.symm h_eventually_eq))
     refine ContinuousAt.comp ?_ ?_
     . exact inv_cont_at_non_zero (ne_of_gt (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp))
-    . sorry
+    . rw [Metric.continuousAt_iff]
+      sorry
 end
 end Chp5
 
