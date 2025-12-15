@@ -362,6 +362,13 @@ theorem f_ray_cont (p x: EuclideanSpace ℝ (Fin n)): Continuous (f_ray p x) := 
   unfold f_ray
   continuity
 
+theorem f_ray_inj_of_distinct_endpoints {p x: EuclideanSpace ℝ (Fin n)} (hne: x ≠ p): Function.Injective (f_ray p x) := by
+  intro t₁ t₂ h
+  simp [f_ray] at h
+  have : x - p ≠ 0 := sub_ne_zero_of_ne hne
+  apply smul_left_injective ℝ this
+  exact h
+
 lemma f_ray_on_cont_prop {p x: EuclideanSpace ℝ (Fin n)} {Pp: EuclideanSpace ℝ (Fin n) → Prop} (hPp: ∀ x, Pp x → ∃ d > 0, ∀ y ∈ Metric.ball x d, Pp y) {t: ℝ} (ht_nz: t ≠ 0) (hft: Pp (f_ray p x t)) : ∃ d > 0, ∀ y, dist x y < d → Pp (f_ray p y t) := by
   rcases hPp _ hft with ⟨δ, δpos, hδ⟩
   let d := δ / |t|
@@ -633,7 +640,6 @@ lemma f_ray_interior_of_interior_endpoint' {p x: EuclideanSpace ℝ (Fin n)} {A:
     exact (div_le_div_iff_of_pos_right t'_gt_0 (a := 0) (b := t)).mpr ht₀
   . exact Bound.div_lt_one_of_pos_of_lt t'_gt_0 t_lt_t'
 
-
 lemma seg_inside_sup_left_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) (hx: x ≠ p): ∀ ε > 0, ∃ δ > 0, ∀ y, dist y x < δ → (sSup (seg_inside p y A)) > (sSup (seg_inside p x A)) - ε := by
   intro ε εpos
   let t := max (sSup (seg_inside p x A) - ε / 2) (sSup (seg_inside p x A) / 2)
@@ -654,30 +660,42 @@ lemma seg_inside_sup_left_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (Eucli
     apply f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hx t ?_
     rw [Set.mem_Ico]
     exact ⟨le_of_lt t_pos, h_t_lt⟩
-  let fp := fun y ↦ y ∈ interior A ∧ y ≠ p
+  let fp := fun y ↦ y ∈ interior A
   have hfp: ∀ y, fp y → ∃ d > 0, ∀ z ∈ Metric.ball y d, fp z := by
     intro y hy
-    rcases  Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior hy.1) with ⟨d, dpos, hd⟩
-    use min d (dist y p / 2)
-    constructor
-    . apply lt_min dpos
-      apply half_pos
-      rw [dist_pos]
-      exact hy.2
-    . intro z hz
-      rw [Metric.mem_ball] at hz
-      constructor
-      . apply hd
-        rw [Metric.mem_ball]
-        apply lt_of_lt_of_le (b := min d (dist y p / 2)) hz
-        exact min_le_left d (dist y p / 2)
-      . rw [←dist_pos]
-        sorry
-  --rcases f_ray_on_cont_prop hfp (ne_of_gt t_pos) ray_t_interior with ⟨d, dpos, hd⟩
-  --use d, dpos
-  --intro y hy
-  --#check seg_inside_bdd p y A h_A_compact
-  sorry
+    rcases  Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior hy) with ⟨d, dpos, hd⟩
+    use d, dpos
+    intro z hz
+    apply hd
+    exact hz
+  rcases f_ray_on_cont_prop hfp (ne_of_gt t_pos) ray_t_interior with ⟨d, dpos, hd⟩
+  let d' := min d ((dist x p) / 2)
+  have d'pos: d' > 0 := by
+    apply lt_min dpos
+    apply half_pos
+    exact dist_pos.mpr hx
+  use d', d'pos
+  intro y hy
+  have ynep:  y ≠ p := by
+    rw [←dist_pos]
+    calc
+      dist y p ≥ dist x p - dist y x := by
+        have : dist y p + dist y x ≥ dist x p := by
+          rw [add_comm, dist_comm y x]
+          apply dist_triangle
+        linarith
+      _ > dist x p - d' := by linarith
+      _ ≥ dist x p - (dist x p / 2) := by
+        have: d' ≤ dist x p / 2 := by apply min_le_right
+        linarith
+      _ > 0 := by simp [hx]
+  show sSup (seg_inside p x A) - ε < sSup (seg_inside p y A)
+  rw[lt_csSup_iff (seg_inside_bdd p y A h_A_compact ynep) (by apply seg_inside_nonempty' _ (interior_subset hp))]
+  have : dist x y < d := by
+    apply lt_of_lt_of_le
+    . rwa [dist_comm]
+    apply min_le_left
+  use t, interior_subset (s:=A) (hd y this)
 
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
   rw [continuous_iff_continuousAt]
