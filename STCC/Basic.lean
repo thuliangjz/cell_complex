@@ -697,6 +697,47 @@ lemma seg_inside_sup_left_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (Eucli
     apply min_le_left
   use t, interior_subset (s:=A) (hd y this)
 
+lemma f_ray_seg_inside_sup_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hxp: x ≠ p) (hp: p ∈ interior A) : f_ray p x (sSup (seg_inside p x A)) ∈ A := by
+  sorry
+
+lemma seg_inside_sup_of_not_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hxp: x ≠ p) (hp: p ∈ interior A) {t: ℝ} (ht: f_ray p x t ∉ A): sSup (seg_inside p x A) < t := by
+
+  sorry
+
+lemma seg_inside_sup_right_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) (hx: x ≠ p): ∀ ε > 0, ∃ δ > 0, ∀ y, dist y x < δ → sSup (seg_inside p y A) < sSup (seg_inside p x A) + ε := by
+  intro ε εpos
+  let t := sSup (seg_inside p x A) + ε / 2
+  have sSup_pos: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hx hp
+  have h_t_gt: t > sSup (seg_inside p x A) := by unfold t; linarith
+  have ray_t_outside: f_ray p x t ∉ A := by
+    by_contra ht
+    have: t ≤ sSup (seg_inside p x A) := by
+      apply le_csSup (seg_inside_bdd p x A h_A_compact hx)
+      exact ht
+    linarith
+  let fp := fun y ↦ y ∉ A
+  have hfp: ∀ y, fp y → ∃ d > 0, ∀ z ∈ Metric.ball y d, fp z := by
+    intro y hy
+    have A_compl_open: IsOpen Aᶜ := by
+      rw [isOpen_compl_iff]
+      exact h_A_compact.isClosed
+    rcases Metric.mem_nhds_iff.mp (IsOpen.mem_nhds A_compl_open hy) with ⟨d, dpos, hd⟩
+    use d, dpos
+    intro z hz
+    exact hd hz
+  rcases f_ray_on_cont_prop hfp (by linarith) (ray_t_outside) with ⟨d, dpos, hd⟩
+  use d, dpos
+  intro y hy
+  have y_ne_p: y ≠ p := by
+    by_contra y_eq_p
+    rw [dist_comm] at hy
+    have fpy: fp (f_ray p y t) := hd y hy
+    simp [f_ray, y_eq_p, fp] at fpy
+    have: p ∈ A := interior_subset hp
+    contradiction
+
+  sorry
+
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
   rw [continuous_iff_continuousAt]
   intro x
