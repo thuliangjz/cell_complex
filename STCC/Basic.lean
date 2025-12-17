@@ -789,6 +789,39 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
     . rw [Metric.continuousAt_iff]
       sorry
 end
+section
+open Topology
+variable {X: Type*} [TopologicalSpace X]
+#check IsClosed.mem_of_frequently_of_tendsto
+example {f: ℝ → X} (f_cont: Continuous f) {S: Set X} (S_closed: IsClosed S) {t: ℝ} (t_pos: t > 0) (ht: ∀ x ∈ Set.Ico 0 t, f x ∈ S): f t ∈ S := by
+  apply S_closed.mem_of_frequently_of_tendsto (f := f) (b := 𝓝 t)
+  . contrapose! ht
+    rw [Filter.frequently_iff] at ht
+    simp at ht
+    rcases ht with ⟨U, U_nhds, hU⟩
+    rw[Metric.nhds_basis_ball.mem_iff] at U_nhds
+    rcases U_nhds with ⟨d, dpos, hd⟩
+    let d' := min (t / 2) (d / 2)
+    have d'_lt_t : d' < t := by
+      apply lt_of_le_of_lt (b := t / 2)
+      . apply min_le_left
+      linarith
+    have d'pos: d' > 0 := by
+      apply lt_min
+      <;> linarith
+    have d'_lt_d : d' < d := by
+      apply lt_of_le_of_lt (b := d / 2)
+      . apply min_le_right
+      linarith
+    let x := t - d'
+    have xpos: x > 0 := by linarith
+    have x_lt_t: x < t := by linarith
+    use x, ⟨le_of_lt xpos, x_lt_t⟩
+    apply hU
+    apply hd
+    simp [x, abs_of_pos d'pos, d'_lt_d]
+  . exact Continuous.tendsto' f_cont t (f t) rfl
+end
 end Chp5
 
 -- Coeherent Defs
