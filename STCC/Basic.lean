@@ -698,11 +698,49 @@ lemma seg_inside_sup_left_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (Eucli
   use t, interior_subset (s:=A) (hd y this)
 
 lemma f_ray_seg_inside_sup_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hxp: x ≠ p) (hp: p ∈ interior A) : f_ray p x (sSup (seg_inside p x A)) ∈ A := by
-  sorry
+  apply h_A_compact.isClosed.mem_of_frequently_of_tendsto (f := f_ray p x) (b := 𝓝 (sSup (seg_inside p x A)))
+  have hsup : ∀ t ∈ Set.Ico 0 (sSup (seg_inside p x A)), f_ray p x t ∈ A  := by
+    intro t ht
+    apply interior_subset (s := A)
+    exact (f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hxp) t ht
+  . contrapose! hsup
+    simp [Filter.frequently_iff] at hsup
+    rcases hsup with ⟨U, U_nhds, hU⟩
+    rw [Metric.nhds_basis_ball.mem_iff] at U_nhds
+    rcases U_nhds with ⟨d, dpos, hd⟩
+    let ss := sSup (seg_inside p x A)
+    let d' := min (ss / 2) (d / 2)
+    have ss_pos: ss > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hxp hp
+    have d'_lt_ss : d' < ss := by
+      apply lt_of_le_of_lt (b := ss / 2)
+      . apply min_le_left
+      linarith
+    have d'pos: d' > 0 := by
+      apply lt_min
+      <;> linarith
+    have d'_lt_d: d' < d := by
+      apply lt_of_le_of_lt (b := d / 2)
+      . apply min_le_right
+      linarith
+    let y := ss - d'
+    have ypos: y > 0 := by linarith
+    have y_lt_ss: y < ss := by linarith
+    use y, ⟨le_of_lt ypos, y_lt_ss⟩
+    apply hU
+    apply hd
+    simp [y, ss, abs_of_pos d'pos, d'_lt_d]
+  . exact Continuous.tendsto' (f_ray_cont p x) (sSup (seg_inside p x A)) (f_ray p x (sSup (seg_inside p x A))) rfl
 
-lemma seg_inside_sup_of_not_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hxp: x ≠ p) (hp: p ∈ interior A) {t: ℝ} (ht: f_ray p x t ∉ A): sSup (seg_inside p x A) < t := by
-
-  sorry
+lemma seg_inside_sup_of_not_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hxp: x ≠ p) (hp: p ∈ interior A) {t: ℝ} (ht: f_ray p x t ∉ A) (tnneg: t ≥ 0): sSup (seg_inside p x A) < t := by
+  contrapose! ht
+  rw [le_iff_lt_or_eq] at ht
+  rcases ht with t_lt_ss | t_eq_ss
+  . apply interior_subset
+    apply f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hxp t ?_
+    rw [Set.mem_Ico]
+    exact ⟨tnneg, t_lt_ss⟩
+  . rw [t_eq_ss]
+    exact f_ray_seg_inside_sup_inside h_A_compact h_A_convex hxp hp
 
 lemma seg_inside_sup_right_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) (hx: x ≠ p): ∀ ε > 0, ∃ δ > 0, ∀ y, dist y x < δ → sSup (seg_inside p y A) < sSup (seg_inside p x A) + ε := by
   intro ε εpos
@@ -735,8 +773,12 @@ lemma seg_inside_sup_right_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (Eucl
     simp [f_ray, y_eq_p, fp] at fpy
     have: p ∈ A := interior_subset hp
     contradiction
-
-  sorry
+  trans t
+  . apply seg_inside_sup_of_not_inside h_A_compact h_A_convex y_ne_p hp ?_ (by linarith)
+    apply hd
+    rw [dist_comm] at hy
+    exact hy
+  . unfold t;linarith
 
 theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
   rw [continuous_iff_continuousAt]
@@ -788,39 +830,6 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
     . exact inv_cont_at_non_zero (ne_of_gt (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp))
     . rw [Metric.continuousAt_iff]
       sorry
-end
-section
-open Topology
-variable {X: Type*} [TopologicalSpace X]
-#check IsClosed.mem_of_frequently_of_tendsto
-example {f: ℝ → X} (f_cont: Continuous f) {S: Set X} (S_closed: IsClosed S) {t: ℝ} (t_pos: t > 0) (ht: ∀ x ∈ Set.Ico 0 t, f x ∈ S): f t ∈ S := by
-  apply S_closed.mem_of_frequently_of_tendsto (f := f) (b := 𝓝 t)
-  . contrapose! ht
-    rw [Filter.frequently_iff] at ht
-    simp at ht
-    rcases ht with ⟨U, U_nhds, hU⟩
-    rw[Metric.nhds_basis_ball.mem_iff] at U_nhds
-    rcases U_nhds with ⟨d, dpos, hd⟩
-    let d' := min (t / 2) (d / 2)
-    have d'_lt_t : d' < t := by
-      apply lt_of_le_of_lt (b := t / 2)
-      . apply min_le_left
-      linarith
-    have d'pos: d' > 0 := by
-      apply lt_min
-      <;> linarith
-    have d'_lt_d : d' < d := by
-      apply lt_of_le_of_lt (b := d / 2)
-      . apply min_le_right
-      linarith
-    let x := t - d'
-    have xpos: x > 0 := by linarith
-    have x_lt_t: x < t := by linarith
-    use x, ⟨le_of_lt xpos, x_lt_t⟩
-    apply hU
-    apply hd
-    simp [x, abs_of_pos d'pos, d'_lt_d]
-  . exact Continuous.tendsto' f_cont t (f t) rfl
 end
 end Chp5
 
