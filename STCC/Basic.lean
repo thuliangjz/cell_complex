@@ -829,7 +829,28 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
     refine ContinuousAt.comp ?_ ?_
     . exact inv_cont_at_non_zero (ne_of_gt (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp))
     . rw [Metric.continuousAt_iff]
-      sorry
+      intro ε εpos
+      rcases seg_inside_sup_left_cont h_A_convex h_A_compact hp x_ne_p ε εpos with ⟨δ₁, δ₁pos, hδ₁⟩
+      rcases seg_inside_sup_right_cont h_A_convex h_A_compact hp x_ne_p ε εpos with ⟨δ₂, δ₂pos, hδ₂⟩
+      let δ := min δ₁ δ₂
+      have δpos: δ > 0 := by
+        apply lt_min
+        <;> assumption
+      use δ, δpos
+      intro y hy
+      show |sSup (seg_inside p y A) - sSup (seg_inside p x A)| < ε
+      rw [abs_sub_lt_iff]
+      constructor
+      . suffices sSup (seg_inside p y A) < sSup (seg_inside p x A) + ε by
+          linarith
+        apply hδ₂
+        apply lt_of_lt_of_le (b := δ) hy
+        apply min_le_right
+      . suffices sSup (seg_inside p y A) > sSup (seg_inside p x A) - ε by
+          linarith
+        apply hδ₁
+        apply lt_of_lt_of_le hy
+        apply min_le_left
 end
 end Chp5
 
