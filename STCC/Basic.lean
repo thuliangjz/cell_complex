@@ -851,6 +851,88 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
         apply hδ₁
         apply lt_of_lt_of_le hy
         apply min_le_left
+
+theorem sep_fun_eq_0_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∀ x, (sep_fun p A x) = 0 ↔ x = p := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    simp at hx
+    contrapose! hx
+    simp [sep_fun, hx]
+    by_contra! sup_eq_zero
+    have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hx hp
+    linarith
+  case mpr =>
+    intro hx
+    simp at hx
+    simp [hx, sep_fun]
+
+theorem sep_fun_lt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∀ x, (sep_fun p A x) < 1 ↔ x ∈ interior A := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mpr =>
+    intro x_in_interior
+    rcases eq_or_ne x p with x_eq_p | x_ne_p
+    . simp [sep_fun, x_eq_p]
+    . simp [sep_fun, x_ne_p]
+      have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
+      field_simp
+      refine Bound.div_lt_one_of_pos_of_lt this ?_
+      rcases Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior x_in_interior) with ⟨d, dpos, hd⟩
+      let t := (dist x p + d / 2) / (dist x p)
+      have t_gt_1: t > 1 := by
+        refine Bound.one_lt_div_of_pos_of_lt (dist_pos.mpr x_ne_p) ?_
+        linarith
+      have tpos: t > 0 := by linarith
+      have ray_t_inside: f_ray p x t ∈ A := by
+        apply interior_subset
+        apply hd
+        rw [Metric.mem_ball]
+        unfold t
+        simp [f_ray]
+        show ‖(p + ((‖x - p‖ + d / 2) / ‖x - p‖) • (x - p)) - x‖ < d
+        have aux_norm_diff_ne_0 : ‖x - p‖ ≠ 0 := by
+          show dist x p ≠ 0
+          exact dist_ne_zero.mpr x_ne_p
+        calc
+          ‖(p + ((‖x - p‖ + d / 2) / ‖x - p‖) • (x - p)) - x‖ = ‖((‖x - p‖ + d / 2) / ‖x - p‖ - 1) • (x - p)‖ := by congr! 1; module
+          _ = ‖((d / 2) / ‖x - p‖) • (x - p)‖ := by congr! 2;field_simp;ring
+          _ = |d| / 2 := by rw [norm_smul]; field_simp; ring
+          _ < d := by rw [abs_of_pos dpos]; linarith
+      have: t ≤ sSup (seg_inside p x A) := le_csSup (seg_inside_bdd p x A h_A_compact x_ne_p) ray_t_inside
+      linarith
+  case mp =>
+    sorry
+
+theorem sep_fun_gt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) : ∀ x,  (sep_fun p A x) > 1 ↔ x ∈ Aᶜ  := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mpr =>
+    intro x_not_in_A
+    have x_ne_p: x ≠ p := by
+      contrapose! x_not_in_A
+      simp
+      apply interior_subset
+      rw [x_not_in_A]
+      exact hp
+    simp [sep_fun, x_ne_p]
+    have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
+    field_simp
+    apply Bound.one_lt_div_of_pos_of_lt this
+    apply seg_inside_sup_of_not_inside h_A_compact h_A_convex x_ne_p hp ?_ (by linarith)
+    simp [f_ray]
+    exact x_not_in_A
+  case mp =>
+    sorry
+
+theorem sep_fun_eq_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∀ x, sep_fun p A x = 1 ↔ x ∈ frontier A := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    sorry
+  case mpr =>
+    sorry
 end
 end Chp5
 
