@@ -1,5 +1,6 @@
 import STCC.TopologicalProperties
 import Mathlib.Order.WellFounded
+import Mathlib.Topology.UrysohnsLemma
 
 open BigOperators
 namespace Chp5
@@ -1490,9 +1491,66 @@ theorem characteristic_map_boundary: ∀ e:(cell_sets (CWC := CWC)), Set.range (
       _ = CWC.Fsk n := by ext x; simp
       _ ⊆ ⋃ p: cell_sets (CWC:=CWC), ⋃ _:(dim_map p < dim_map e'), p.1 := by rw [dim_eq]; exact skn_sub_cell_iunion n
 
+def point_indices := (CWC.Fsk 0) ⊕ (Σ(n:ℕ), Σ(_: CWC.Fι n), b (n + 1))
+
+def pid_to_pt : (point_indices (CWC := CWC)) → X := fun I ↦ match I with
+| Sum.inl ⟨x, _⟩ => x
+| Sum.inr ⟨n, i, y⟩ => cell_define_map n i y
+
+def pid_to_nat : (point_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
+| Sum.inl _ => 0
+| Sum.inr ⟨n, _⟩ => n + 1
+
+lemma pid_to_pt_in_sk: ∀ p:(point_indices (CWC := CWC)), pid_to_pt p ∈ CWC.Fsk (pid_to_nat p) := by
+  intro p
+  match p with
+  | Sum.inl x => simp [pid_to_pt]
+  | Sum.inr ⟨n, i, y⟩ =>
+    simp [pid_to_pt, pid_to_nat]
+    apply cell_n_in_Fsk_np1 n i
+    use y
+
+noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (pid_to_nat p) → ℝ := fun I ↦ match I with
+| Sum.inl x => ({x}: Set (CWC.Fsk 0)).indicator (fun _ ↦ 1)
+| Sum.inr ⟨n, i, x⟩ => sorry
 
 end CWComplexConstructor
 end
 
 
 end Chp5
+
+section
+variable {X: Type*} [TopologicalSpace X]
+instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) : T2Space X := by
+  refine { t2 := ?_ }
+  intro x y x_ne_y
+  rcases h x with ⟨f, f_cont, hf⟩
+  have fx_eq_0: f x = 0 := by
+    have : x ∈ ({x}: Set X) := by rfl
+    rw [←hf] at this
+    exact this
+  have fy_ne_0: f y ≠ 0 := by
+    by_contra! fy_eq_0
+    have : y ∈ f ⁻¹' {0} := by exact fy_eq_0
+    rw [hf] at this
+    have: x = y := by exact this.symm
+    contradiction
+  have fx_ne_fy: f x ≠ f y := ne_of_eq_of_ne fx_eq_0 (id (Ne.symm fy_ne_0))
+  rcases t2_separation fx_ne_fy with ⟨u', v', u'_open, v'_open, fx_in_u', fy_in_v', u'_v'_disjoint⟩
+  let u := f ⁻¹' u'
+  let v := f ⁻¹' v'
+  have u_open: IsOpen u := by exact f_cont.isOpen_preimage u' u'_open
+  have v_open: IsOpen v := by exact f_cont.isOpen_preimage v' v'_open
+  have x_in_u: x ∈ u := fx_in_u'
+  have y_in_v: y ∈ v := fy_in_v'
+  have uv_disj: Disjoint u v := by exact Disjoint.preimage f u'_v'_disjoint
+  use u, v
+#check exists_continuous_zero_one_of_isClosed
+end
+
+section
+variable {X: Type*} {s: Set X}
+#check s.indicator (fun _ ↦ (1:ℝ))
+#check s.indicator_of_mem
+end

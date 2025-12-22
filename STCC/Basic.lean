@@ -340,6 +340,636 @@ theorem sph0_empty: sph 0 = ∅ := by
 theorem cb0_boundary_empty: @cb_boundary 0 = ∅ := by
   rw [cb_boundary, Set.range_eq_empty_iff, Set.isEmpty_coe_sort]
   exact sph0_empty
+
+section
+variable {X: Type*} [TopologicalSpace X]
+theorem closure_decomposition {A: Set X} : closure A = frontier A ∪ interior A := by
+  unfold frontier
+  refine Eq.symm (Set.diff_union_of_subset ?_)
+  exact interior_subset_closure
+end
+
+section
+variable {n: ℕ}
+
+def f_ray (p x: EuclideanSpace ℝ (Fin n)): ℝ → (EuclideanSpace ℝ (Fin n)) := fun t ↦ p + t • (x - p)
+
+def seg_inside (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))): Set ℝ := (f_ray p x) ⁻¹' A
+
+noncomputable def sep_fun (p: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))): EuclideanSpace ℝ (Fin n) → ℝ := fun x ↦ if x = p then 0 else 1 / sSup (seg_inside p x A)
+
+theorem f_ray_cont (p x: EuclideanSpace ℝ (Fin n)): Continuous (f_ray p x) := by
+  unfold f_ray
+  continuity
+
+theorem f_ray_inj_of_distinct_endpoints {p x: EuclideanSpace ℝ (Fin n)} (hne: x ≠ p): Function.Injective (f_ray p x) := by
+  intro t₁ t₂ h
+  simp [f_ray] at h
+  have : x - p ≠ 0 := sub_ne_zero_of_ne hne
+  apply smul_left_injective ℝ this
+  exact h
+
+lemma f_ray_on_cont_prop {p x: EuclideanSpace ℝ (Fin n)} {Pp: EuclideanSpace ℝ (Fin n) → Prop} (hPp: ∀ x, Pp x → ∃ d > 0, ∀ y ∈ Metric.ball x d, Pp y) {t: ℝ} (ht_nz: t ≠ 0) (hft: Pp (f_ray p x t)) : ∃ d > 0, ∀ y, dist x y < d → Pp (f_ray p y t) := by
+  rcases hPp _ hft with ⟨δ, δpos, hδ⟩
+  let d := δ / |t|
+  have dpos: d > 0 := div_pos δpos (abs_pos.mpr ht_nz)
+  use d, dpos
+  intro y hy
+  apply hδ
+  rw [Metric.mem_ball]
+  show ‖(f_ray p y t) - (f_ray p x t)‖ < δ
+  simp [f_ray, ←smul_sub, norm_smul, ←lt_div_iff₀' (abs_pos.mpr ht_nz)]
+  rw [dist_comm] at hy
+  exact hy
+
+lemma f_ray_interior_of_interior_endpoint {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))}
+  (hA: Convex ℝ A) (hp: p ∈ interior A) (hx: x ∈ A): ∀ t ∈ Set.Ico (0:ℝ) 1, (f_ray p x t) ∈ interior A := by
+  intro t ht
+  rw [Set.mem_Ico] at ht
+  rcases eq_or_ne p x with p_eq_x | p_ne_x
+  . simpa [f_ray, ←p_eq_x]
+  . rcases Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior hp) with ⟨δ, δpos, hδ⟩
+    rw [mem_interior_iff_mem_nhds, Metric.mem_nhds_iff]
+    let d := (1 - t) * δ
+    have dpos: d > 0 := by
+      refine mul_pos ?_ δpos
+      linarith
+    use d, dpos
+    intro y hy
+    let y' := x + (1 / (1 - t)) • (y - x)
+    have one_minus_t_ne_zero: 1 - t ≠ 0 := by linarith
+    have one_minus_t_gt_zero: 1 - t > 0 := by linarith
+    have y'_in_A: y' ∈ A := by
+      apply interior_subset
+      apply hδ
+      rw [Metric.mem_ball]
+      show ‖y' - p‖ < δ
+      calc
+        ‖y' - p‖ = ‖x + (1 / (1 - t)) • (y - x) - p‖ := rfl
+        _ = ‖x + (1 / (1 - t)) • (((f_ray p x t) - x) + (y - (f_ray p x t))) - p‖ := by simp
+        _ = ‖(x - p) + (1 / (1 - t)) • ((f_ray p x t) - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by congr! 1; module
+        _ = ‖(x - p) + (1 / (1 - t)) • ((p + t • (x - p)) - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by rfl
+        _ = ‖(x - p) + (1 / (1 - t) * (1 - t)) • (p - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by congr! 1; module
+        _ = ‖(x - p) + (1:ℝ) • (p - x) + (1 / (1 - t)) • (y - (f_ray p x t))‖ := by
+          congr;
+          field_simp
+        _ = ‖(1 / (1 - t)) • (y - (f_ray p x t))‖ := by congr! 1; module
+        _ < δ := by
+          rw [norm_smul]
+          field_simp
+          rw [abs_of_pos one_minus_t_gt_zero, (div_lt_iff₀' one_minus_t_gt_zero)]
+          rw [Metric.mem_ball] at hy
+          exact hy
+    have y_eq_combination: y = t • x + (1 - t) • y' := by
+      unfold y'
+      match_scalars
+      . field_simp
+      . field_simp; ring
+    rw [y_eq_combination]
+    apply hA hx y'_in_A ht.1 (by linarith) (by ring)
+
+-- actually we proved a special case for the following theorem
+#check Convex.add_smul_mem_interior
+
+lemma seg_inside_nonempty (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hx: x ∈ A): (seg_inside p x A).Nonempty := by
+  use 1
+  simp [seg_inside, f_ray]
+  exact hx
+
+lemma seg_inside_nonempty' {p x: EuclideanSpace ℝ (Fin n)} (A: Set (EuclideanSpace ℝ (Fin n))) (hp: p ∈ A): (seg_inside p x A).Nonempty := by
+  use 0
+  simp [seg_inside, f_ray]
+  exact hp
+
+lemma seg_inside_bdd (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p): BddAbove (seg_inside p x A) := by
+  have nxp_gt_0 : ‖x - p‖ > 0 := norm_sub_pos_iff.mpr hxp
+  rcases hA.isBounded.subset_closedBall p with ⟨r, hr⟩
+  use r / ‖x - p‖
+  simp [upperBounds, seg_inside]
+  intro t ht
+  unfold f_ray at ht
+  let ht' := hr ht
+  simp [norm_smul] at ht'
+  rw [le_div_iff₀ nxp_gt_0]
+  trans |t| * ‖x - p‖
+  . rw [mul_le_mul_iff_of_pos_right nxp_gt_0]
+    exact le_abs_self t
+  . exact ht'
+
+lemma seg_inside_has_lub (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p) (hx: x ∈ A): IsLUB (seg_inside p x A) (sSup (seg_inside p x A)) := by
+  refine isLUB_csSup ?_ ?_
+  . exact seg_inside_nonempty p x A hx
+  . exact seg_inside_bdd p x A hA hxp
+
+lemma seg_inside_sup_pos (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p) (hx: x ∈ A) : (sSup (seg_inside p x A)) > 0 := by
+  apply lt_of_lt_of_le (b := 1)
+  . norm_num
+  apply le_csSup (seg_inside_bdd p x A hA hxp)
+  simpa [seg_inside, f_ray]
+
+lemma seg_inside_sup_pos_of_interior (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))) (hA: IsCompact A) (hxp: x ≠ p) (hp: p ∈ interior A): (sSup (seg_inside p x A)) > 0 := by
+  have int_A_is_p_nhds: interior A ∈ nhds p := by
+    rw [mem_nhds_iff]
+    use interior A, (fun a ah ↦ ah), isOpen_interior
+  rw [Metric.mem_nhds_iff] at int_A_is_p_nhds
+  rcases int_A_is_p_nhds with ⟨δ, δpos, hδ⟩
+  let d := δ / (2 * dist x p)
+  have dpos: d > 0 := by
+    apply div_pos δpos
+    suffices dist x p > 0 by
+      linarith
+    exact dist_pos.mpr hxp
+  have d_in_seg_inside: d ∈ seg_inside p x A := by
+    apply interior_subset (s:=A)
+    apply hδ
+    simp [Metric.mem_ball, f_ray, norm_smul]
+    calc
+      |d| * ‖x - p‖ = |(δ / (2 * ‖x - p‖))| * ‖x - p‖ := rfl
+      _ = |δ| / |2 * ‖x - p‖| * ‖x - p‖ := by rw[abs_div]
+      _ = |δ| / (2 * ‖x - p‖) * ‖x - p‖ := by rw [abs_mul]; simp
+      _ = |δ| / 2 := by have: ‖x - p‖ ≠ 0 := ne_of_gt (dist_pos.mpr hxp); field_simp; ring
+      _ < δ := by rw [abs_of_pos δpos]; exact div_two_lt_of_pos δpos
+  apply lt_of_lt_of_le (b := d)
+  . exact dpos
+  . exact le_csSup (seg_inside_bdd p x A hA hxp) d_in_seg_inside
+
+lemma nonempty_frontier_of_compact_nonempty_subset {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (h_A_nonempty: A.Nonempty): (frontier A).Nonempty := by
+  by_contra! frontier_empty
+  have A_closed: IsClosed A := IsCompact.isClosed h_A_compact
+  have A_eq_interior: A = interior A := by
+    nth_rw 1 [A_closed.closure_eq.symm]
+    rw [closure_decomposition, frontier_empty]
+    simp
+  have A_open: IsOpen A := interior_eq_iff_isOpen.mp (id (Eq.symm A_eq_interior))
+  have A_compl_nonempty: (Aᶜ).Nonempty := by
+    rw [Set.nonempty_def]
+    rcases h_A_compact.isBounded.subset_closedBall 0 with ⟨r, hr⟩
+    have r_noneg: r ≥ 0 := by
+      have cb_nonempty: (Metric.closedBall (0: EuclideanSpace ℝ (Fin n)) r).Nonempty := by
+        rcases h_A_nonempty with ⟨p, p_in_A⟩
+        use p
+        exact hr p_in_A
+      exact Metric.nonempty_closedBall.mp cb_nonempty
+    use (r + 1) • (EuclideanSpace.single ⟨0, hn⟩ 1)
+    by_contra! not_mem_compl
+    simp at not_mem_compl
+    let mem_closed_ball := hr not_mem_compl
+    simp [Metric.mem_closedBall, dist_eq_norm, norm_smul] at mem_closed_ball
+    have : |r + 1|= r + 1 := by apply abs_of_nonneg; linarith
+    rw [this] at mem_closed_ball
+    linarith
+  have A_compl_open: IsOpen Aᶜ := by exact IsClosed.isOpen_compl
+  have univ_sub_union: Set.univ ⊆ A ∪ Aᶜ := by intro x; simp
+  have univ_preconnected: IsPreconnected (Set.univ: Set (EuclideanSpace ℝ (Fin n))) := isPreconnected_univ
+  have inter_nonempty: (A ∩ Aᶜ).Nonempty := by simpa using (univ_preconnected A Aᶜ A_open A_compl_open univ_sub_union (by simpa) (by simpa))
+  simp at inter_nonempty
+open Topology
+lemma interior_boundary_min_dist {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∃ d > (0:ℝ), ∀ x ∈ A, x ≠ p → d ≤ sSup (seg_inside p x A) * ‖x - p‖ := by
+  let S := frontier A
+  let d := Metric.infDist p S
+  have A_nonempty: A.Nonempty := by use p; exact interior_subset hp
+  have d_pos: 0 < d := by
+    unfold d S
+    rw[←Metric.infDist_pos_iff_notMem_closure (nonempty_frontier_of_compact_nonempty_subset hn h_A_compact A_nonempty), isClosed_frontier.closure_eq]
+    unfold frontier
+    refine Set.notMem_of_mem_compl ?_
+    rw [Set.compl_diff]
+    left
+    exact hp
+  use d, d_pos
+  intro x x_in_A x_ne_p
+  let t₀ := sSup (seg_inside p x A)
+  have limit_in_A: p + t₀ • (x - p) ∈ A := by
+    have A_closed: IsClosed A := by exact IsCompact.isClosed h_A_compact
+    rcases (seg_inside_has_lub p x A h_A_compact x_ne_p x_in_A).exists_seq_monotone_tendsto (seg_inside_nonempty p x A x_in_A) with ⟨u, h_u_monotone, h_u_bound, h_u_tendsto, h_u_mem⟩
+    let f := f_ray p x
+    show f t₀ ∈ A
+    have f_t₀_limit: Filter.Tendsto (f ∘ u) Filter.atTop (𝓝 (f t₀)) := by
+      apply Filter.Tendsto.comp
+      . apply (f_ray_cont p x).continuousAt
+      . exact h_u_tendsto
+    apply A_closed.mem_of_tendsto f_t₀_limit
+    exact Filter.Eventually.of_forall h_u_mem
+  have limit_not_in_interior_A: p + t₀ • (x - p) ∉ interior A := by
+    by_contra! h_mem_interior
+    let U := (f_ray p x) ⁻¹' (interior A)
+    have t₀_in_U: t₀ ∈ U := h_mem_interior
+    have U_open: IsOpen U := (f_ray_cont p x).isOpen_preimage _ (isOpen_interior (s:= A))
+    have: ∃ t' ∈ U, t' > t₀ := by
+      rcases Metric.eventually_nhds_iff.mp (IsOpen.eventually_mem U_open t₀_in_U) with ⟨δ, δ_pos, hδ⟩
+      use t₀ + δ / 2
+      constructor
+      . apply hδ
+        simpa [abs_of_pos δ_pos]
+      . linarith
+    rcases this with ⟨t', t'_in_U, t'_gt_t₀⟩
+    rcases (seg_inside_has_lub p x A h_A_compact x_ne_p x_in_A) with ⟨t₀_is_upper_bound, _⟩
+    have: t' ≤ t₀ := by
+      apply t₀_is_upper_bound
+      simp [seg_inside]
+      apply interior_subset
+      exact t'_in_U
+    linarith
+  have limit_mem_frontier_A: p + t₀ • (x - p) ∈ frontier A := by
+    unfold frontier
+    rw [Set.mem_diff]
+    refine ⟨?_, limit_not_in_interior_A⟩
+    rwa [h_A_compact.isClosed.closure_eq]
+  calc
+    d ≤ dist p (p + t₀ • (x - p)) := Metric.infDist_le_dist_of_mem limit_mem_frontier_A (x := p)
+    _ = sSup (seg_inside p x A) * ‖x - p‖ := by
+      simp [norm_smul]
+      left
+      rw [abs_of_pos (seg_inside_sup_pos p x A h_A_compact x_ne_p x_in_A)]
+
+lemma inv_cont_at_non_zero {x: ℝ} (hx: x ≠ 0): ContinuousAt (fun r:ℝ ↦ 1 / r) x := by
+  rw [Metric.continuousAt_iff]
+  intro ε εpos
+  let δ := min (|x| * |x| * ε / 2) (|x| / 2)
+  have abs_x_pos : |x| > 0 := abs_pos.mpr hx
+  have δpos: δ > 0 := by
+    apply lt_min
+    . refine half_pos ?_
+      exact mul_pos (mul_self_pos.mpr (ne_of_gt abs_x_pos)) εpos
+    . exact half_pos abs_x_pos
+  use δ, δpos
+  intro y hy
+  show |1/y - 1/x| < ε
+  have abs_y_gt_half_abs_x: |y| > |x| / 2 := by
+    calc
+      |y| = |x - (x - y)| := by simp
+      _ ≥ |(|x| - |x - y|)| := by apply abs_abs_sub_abs_le
+      _ ≥ |x| - |x - y| := le_abs_self (|x| - |x - y|)
+      _ > |x| - δ := by apply sub_lt_sub_left; rwa [dist_eq_norm, Real.norm_eq_abs, abs_sub_comm] at hy
+      _ ≥ |x| - (|x| / 2) := by apply tsub_le_tsub_left; apply min_le_right
+      _ = |x| / 2 := sub_half |x|
+  have y_ne_0 : y ≠ 0 := by -- this is required for invoking field_simp
+    suffices |y| > 0 by
+      exact abs_pos.mp this
+    calc
+      |y| > |x| / 2 := abs_y_gt_half_abs_x
+      _ > 0 := half_pos abs_x_pos
+  field_simp
+  rw [abs_div, div_lt_iff₀ (abs_pos.mpr ((mul_ne_zero_iff_right hx).mpr y_ne_0))]
+  calc
+    |x - y| < δ := by rw [abs_sub_comm]; exact hy
+    _ ≤ (|x| * |x| * ε / 2) := by apply min_le_left
+    _ = ε * (|x| * |x| / 2) := by field_simp; ring
+    _ < ε * |y * x| := by rw [mul_lt_mul_left εpos, abs_mul, mul_comm |y| |x|, mul_div_assoc, mul_lt_mul_left abs_x_pos]; exact abs_y_gt_half_abs_x
+
+lemma f_ray_interior_of_interior_endpoint' {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hp: p ∈ interior A) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hx: x ≠ p): ∀ t ∈ Set.Ico (0:ℝ) (sSup (seg_inside p x A)), f_ray p x t ∈ interior A := by
+  intro t ht
+  rw [Set.mem_Ico] at ht
+  rcases ht with ⟨ht₀, ht₁⟩
+  rw[lt_csSup_iff (seg_inside_bdd p x A h_A_compact hx) (seg_inside_nonempty' A (interior_subset hp))] at ht₁
+  rcases ht₁ with ⟨t', t'_in_seg_inside, t_lt_t'⟩
+  have t'_gt_0: t' > 0 := by linarith
+  have t'_ne_0: t' ≠ 0 := by linarith
+  let x' := f_ray p x t'
+  have : f_ray p x t = f_ray p x' (t / t') := by
+    simp [f_ray, x']
+    match_scalars
+    . field_simp
+    . field_simp
+  rw [this]
+  apply f_ray_interior_of_interior_endpoint h_A_convex hp t'_in_seg_inside
+  rw [Set.mem_Ico]
+  constructor
+  . trans 0 / t'
+    . field_simp
+    exact (div_le_div_iff_of_pos_right t'_gt_0 (a := 0) (b := t)).mpr ht₀
+  . exact Bound.div_lt_one_of_pos_of_lt t'_gt_0 t_lt_t'
+
+lemma seg_inside_sup_left_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) (hx: x ≠ p): ∀ ε > 0, ∃ δ > 0, ∀ y, dist y x < δ → (sSup (seg_inside p y A)) > (sSup (seg_inside p x A)) - ε := by
+  intro ε εpos
+  let t := max (sSup (seg_inside p x A) - ε / 2) (sSup (seg_inside p x A) / 2)
+  have sSup_pos: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hx hp
+  have t_pos: t > 0 := by
+    apply  lt_of_lt_of_le (b := sSup (seg_inside p x A) / 2)
+    . linarith
+    . apply le_max_right
+  have h_t_gt: t > sSup (seg_inside p x A) - ε := by
+    apply lt_of_lt_of_le (b := sSup (seg_inside p x A) - ε / 2)
+    . linarith
+    . apply le_max_left
+  have h_t_lt: t < sSup (seg_inside p x A) := by
+    apply max_lt
+    . linarith
+    . linarith
+  have ray_t_interior: f_ray p x t ∈ interior A := by
+    apply f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hx t ?_
+    rw [Set.mem_Ico]
+    exact ⟨le_of_lt t_pos, h_t_lt⟩
+  let fp := fun y ↦ y ∈ interior A
+  have hfp: ∀ y, fp y → ∃ d > 0, ∀ z ∈ Metric.ball y d, fp z := by
+    intro y hy
+    rcases  Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior hy) with ⟨d, dpos, hd⟩
+    use d, dpos
+    intro z hz
+    apply hd
+    exact hz
+  rcases f_ray_on_cont_prop hfp (ne_of_gt t_pos) ray_t_interior with ⟨d, dpos, hd⟩
+  let d' := min d ((dist x p) / 2)
+  have d'pos: d' > 0 := by
+    apply lt_min dpos
+    apply half_pos
+    exact dist_pos.mpr hx
+  use d', d'pos
+  intro y hy
+  have ynep:  y ≠ p := by
+    rw [←dist_pos]
+    calc
+      dist y p ≥ dist x p - dist y x := by
+        have : dist y p + dist y x ≥ dist x p := by
+          rw [add_comm, dist_comm y x]
+          apply dist_triangle
+        linarith
+      _ > dist x p - d' := by linarith
+      _ ≥ dist x p - (dist x p / 2) := by
+        have: d' ≤ dist x p / 2 := by apply min_le_right
+        linarith
+      _ > 0 := by simp [hx]
+  show sSup (seg_inside p x A) - ε < sSup (seg_inside p y A)
+  rw[lt_csSup_iff (seg_inside_bdd p y A h_A_compact ynep) (by apply seg_inside_nonempty' _ (interior_subset hp))]
+  have : dist x y < d := by
+    apply lt_of_lt_of_le
+    . rwa [dist_comm]
+    apply min_le_left
+  use t, interior_subset (s:=A) (hd y this)
+
+lemma f_ray_seg_inside_sup_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hxp: x ≠ p) (hp: p ∈ interior A) : f_ray p x (sSup (seg_inside p x A)) ∈ A := by
+  apply h_A_compact.isClosed.mem_of_frequently_of_tendsto (f := f_ray p x) (b := 𝓝 (sSup (seg_inside p x A)))
+  have hsup : ∀ t ∈ Set.Ico 0 (sSup (seg_inside p x A)), f_ray p x t ∈ A  := by
+    intro t ht
+    apply interior_subset (s := A)
+    exact (f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hxp) t ht
+  . contrapose! hsup
+    simp [Filter.frequently_iff] at hsup
+    rcases hsup with ⟨U, U_nhds, hU⟩
+    rw [Metric.nhds_basis_ball.mem_iff] at U_nhds
+    rcases U_nhds with ⟨d, dpos, hd⟩
+    let ss := sSup (seg_inside p x A)
+    let d' := min (ss / 2) (d / 2)
+    have ss_pos: ss > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hxp hp
+    have d'_lt_ss : d' < ss := by
+      apply lt_of_le_of_lt (b := ss / 2)
+      . apply min_le_left
+      linarith
+    have d'pos: d' > 0 := by
+      apply lt_min
+      <;> linarith
+    have d'_lt_d: d' < d := by
+      apply lt_of_le_of_lt (b := d / 2)
+      . apply min_le_right
+      linarith
+    let y := ss - d'
+    have ypos: y > 0 := by linarith
+    have y_lt_ss: y < ss := by linarith
+    use y, ⟨le_of_lt ypos, y_lt_ss⟩
+    apply hU
+    apply hd
+    simp [y, ss, abs_of_pos d'pos, d'_lt_d]
+  . exact Continuous.tendsto' (f_ray_cont p x) (sSup (seg_inside p x A)) (f_ray p x (sSup (seg_inside p x A))) rfl
+
+lemma seg_inside_sup_of_not_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hxp: x ≠ p) (hp: p ∈ interior A) {t: ℝ} (ht: f_ray p x t ∉ A) (tnneg: t ≥ 0): sSup (seg_inside p x A) < t := by
+  contrapose! ht
+  rw [le_iff_lt_or_eq] at ht
+  rcases ht with t_lt_ss | t_eq_ss
+  . apply interior_subset
+    apply f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hxp t ?_
+    rw [Set.mem_Ico]
+    exact ⟨tnneg, t_lt_ss⟩
+  . rw [t_eq_ss]
+    exact f_ray_seg_inside_sup_inside h_A_compact h_A_convex hxp hp
+
+lemma seg_inside_sup_right_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) (hx: x ≠ p): ∀ ε > 0, ∃ δ > 0, ∀ y, dist y x < δ → sSup (seg_inside p y A) < sSup (seg_inside p x A) + ε := by
+  intro ε εpos
+  let t := sSup (seg_inside p x A) + ε / 2
+  have sSup_pos: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hx hp
+  have h_t_gt: t > sSup (seg_inside p x A) := by unfold t; linarith
+  have ray_t_outside: f_ray p x t ∉ A := by
+    by_contra ht
+    have: t ≤ sSup (seg_inside p x A) := by
+      apply le_csSup (seg_inside_bdd p x A h_A_compact hx)
+      exact ht
+    linarith
+  let fp := fun y ↦ y ∉ A
+  have hfp: ∀ y, fp y → ∃ d > 0, ∀ z ∈ Metric.ball y d, fp z := by
+    intro y hy
+    have A_compl_open: IsOpen Aᶜ := by
+      rw [isOpen_compl_iff]
+      exact h_A_compact.isClosed
+    rcases Metric.mem_nhds_iff.mp (IsOpen.mem_nhds A_compl_open hy) with ⟨d, dpos, hd⟩
+    use d, dpos
+    intro z hz
+    exact hd hz
+  rcases f_ray_on_cont_prop hfp (by linarith) (ray_t_outside) with ⟨d, dpos, hd⟩
+  use d, dpos
+  intro y hy
+  have y_ne_p: y ≠ p := by
+    by_contra y_eq_p
+    rw [dist_comm] at hy
+    have fpy: fp (f_ray p y t) := hd y hy
+    simp [f_ray, y_eq_p, fp] at fpy
+    have: p ∈ A := interior_subset hp
+    contradiction
+  trans t
+  . apply seg_inside_sup_of_not_inside h_A_compact h_A_convex y_ne_p hp ?_ (by linarith)
+    apply hd
+    rw [dist_comm] at hy
+    exact hy
+  . unfold t;linarith
+
+theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): Continuous (sep_fun p A) := by
+  rw [continuous_iff_continuousAt]
+  intro x
+  rcases eq_or_ne x p with x_eq_p | x_ne_p
+  . rw [x_eq_p, Metric.continuousAt_iff]
+    intro ε ε_pos
+    rcases interior_boundary_min_dist hn h_A_compact hp with ⟨d, d_pos, hd⟩
+    rcases Metric.eventually_nhds_iff.mp (IsOpen.eventually_mem (isOpen_interior (s := A)) hp) with ⟨δ', δ'_pos, hδ'⟩
+    use (min δ' (d * ε))
+    constructor
+    . exact lt_min δ'_pos (Left.mul_pos d_pos ε_pos)
+    . intro x' hx'
+      rcases eq_or_ne x' p with x'_eq_p | x'_ne_p
+      . simpa [x'_eq_p]
+      . simp [sep_fun, x'_ne_p]
+        have x'_in_A : x' ∈ A := by
+          apply interior_subset
+          apply hδ'
+          exact lt_of_lt_of_le (b := min δ' (d * ε)) hx' (min_le_left δ' (d * ε))
+        let t := sSup (seg_inside p x' A)
+        have t_pos : t > 0 := seg_inside_sup_pos p x' A h_A_compact x'_ne_p x'_in_A
+        rw [abs_of_pos t_pos]
+        have h_le: t⁻¹ ≤ d⁻¹ * ‖x' - p‖ := (le_inv_mul_iff₀' d_pos).mpr ((mul_inv_le_iff₀' t_pos).mpr (hd _ x'_in_A x'_ne_p))
+        apply lt_of_le_of_lt (b:= d⁻¹ * ‖x' - p‖) h_le
+        have norm_lt: ‖x' - p‖ < d * ε := lt_of_lt_of_le hx' (min_le_right δ' (d * ε))
+        apply lt_of_lt_of_eq (b := d ⁻¹ * (d * ε))
+        . exact (mul_lt_mul_iff_of_pos_left (Right.inv_pos.mpr d_pos)).mpr norm_lt
+        . exact inv_mul_cancel_left₀ (ne_of_lt d_pos).symm ε
+  . have h_eventually_eq: sep_fun p A =ᶠ[𝓝 x] ((fun r:ℝ ↦ 1 / r) ∘ (fun x ↦ sSup (seg_inside p x A))) := by
+      -- this lemma is to show that on a neighbor of x the sep function can be rewritten to composition of two other functions
+      rcases t2_separation x_ne_p with ⟨U, ⟨V, U_open, V_open, x_in_U, p_in_V, U_V_disjoint⟩⟩
+      apply Filter.sets_of_superset (x := U)
+      . show U ∈ (𝓝 x)
+        rw [mem_nhds_iff]
+        use U
+      . intro x' x'_in_U
+        have x'_ne_p: x' ≠ p := by
+          by_contra! heq
+          rw [heq] at x'_in_U
+          have : p ∈ U ∩ V := Set.mem_inter x'_in_U p_in_V
+          rw [Set.disjoint_iff_inter_eq_empty] at U_V_disjoint
+          rw [U_V_disjoint] at this
+          contradiction
+        simp [sep_fun, x'_ne_p]
+    suffices ContinuousAt ((fun r:ℝ ↦ 1 / r) ∘ (fun x ↦ sSup (seg_inside p x A))) x by
+      exact ContinuousAt.congr this (id (Filter.EventuallyEq.symm h_eventually_eq))
+    refine ContinuousAt.comp ?_ ?_
+    . exact inv_cont_at_non_zero (ne_of_gt (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp))
+    . rw [Metric.continuousAt_iff]
+      intro ε εpos
+      rcases seg_inside_sup_left_cont h_A_convex h_A_compact hp x_ne_p ε εpos with ⟨δ₁, δ₁pos, hδ₁⟩
+      rcases seg_inside_sup_right_cont h_A_convex h_A_compact hp x_ne_p ε εpos with ⟨δ₂, δ₂pos, hδ₂⟩
+      let δ := min δ₁ δ₂
+      have δpos: δ > 0 := by
+        apply lt_min
+        <;> assumption
+      use δ, δpos
+      intro y hy
+      show |sSup (seg_inside p y A) - sSup (seg_inside p x A)| < ε
+      rw [abs_sub_lt_iff]
+      constructor
+      . suffices sSup (seg_inside p y A) < sSup (seg_inside p x A) + ε by
+          linarith
+        apply hδ₂
+        apply lt_of_lt_of_le (b := δ) hy
+        apply min_le_right
+      . suffices sSup (seg_inside p y A) > sSup (seg_inside p x A) - ε by
+          linarith
+        apply hδ₁
+        apply lt_of_lt_of_le hy
+        apply min_le_left
+
+theorem sep_fun_eq_0_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∀ x, (sep_fun p A x) = 0 ↔ x = p := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    simp at hx
+    contrapose! hx
+    simp [sep_fun, hx]
+    by_contra! sup_eq_zero
+    have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact hx hp
+    linarith
+  case mpr =>
+    intro hx
+    simp at hx
+    simp [hx, sep_fun]
+
+theorem sep_fun_lt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hp: p ∈ interior A): ∀ x, (sep_fun p A x) < 1 ↔ x ∈ interior A := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mpr =>
+    intro x_in_interior
+    rcases eq_or_ne x p with x_eq_p | x_ne_p
+    . simp [sep_fun, x_eq_p]
+    . simp [sep_fun, x_ne_p]
+      have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
+      field_simp
+      refine Bound.div_lt_one_of_pos_of_lt this ?_
+      rcases Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior x_in_interior) with ⟨d, dpos, hd⟩
+      let t := (dist x p + d / 2) / (dist x p)
+      have t_gt_1: t > 1 := by
+        refine Bound.one_lt_div_of_pos_of_lt (dist_pos.mpr x_ne_p) ?_
+        linarith
+      have tpos: t > 0 := by linarith
+      have ray_t_inside: f_ray p x t ∈ A := by
+        apply interior_subset
+        apply hd
+        rw [Metric.mem_ball]
+        unfold t
+        simp [f_ray]
+        show ‖(p + ((‖x - p‖ + d / 2) / ‖x - p‖) • (x - p)) - x‖ < d
+        have aux_norm_diff_ne_0 : ‖x - p‖ ≠ 0 := by
+          show dist x p ≠ 0
+          exact dist_ne_zero.mpr x_ne_p
+        calc
+          ‖(p + ((‖x - p‖ + d / 2) / ‖x - p‖) • (x - p)) - x‖ = ‖((‖x - p‖ + d / 2) / ‖x - p‖ - 1) • (x - p)‖ := by congr! 1; module
+          _ = ‖((d / 2) / ‖x - p‖) • (x - p)‖ := by congr! 2;field_simp;ring
+          _ = |d| / 2 := by rw [norm_smul]; field_simp; ring
+          _ < d := by rw [abs_of_pos dpos]; linarith
+      have: t ≤ sSup (seg_inside p x A) := le_csSup (seg_inside_bdd p x A h_A_compact x_ne_p) ray_t_inside
+      linarith
+  case mp =>
+    intro hx
+    rcases eq_or_ne x p with x_eq_p | x_ne_p
+    . rwa[x_eq_p]
+    . simp [sep_fun, x_ne_p] at hx
+      have : x = f_ray p x 1 := by simp [f_ray]
+      rw [this]
+      apply f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact x_ne_p
+      rw [Set.mem_Ico]
+      constructor
+      . norm_num
+      . rw [inv_lt_one₀ (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp)] at hx
+        exact hx
+
+theorem sep_fun_gt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hp: p ∈ interior A) : ∀ x,  (sep_fun p A x) > 1 ↔ x ∈ Aᶜ  := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mpr =>
+    intro x_not_in_A
+    have x_ne_p: x ≠ p := by
+      contrapose! x_not_in_A
+      simp
+      apply interior_subset
+      rw [x_not_in_A]
+      exact hp
+    simp [sep_fun, x_ne_p]
+    have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
+    field_simp
+    apply Bound.one_lt_div_of_pos_of_lt this
+    apply seg_inside_sup_of_not_inside h_A_compact h_A_convex x_ne_p hp ?_ (by linarith)
+    simp [f_ray]
+    exact x_not_in_A
+  case mp =>
+    intro hx
+    have x_ne_p: x ≠ p := by
+      contrapose! hx
+      simp [sep_fun, hx]
+    simp [sep_fun, x_ne_p, one_lt_inv₀ (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp)] at hx
+    contrapose! hx; simp at hx
+    apply le_csSup (seg_inside_bdd p x A h_A_compact x_ne_p)
+    simpa [seg_inside, f_ray]
+
+theorem sep_fun_eq_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hp: p ∈ interior A): ∀ x, sep_fun p A x = 1 ↔ x ∈ frontier A := by
+  intro x
+  unfold frontier
+  rw [closure_eq_iff_isClosed.mpr (IsCompact.isClosed h_A_compact)]
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    contrapose! hx
+    simp at hx
+    rcases Classical.em (x ∈ A) with x_in_A | x_not_in_A
+    . suffices sep_fun p A x < 1 by linarith
+      rw [sep_fun_lt_1_iff h_A_compact h_A_convex hp]
+      exact hx x_in_A
+    . suffices sep_fun p A x > 1 by linarith
+      rw [sep_fun_gt_1_iff h_A_compact h_A_convex hp]
+      exact x_not_in_A
+  case mpr =>
+    intro hx
+    contrapose! hx
+    simp
+    intro x_in_A
+    rcases lt_or_gt_of_ne hx with ssup_lt_1 | ssup_gt_1
+    . rwa [sep_fun_lt_1_iff h_A_compact h_A_convex hp] at ssup_lt_1
+    . simp [sep_fun_gt_1_iff h_A_compact h_A_convex hp] at ssup_gt_1
+      contradiction
+end
 end Chp5
 
 -- Coeherent Defs
