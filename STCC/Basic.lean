@@ -868,7 +868,7 @@ theorem sep_fun_eq_0_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
     simp at hx
     simp [hx, sep_fun]
 
-theorem sep_fun_lt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∀ x, (sep_fun p A x) < 1 ↔ x ∈ interior A := by
+theorem sep_fun_lt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hp: p ∈ interior A): ∀ x, (sep_fun p A x) < 1 ↔ x ∈ interior A := by
   intro x
   refine Iff.intro ?mp ?mpr
   case mpr =>
@@ -903,9 +903,20 @@ theorem sep_fun_lt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
       have: t ≤ sSup (seg_inside p x A) := le_csSup (seg_inside_bdd p x A h_A_compact x_ne_p) ray_t_inside
       linarith
   case mp =>
-    sorry
+    intro hx
+    rcases eq_or_ne x p with x_eq_p | x_ne_p
+    . rwa[x_eq_p]
+    . simp [sep_fun, x_ne_p] at hx
+      have : x = f_ray p x 1 := by simp [f_ray]
+      rw [this]
+      apply f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact x_ne_p
+      rw [Set.mem_Ico]
+      constructor
+      . norm_num
+      . rw [inv_lt_one₀ (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp)] at hx
+        exact hx
 
-theorem sep_fun_gt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) : ∀ x,  (sep_fun p A x) > 1 ↔ x ∈ Aᶜ  := by
+theorem sep_fun_gt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hp: p ∈ interior A) : ∀ x,  (sep_fun p A x) > 1 ↔ x ∈ Aᶜ  := by
   intro x
   refine Iff.intro ?mp ?mpr
   case mpr =>
@@ -924,15 +935,40 @@ theorem sep_fun_gt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
     simp [f_ray]
     exact x_not_in_A
   case mp =>
-    sorry
+    intro hx
+    have x_ne_p: x ≠ p := by
+      contrapose! hx
+      simp [sep_fun, hx]
+    simp [sep_fun, x_ne_p, one_lt_inv₀ (seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp)] at hx
+    contrapose! hx; simp at hx
+    apply le_csSup (seg_inside_bdd p x A h_A_compact x_ne_p)
+    simpa [seg_inside, f_ray]
 
-theorem sep_fun_eq_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hn: n > 0) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A): ∀ x, sep_fun p A x = 1 ↔ x ∈ frontier A := by
+theorem sep_fun_eq_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_compact: IsCompact A) (h_A_convex: Convex ℝ A) (hp: p ∈ interior A): ∀ x, sep_fun p A x = 1 ↔ x ∈ frontier A := by
   intro x
+  unfold frontier
+  rw [closure_eq_iff_isClosed.mpr (IsCompact.isClosed h_A_compact)]
   refine Iff.intro ?mp ?mpr
   case mp =>
-    sorry
+    intro hx
+    contrapose! hx
+    simp at hx
+    rcases Classical.em (x ∈ A) with x_in_A | x_not_in_A
+    . suffices sep_fun p A x < 1 by linarith
+      rw [sep_fun_lt_1_iff h_A_compact h_A_convex hp]
+      exact hx x_in_A
+    . suffices sep_fun p A x > 1 by linarith
+      rw [sep_fun_gt_1_iff h_A_compact h_A_convex hp]
+      exact x_not_in_A
   case mpr =>
-    sorry
+    intro hx
+    contrapose! hx
+    simp
+    intro x_in_A
+    rcases lt_or_gt_of_ne hx with ssup_lt_1 | ssup_gt_1
+    . rwa [sep_fun_lt_1_iff h_A_compact h_A_convex hp] at ssup_lt_1
+    . simp [sep_fun_gt_1_iff h_A_compact h_A_convex hp] at ssup_gt_1
+      contradiction
 end
 end Chp5
 
