@@ -1510,6 +1510,34 @@ lemma pid_to_pt_in_sk: ∀ p:(point_indices (CWC := CWC)), pid_to_pt p ∈ CWC.F
     apply cell_n_in_Fsk_np1 n i
     use y
 
+open Classical
+
+noncomputable def direct_sum_to_R {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)): ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))) → ℝ := fun I ↦ match I with
+| Sum.inl _ => 1
+| Sum.inr ⟨i', x⟩ => if i' ≠ i then 1 else (sep_fun p.1 (cb (n + 1)) x.1)
+
+lemma direct_sum_to_R_factors {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)) (hp: p ∈ cb_inner): ∀ x₁ x₂: ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))),
+    glue_setoid _ (CWC.Ff n) x₁ x₂ → direct_sum_to_R i p x₁ = direct_sum_to_R i p x₂ := by
+  intro x₁ x₂ hx₁x₂
+  rcases glue_rel_equiv_explicit _ _ x₁ x₂ hx₁x₂ with c₀ | c₁ | c₂ | c₃ | c₄
+  . rcases c₀ with ⟨x, hx, rfl⟩; rfl
+  . rcases c₁ with ⟨x, y, y', hx, hy, hy', heq⟩
+    simp [hx, hy, direct_sum_to_R]
+    intro h_y_fst
+    apply Eq.symm
+    rw [sep_fun_cb_eq_1_iff hp, hy']
+    rcases y'.2 with ⟨z, hz⟩
+    simp [←hz]
+  . rcases c₂ with ⟨y, x, y', hy, hx, hy', heq⟩
+    simp [hx, hy, direct_sum_to_R]
+    intro h_y_fst
+    rw [sep_fun_cb_eq_1_iff hp, hy']
+    rcases y'.2 with ⟨z, hz⟩
+    simp [←hz]
+  . rcases c₃ with ⟨y₁, y₂, y₁', y₂', hy₁, hy₂, hy₁', hy₂', hy₁'y₂', y₁_ne_y₂⟩
+    sorry
+  . sorry
+
 noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (pid_to_nat p) → ℝ := fun I ↦ match I with
 | Sum.inl x => ({x}: Set (CWC.Fsk 0)).indicator (fun _ ↦ 1)
 | Sum.inr ⟨n, i, x⟩ => sorry
@@ -1546,7 +1574,6 @@ instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) 
   have y_in_v: y ∈ v := fy_in_v'
   have uv_disj: Disjoint u v := by exact Disjoint.preimage f u'_v'_disjoint
   use u, v
-#check exists_continuous_zero_one_of_isClosed
 end
 
 section

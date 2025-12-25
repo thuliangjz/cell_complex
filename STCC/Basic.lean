@@ -969,6 +969,21 @@ theorem sep_fun_eq_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
     . rwa [sep_fun_lt_1_iff h_A_compact h_A_convex hp] at ssup_lt_1
     . simp [sep_fun_gt_1_iff h_A_compact h_A_convex hp] at ssup_gt_1
       contradiction
+
+theorem sep_fun_cb_eq_1_iff {p: cb n} (hp: p ∈ cb_inner): ∀ x, sep_fun p (cb n) x = 1 ↔ x ∈ sph n := by
+  have cb_compact: IsCompact (cb n) := by rw[isCompact_iff_compactSpace]; infer_instance
+  have cb_convex: Convex ℝ (cb n) := convex_closedBall 0 1
+  have hp_interior: p.1 ∈ interior (cb n) := by
+    unfold cb
+    rw [interior_closedBall _ (by norm_num)]
+    rcases hp with ⟨p', rfl⟩
+    simp [b_to_cb]
+  intro x
+  rw [sep_fun_eq_1_iff cb_compact cb_convex hp_interior]
+  suffices frontier (cb n) = sph n by
+    rw [this]
+  unfold cb sph
+  rw [frontier_closedBall _ (by norm_num)]
 end
 end Chp5
 
