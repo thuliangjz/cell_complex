@@ -1516,31 +1516,36 @@ noncomputable def direct_sum_to_R {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)): ((CWC
 | Sum.inl _ => 1
 | Sum.inr ⟨i', x⟩ => if i' ≠ i then 1 else (sep_fun p.1 (cb (n + 1)) x.1)
 
+lemma direct_sum_to_R_on_boundary_eq_1 {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)) (hp: p ∈ cb_inner): ∀ y ∈ {x : (Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}, direct_sum_to_R i p (Sum.inr y) = 1 := by
+  intro y hy
+  rcases eq_or_ne y.1 i with y_fst_eq_i | y_fst_ne_i
+  . simp [direct_sum_to_R, y_fst_eq_i]
+    rw [sep_fun_cb_eq_1_iff hp]
+    rcases hy with ⟨z, hz⟩
+    simp [←hz]
+  . simp [direct_sum_to_R, y_fst_ne_i]
+
 lemma direct_sum_to_R_factors {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)) (hp: p ∈ cb_inner): ∀ x₁ x₂: ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))),
     glue_setoid _ (CWC.Ff n) x₁ x₂ → direct_sum_to_R i p x₁ = direct_sum_to_R i p x₂ := by
   intro x₁ x₂ hx₁x₂
   rcases glue_rel_equiv_explicit _ _ x₁ x₂ hx₁x₂ with c₀ | c₁ | c₂ | c₃ | c₄
   . rcases c₀ with ⟨x, hx, rfl⟩; rfl
   . rcases c₁ with ⟨x, y, y', hx, hy, hy', heq⟩
-    simp [hx, hy, direct_sum_to_R]
-    intro h_y_fst
-    apply Eq.symm
-    rw [sep_fun_cb_eq_1_iff hp, hy']
-    rcases y'.2 with ⟨z, hz⟩
-    simp [←hz]
+    rw [hy, hy', direct_sum_to_R_on_boundary_eq_1 _ _ hp y'.1 y'.2, hx, direct_sum_to_R]
   . rcases c₂ with ⟨y, x, y', hy, hx, hy', heq⟩
-    simp [hx, hy, direct_sum_to_R]
-    intro h_y_fst
-    rw [sep_fun_cb_eq_1_iff hp, hy']
-    rcases y'.2 with ⟨z, hz⟩
-    simp [←hz]
+    rw [hy, hy', direct_sum_to_R_on_boundary_eq_1 _ _ hp y'.1 y'.2, hx, direct_sum_to_R]
   . rcases c₃ with ⟨y₁, y₂, y₁', y₂', hy₁, hy₂, hy₁', hy₂', hy₁'y₂', y₁_ne_y₂⟩
-    sorry
-  . sorry
+    rw [hy₁, hy₂, ←hy₁', ←hy₂', direct_sum_to_R_on_boundary_eq_1 _ _ hp y₁'.1 y₁'.2, direct_sum_to_R_on_boundary_eq_1 _ _ hp y₂'.1 y₂'.2]
+  . rcases c₄ with ⟨_, _, heq⟩
+    rw [heq]
 
 noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (pid_to_nat p) → ℝ := fun I ↦ match I with
 | Sum.inl x => ({x}: Set (CWC.Fsk 0)).indicator (fun _ ↦ 1)
 | Sum.inr ⟨n, i, x⟩ => sorry
+
+variable {n: ℕ} (i: CWC.Fι n) (x: b (n + 1))
+#check direct_sum_to_R i (b_to_cb x)
+#check  Quotient.lift (direct_sum_to_R i (b_to_cb x)) (direct_sum_to_R_factors i (b_to_cb x) (by use x))
 
 end CWComplexConstructor
 end
