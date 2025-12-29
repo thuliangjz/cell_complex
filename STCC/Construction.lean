@@ -1550,6 +1550,26 @@ noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (p
 | Sum.inl x => ({x}: Set (CWC.Fsk 0)).indicator (fun _ ↦ 1)
 | Sum.inr ⟨n, i, x⟩ => (Quotient.lift (direct_sum_to_R i (b_to_cb x)) (direct_sum_to_R_factors i (b_to_cb x) (by use x))) ∘ (Function.invFun (CWC.Fφ n))
 
+theorem pid_to_sk_R_continuous {p: point_indices (CWC := CWC)} : Continuous (pid_to_sk_to_R p) := by
+  match p with
+  | Sum.inl x =>
+    simp [pid_to_sk_to_R]
+    have: DiscreteTopology (CWC.Fsk (pid_to_nat (Sum.inl x))) := CWC.Tsk0_discrete
+    exact continuous_of_discreteTopology
+  | Sum.inr ⟨n, i, x⟩ =>
+    dsimp only [pid_to_sk_to_R]
+    apply Continuous.comp
+    . sorry
+    . let Fφ_heom := CWC.Fφ_heomorph n
+      rw [isHomeomorph_iff_exists_inverse] at Fφ_heom
+      rcases Fφ_heom with ⟨Fφ_cont, g, g_left_inv, g_right_inv, g_cont⟩
+      have: g = Function.invFun (CWC.Fφ n) := by
+        ext y
+        suffices CWC.Fφ n (g y) = (CWC.Fφ n) (Function.invFun (CWC.Fφ n) y) by
+          exact g_left_inv.injective this
+        rw [g_right_inv, Function.invFun_eq ⟨g y, g_right_inv y⟩]
+      rwa [←this]
+
 end CWComplexConstructor
 end
 
