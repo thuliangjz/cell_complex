@@ -1611,6 +1611,10 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_cover_glue_
   simp [left_adj_proj, adj_proj, glue_setoid]
   apply Relation.EqvGen.rel
   use ⟨y, y_in_A⟩
+
+instance instNonemptyAdjointSpaceOfNonemptyLeft [Nx: Nonempty X]: Nonempty (AdjointSpace A f) := by
+  rcases Nx with ⟨x⟩
+  use left_adj_proj _ _ x
 end
 
 section

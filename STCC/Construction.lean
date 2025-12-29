@@ -1539,13 +1539,16 @@ lemma direct_sum_to_R_factors {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)) (hp: p ∈
   . rcases c₄ with ⟨_, _, heq⟩
     rw [heq]
 
+instance instNonemptyConstructorFsk {n: ℕ}: Nonempty (CWC.Fsk n) := by
+  rcases CWC.Fsk0_nonempty with ⟨x, hx⟩
+  use x
+  exact Fsk_incl (m := 0) (by norm_num) hx
+instance instNonemptyConstructorAdjointSpace {n: ℕ}: Nonempty (AdjointSpace _ (CWC.Ff n)) := by
+  infer_instance
+
 noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (pid_to_nat p) → ℝ := fun I ↦ match I with
 | Sum.inl x => ({x}: Set (CWC.Fsk 0)).indicator (fun _ ↦ 1)
-| Sum.inr ⟨n, i, x⟩ => sorry
-
-variable {n: ℕ} (i: CWC.Fι n) (x: b (n + 1))
-#check direct_sum_to_R i (b_to_cb x)
-#check  Quotient.lift (direct_sum_to_R i (b_to_cb x)) (direct_sum_to_R_factors i (b_to_cb x) (by use x))
+| Sum.inr ⟨n, i, x⟩ => (Quotient.lift (direct_sum_to_R i (b_to_cb x)) (direct_sum_to_R_factors i (b_to_cb x) (by use x))) ∘ (Function.invFun (CWC.Fφ n))
 
 end CWComplexConstructor
 end
