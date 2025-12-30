@@ -1559,7 +1559,25 @@ theorem pid_to_sk_R_continuous {p: point_indices (CWC := CWC)} : Continuous (pid
   | Sum.inr ⟨n, i, x⟩ =>
     dsimp only [pid_to_sk_to_R]
     apply Continuous.comp
-    . sorry
+    . apply Continuous.quotient_lift
+      rw [continuous_sum_dom]
+      constructor
+      . have : (direct_sum_to_R i (b_to_cb x) ∘ Sum.inl) = fun _ ↦ 1 := by ext z; simp [direct_sum_to_R]
+        rw [this]
+        exact continuous_const
+      . rw [continuous_sigma_iff]
+        intro i₀
+        rcases eq_or_ne i₀ i with i₀_eq_i | i₀_ne_i
+        . have: (fun a ↦ (direct_sum_to_R i (b_to_cb x) ∘ Sum.inr) ⟨i₀, a⟩) = (sep_fun x.1 (cb (n + 1))) ∘ Subtype.val := by ext y; simp [direct_sum_to_R, i₀_eq_i]
+          rw [this]
+          apply Continuous.comp
+          . apply sep_fun_cont (by norm_num) (convex_closedBall 0 1) (by apply isCompact_closedBall)
+            rw [interior_closedBall' 0 1]
+            exact x.2
+          . exact continuous_subtype_val
+        . have: (fun a ↦ (direct_sum_to_R i (b_to_cb x) ∘ Sum.inr) ⟨i₀, a⟩) = fun _ ↦ 1 := by ext y; simp [direct_sum_to_R, i₀_ne_i]
+          rw [this]
+          exact continuous_const
     . let Fφ_heom := CWC.Fφ_heomorph n
       rw [isHomeomorph_iff_exists_inverse] at Fφ_heom
       rcases Fφ_heom with ⟨Fφ_cont, g, g_left_inv, g_right_inv, g_cont⟩
