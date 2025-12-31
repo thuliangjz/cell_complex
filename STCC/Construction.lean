@@ -1547,7 +1547,7 @@ instance instNonemptyConstructorAdjointSpace {n: ℕ}: Nonempty (AdjointSpace _ 
   infer_instance
 
 noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (pid_to_nat p) → ℝ := fun I ↦ match I with
-| Sum.inl x => ({x}: Set (CWC.Fsk 0)).indicator (fun _ ↦ 1)
+| Sum.inl x => fun y ↦ if y = x then 0 else 1
 | Sum.inr ⟨n, i, x⟩ => (Quotient.lift (direct_sum_to_R i (b_to_cb x)) (direct_sum_to_R_factors i (b_to_cb x) (by use x))) ∘ (Function.invFun (CWC.Fφ n))
 
 theorem pid_to_sk_R_continuous {p: point_indices (CWC := CWC)} : Continuous (pid_to_sk_to_R p) := by
@@ -1588,9 +1588,53 @@ theorem pid_to_sk_R_continuous {p: point_indices (CWC := CWC)} : Continuous (pid
         rw [g_right_inv, Function.invFun_eq ⟨g y, g_right_inv y⟩]
       rwa [←this]
 
+theorem pid_to_sk_to_R_eq_0_iff (p: point_indices (CWC := CWC)): ∀ x, pid_to_sk_to_R p x = 0 ↔ x = ⟨pid_to_pt p, pid_to_pt_in_sk p⟩ := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    match p with
+    | Sum.inl x₀ =>
+      simp [pid_to_sk_to_R] at hx
+      simpa [pid_to_pt] using hx
+    | Sum.inr ⟨n, i, xn⟩ =>
+      simp [pid_to_sk_to_R] at hx
+      let x' := Function.invFun (CWC.Fφ n) x
+      rcases Quotient.exists_rep x' with ⟨x'_rep, rep_eq⟩
+      have hrep: direct_sum_to_R i (b_to_cb xn) x'_rep = 0 := by
+        have : Quotient.lift (direct_sum_to_R i (b_to_cb xn)) (direct_sum_to_R_factors i (b_to_cb xn) (by use xn)) x' = 0 := hx
+        rwa [←rep_eq] at this
+      match x'_rep with
+      | Sum.inl rep_left => simp [direct_sum_to_R] at hrep
+      | Sum.inr ⟨i₁, x₁⟩=>
+        rcases eq_or_ne i₁ i with i₁_eq_i | i₁_ne_i
+        . simp [direct_sum_to_R, i₁_eq_i] at hrep
+          rw [sep_fun_eq_0_iff (by apply isCompact_closedBall) (by rw [cb, interior_closedBall' 0 1]; exact xn.2)] at hrep
+          simp [pid_to_pt, cell_define_map, pre_characteristic_map, ←hrep]
+          have : adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, x₁⟩) = x' := by rw [←rep_eq, i₁_eq_i]; rfl
+          rw [this]
+          unfold x'; apply Eq.symm
+          apply Function.invFun_eq
+          apply (CWC.Fφ_heomorph n).surjective
+        . simp [direct_sum_to_R, i₁_ne_i] at hrep
+  case mpr =>
+    intro hx
+    match p with
+    | Sum.inl x₀ =>
+      simpa [pid_to_sk_to_R] using hx
+    | Sum.inr ⟨n, i, xn⟩ =>
+      simp [pid_to_sk_to_R]
+      simp [pid_to_pt, cell_define_map, pre_characteristic_map] at hx
+      rw [hx]
+      show Quotient.lift (direct_sum_to_R i ⟨xn, b_in_cb xn.2⟩) (direct_sum_to_R_factors i ⟨xn.1, b_in_cb xn.2⟩ (by use xn; rfl))
+        ((Function.invFun (CWC.Fφ n) ∘ CWC.Fφ n) ((adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, ⟨xn, b_in_cb xn.2⟩⟩)))) = 0
+      rw [Function.invFun_comp (CWC.Fφ_heomorph n).injective]
+      have: Quotient.lift (direct_sum_to_R i ⟨xn, b_in_cb xn.2⟩) (direct_sum_to_R_factors i ⟨xn.1, b_in_cb xn.2⟩ (by use xn; rfl)) ((adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, ⟨xn, b_in_cb xn.2⟩⟩))) = (direct_sum_to_R i ⟨xn, b_in_cb xn.2⟩) (Sum.inr ⟨i, ⟨xn, b_in_cb xn.2⟩⟩) := by rfl
+      simp [this, direct_sum_to_R]
+      rw [sep_fun_eq_0_iff (by apply isCompact_closedBall) (by rw [cb, interior_closedBall' 0 1]; exact xn.2)]
+
 end CWComplexConstructor
 end
-
 
 end Chp5
 
