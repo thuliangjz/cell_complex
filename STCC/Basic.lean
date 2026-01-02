@@ -985,6 +985,22 @@ theorem sep_fun_cb_eq_1_iff {p: cb n} (hp: p ∈ cb_inner): ∀ x, sep_fun p (cb
   unfold cb sph
   rw [frontier_closedBall _ (by norm_num)]
 end
+
+section
+instance instSphNonempty {n: ℕ} (hn: 1 ≤ n): Nonempty (sph n) := Set.Nonempty.to_subtype (sph_nonempty hn)
+
+noncomputable def pre_proj_to_sph {n: ℕ} (hn: 1 ≤ n): (EuclideanSpace ℝ (Fin n)) → (EuclideanSpace ℝ (Fin n)) := fun x ↦ if x = 0 then (Classical.choice (instSphNonempty hn)).1 else (1 / ‖x‖) • x
+
+theorem pre_proj_to_sph_in_sph {n: ℕ} (hn: 1 ≤ n): ∀ x, pre_proj_to_sph hn x ∈ sph n := by
+  intro x
+  rcases eq_or_ne x 0 with x_eq_0 | x_ne_0
+  . simp [pre_proj_to_sph, x_eq_0]
+  . simp [pre_proj_to_sph, x_ne_0, sph, norm_smul]
+
+
+noncomputable def cb_extension {n:ℕ} (hn: 1 ≤ n) (f: @cb_boundary n → ℝ) : (cb n) → ℝ := fun x ↦ ‖x.1‖ * f ⟨sph_to_cb ⟨pre_proj_to_sph hn x.1, pre_proj_to_sph_in_sph hn x⟩, by use ⟨pre_proj_to_sph hn x.1, pre_proj_to_sph_in_sph hn x⟩⟩ + (1 - ‖x.1‖)
+
+end
 end Chp5
 
 -- Coeherent Defs
