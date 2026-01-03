@@ -991,15 +991,77 @@ instance instSphNonempty {n: ℕ} (hn: 1 ≤ n): Nonempty (sph n) := Set.Nonempt
 
 noncomputable def pre_proj_to_sph {n: ℕ} (hn: 1 ≤ n): (EuclideanSpace ℝ (Fin n)) → (EuclideanSpace ℝ (Fin n)) := fun x ↦ if x = 0 then (Classical.choice (instSphNonempty hn)).1 else (1 / ‖x‖) • x
 
+lemma pre_proj_to_sph_cont_at_nonzero {n: ℕ} (hn: 1 ≤ n) (x: EuclideanSpace ℝ (Fin n)) (hx: x ≠ 0) : ContinuousAt (pre_proj_to_sph hn) x := by
+  rw [Metric.continuousAt_iff]
+  intro ε εpos
+  let δ := min (‖x‖ * ε / 2) (‖x‖ / 2)
+  have x_norm_pos: ‖x‖ > 0 := norm_pos_iff.mpr hx
+  have δpos : δ > 0 := lt_min (half_pos (mul_pos x_norm_pos εpos)) (half_pos x_norm_pos)
+  use δ, δpos
+  intro y hy
+  have y_norm_pos: ‖y‖ > 0 := by
+    calc
+      ‖y‖ = ‖x - (x - y)‖ := by congr!; module
+      _ ≥ |‖x‖ - ‖x - y‖| := by apply abs_norm_sub_norm_le
+      _ ≥ ‖x‖ - ‖x - y‖ := by apply le_abs_self
+      _ ≥ ‖x‖ - δ := by refine tsub_le_tsub_left (le_of_lt ?_) ‖x‖ ;simpa [dist_comm] using hy
+      _ ≥ ‖x‖ - ‖x‖ / 2 := by refine sub_le_sub_left ?_ ‖x‖; apply min_le_right
+      _ = ‖x‖ / 2 := by exact sub_half ‖x‖
+      _ > 0 :=  by exact half_pos x_norm_pos
+  have y_ne_0: y ≠ 0 := norm_pos_iff.mp y_norm_pos
+  simp [pre_proj_to_sph, hx, y_ne_0]
+  show ‖(‖y‖⁻¹ • y) - (‖x‖⁻¹ • x)‖ < ε
+  sorry
+
+example {n: ℕ} (x y: EuclideanSpace ℝ (Fin n)): ‖x - y‖ ≥ |‖x‖ - ‖y‖| := by
+  exact abs_norm_sub_norm_le x y
+
 theorem pre_proj_to_sph_in_sph {n: ℕ} (hn: 1 ≤ n): ∀ x, pre_proj_to_sph hn x ∈ sph n := by
   intro x
   rcases eq_or_ne x 0 with x_eq_0 | x_ne_0
   . simp [pre_proj_to_sph, x_eq_0]
   . simp [pre_proj_to_sph, x_ne_0, sph, norm_smul]
 
+noncomputable def cb_extension_global {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) : (EuclideanSpace ℝ (Fin n)) → ℝ :=fun x ↦ ‖x‖ * f ⟨pre_proj_to_sph hn x, pre_proj_to_sph_in_sph hn x⟩ + (1 - ‖x‖)
 
-noncomputable def cb_extension {n:ℕ} (hn: 1 ≤ n) (f: @cb_boundary n → ℝ) : (cb n) → ℝ := fun x ↦ ‖x.1‖ * f ⟨sph_to_cb ⟨pre_proj_to_sph hn x.1, pre_proj_to_sph_in_sph hn x⟩, by use ⟨pre_proj_to_sph hn x.1, pre_proj_to_sph_in_sph hn x⟩⟩ + (1 - ‖x.1‖)
+theorem cb_extension_global_continuous {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) (hf: Continuous f): Continuous (cb_extension_global hn f) := by
+  unfold cb_extension_global
+  apply Continuous.add
+  . rw [continuous_iff_continuousAt]
+    intro x
+    rcases eq_or_ne x 0 with x_eq_0 | x_ne_0
+    . rw [x_eq_0, Metric.continuousAt_iff]
+      intro ε εpos
+      let f_abs: sph n → ℝ := fun x ↦ |f x|
+      have f_abs_cont: Continuous f_abs := by continuity
+      rcases (isCompact_iff_isCompact_univ.mp (isCompact_sphere 0 1)).bddAbove_image (continuous_iff_continuousOn_univ.mp f_abs_cont) with ⟨s₀, hs₀⟩
+      let s := max s₀ 1
+      have spos: s > 0 := by apply lt_max_of_lt_right; norm_num
+      have hs: ∀ y, |f y| ≤ s := by
+        intro y
+        trans s₀
+        . have : |f y| ∈ f_abs '' Set.univ := by use y, (by trivial)
+          exact hs₀ this
+        . exact le_max_left s₀ 1
+      let δ := ε / s
+      have δpos: δ > 0 := div_pos εpos spos
+      use δ, δpos
+      intro z hz
+      have z_norm_lt: ‖z‖ < δ := by simpa using hz
+      simp
+      calc
+        ‖z‖ * |f ⟨pre_proj_to_sph hn z, pre_proj_to_sph_in_sph hn z⟩| = |f ⟨pre_proj_to_sph hn z, pre_proj_to_sph_in_sph hn z⟩| * ‖z‖ := by rw [mul_comm]
+        _ < s * δ := mul_lt_mul' (hs _) (z_norm_lt) (norm_nonneg z) spos
+        _ = ε := by unfold δ; field_simp
+    . sorry
+  . continuity
+end
 
+section
+variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
+variable {f : X → Y} {S: Set Y} (hf: ∀ x, f x ∈ S)
+example (f_cont: Continuous f): Continuous ((fun x: X ↦ ⟨f x, hf x⟩): X → S) := by
+  exact Continuous.subtype_mk f_cont hf
 end
 end Chp5
 
