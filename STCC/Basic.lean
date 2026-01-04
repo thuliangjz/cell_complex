@@ -1011,7 +1011,17 @@ lemma pre_proj_to_sph_cont_at_nonzero {n: ℕ} (hn: 1 ≤ n) (x: EuclideanSpace 
   have y_ne_0: y ≠ 0 := norm_pos_iff.mp y_norm_pos
   simp [pre_proj_to_sph, hx, y_ne_0]
   show ‖(‖y‖⁻¹ • y) - (‖x‖⁻¹ • x)‖ < ε
-  sorry
+  calc
+    ‖(‖y‖⁻¹ • y) - (‖x‖⁻¹ • x)‖ = ‖(‖y‖⁻¹ - ‖x‖⁻¹) • y + ‖x‖⁻¹ • (y - x)‖ := by congr! 1; module
+    _ ≤ ‖(‖y‖⁻¹ - ‖x‖⁻¹) • y‖ + ‖‖x‖⁻¹ • (y - x)‖ := by apply norm_add_le
+    _ ≤ |‖y‖⁻¹ - ‖x‖⁻¹| * ‖y‖ + ‖x‖⁻¹ * ‖y - x‖ := by simp [norm_smul]
+    _ = |(‖x‖ - ‖y‖) / (‖x‖)| + ‖x‖⁻¹ * ‖y - x‖ := by congr; rw [←abs_of_pos y_norm_pos, ←abs_mul]; congr! 1; field_simp; ring;
+    _ = |‖x‖ - ‖y‖| / ‖x‖ + ‖x‖⁻¹ * ‖y - x‖ := by congr; rw [abs_div];congr; exact abs_norm x
+    _ ≤ ‖x - y‖ / ‖x‖ + ‖x‖⁻¹ * ‖y - x‖ := by suffices |‖x‖ - ‖y‖| / ‖x‖ ≤ ‖x - y‖ / ‖x‖ by linarith;;rw [div_le_div_iff_of_pos_right x_norm_pos]; exact abs_norm_sub_norm_le x y
+    _ = 2 * ‖y - x‖ / ‖x‖ := by rw [norm_sub_rev x y]; field_simp; ring
+    _ < 2 * δ / ‖x‖ := by refine div_lt_div_of_pos_right ?_ x_norm_pos; refine (mul_lt_mul_left (by norm_num)).mpr hy
+    _ ≤ 2 * (‖x‖ * ε / 2) / ‖x‖ := by refine (div_le_div_iff_of_pos_right x_norm_pos).mpr ?_; refine (mul_le_mul_iff_of_pos_left (by norm_num)).mpr (by apply min_le_left)
+    _ = ε := by field_simp
 
 example {n: ℕ} (x y: EuclideanSpace ℝ (Fin n)): ‖x - y‖ ≥ |‖x‖ - ‖y‖| := by
   exact abs_norm_sub_norm_le x y
@@ -1053,7 +1063,12 @@ theorem cb_extension_global_continuous {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ)
         ‖z‖ * |f ⟨pre_proj_to_sph hn z, pre_proj_to_sph_in_sph hn z⟩| = |f ⟨pre_proj_to_sph hn z, pre_proj_to_sph_in_sph hn z⟩| * ‖z‖ := by rw [mul_comm]
         _ < s * δ := mul_lt_mul' (hs _) (z_norm_lt) (norm_nonneg z) spos
         _ = ε := by unfold δ; field_simp
-    . sorry
+    . apply ContinuousAt.mul
+      . suffices Continuous (norm) by exact Continuous.continuousAt this
+        exact continuous_norm
+      . apply ContinuousAt.comp
+        . exact Continuous.continuousAt hf
+        . sorry
   . continuity
 end
 
@@ -1062,6 +1077,8 @@ variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
 variable {f : X → Y} {S: Set Y} (hf: ∀ x, f x ∈ S)
 example (f_cont: Continuous f): Continuous ((fun x: X ↦ ⟨f x, hf x⟩): X → S) := by
   exact Continuous.subtype_mk f_cont hf
+example {x: X} (f_cont_at_x: ContinuousAt f x): ContinuousAt ((fun x: X ↦ ⟨f x, hf x⟩): X → S) x := by
+  sorry
 end
 end Chp5
 
