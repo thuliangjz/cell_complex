@@ -987,6 +987,7 @@ theorem sep_fun_cb_eq_1_iff {p: cb n} (hp: p ∈ cb_inner): ∀ x, sep_fun p (cb
 end
 
 section
+open Topology
 instance instSphNonempty {n: ℕ} (hn: 1 ≤ n): Nonempty (sph n) := Set.Nonempty.to_subtype (sph_nonempty hn)
 
 noncomputable def pre_proj_to_sph {n: ℕ} (hn: 1 ≤ n): (EuclideanSpace ℝ (Fin n)) → (EuclideanSpace ℝ (Fin n)) := fun x ↦ if x = 0 then (Classical.choice (instSphNonempty hn)).1 else (1 / ‖x‖) • x
@@ -1068,17 +1069,12 @@ theorem cb_extension_global_continuous {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ)
         exact continuous_norm
       . apply ContinuousAt.comp
         . exact Continuous.continuousAt hf
-        . sorry
+        . let h: EuclideanSpace ℝ (Fin n) → sph n := fun x ↦ ⟨pre_proj_to_sph hn x, pre_proj_to_sph_in_sph hn x⟩
+          let s := h x
+          show (𝓝 x).map h ≤ 𝓝 s
+          have: (𝓝 x).map (Subtype.val ∘ h) ≤ (𝓝 s.1) := pre_proj_to_sph_cont_at_nonzero hn _ x_ne_0
+          rwa [←Filter.map_map, Filter.map_le_iff_le_comap, ←nhds_subtype] at this
   . continuity
-end
-
-section
-variable {X Y: Type*} [TopologicalSpace X] [TopologicalSpace Y]
-variable {f : X → Y} {S: Set Y} (hf: ∀ x, f x ∈ S)
-example (f_cont: Continuous f): Continuous ((fun x: X ↦ ⟨f x, hf x⟩): X → S) := by
-  exact Continuous.subtype_mk f_cont hf
-example {x: X} (f_cont_at_x: ContinuousAt f x): ContinuousAt ((fun x: X ↦ ⟨f x, hf x⟩): X → S) x := by
-  sorry
 end
 end Chp5
 
