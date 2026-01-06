@@ -1024,9 +1024,6 @@ lemma pre_proj_to_sph_cont_at_nonzero {n: ℕ} (hn: 1 ≤ n) (x: EuclideanSpace 
     _ ≤ 2 * (‖x‖ * ε / 2) / ‖x‖ := by refine (div_le_div_iff_of_pos_right x_norm_pos).mpr ?_; refine (mul_le_mul_iff_of_pos_left (by norm_num)).mpr (by apply min_le_left)
     _ = ε := by field_simp
 
-example {n: ℕ} (x y: EuclideanSpace ℝ (Fin n)): ‖x - y‖ ≥ |‖x‖ - ‖y‖| := by
-  exact abs_norm_sub_norm_le x y
-
 theorem pre_proj_to_sph_in_sph {n: ℕ} (hn: 1 ≤ n): ∀ x, pre_proj_to_sph hn x ∈ sph n := by
   intro x
   rcases eq_or_ne x 0 with x_eq_0 | x_ne_0
@@ -1075,6 +1072,34 @@ theorem cb_extension_global_continuous {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ)
           have: (𝓝 x).map (Subtype.val ∘ h) ≤ (𝓝 s.1) := pre_proj_to_sph_cont_at_nonzero hn _ x_ne_0
           rwa [←Filter.map_map, Filter.map_le_iff_le_comap, ←nhds_subtype] at this
   . continuity
+
+theorem cb_extension_global_eq_on_sph {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ): ∀ x, (hx: x ∈ sph n) → cb_extension_global hn f x = f ⟨x, hx⟩ := by
+  intro x hx
+  have x_norm_eq_1: ‖x‖ = 1 := by rw [←dist_zero, ←Metric.mem_sphere']; exact hx
+  have x_ne_0 : x ≠ 0 := by simp [←norm_ne_zero_iff, x_norm_eq_1]
+  unfold cb_extension_global
+  simp [x_norm_eq_1]
+  congr!
+  simp [pre_proj_to_sph, x_ne_0, x_norm_eq_1]
+
+theorem cb_extension_global_pos_in_b {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) (hf: ∀ x, 0 ≤ f x): ∀ x ∈ b n, 0 < cb_extension_global hn f x := by
+  intro x hx
+  have x_norm_lt_1: ‖x‖ < 1 := by rwa [b, Metric.mem_ball', dist_zero] at hx
+  unfold cb_extension_global
+  have term1_nonneg: 0 ≤ ‖x‖ * f ⟨pre_proj_to_sph hn x, pre_proj_to_sph_in_sph hn x⟩ := mul_nonneg (norm_nonneg x) (hf _)
+  have term2_pos: 0 < (1 - ‖x‖) := by linarith
+  linarith
+
+theorem cb_extension_global_nonneg_in_cb {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) (hf: ∀ x, 0 ≤ f x): ∀ x ∈ cb n, 0 ≤ cb_extension_global hn f x := by
+  intro x hx
+  have x_norm_le_1: ‖x‖ ≤ 1 := by rwa [cb, Metric.mem_closedBall', dist_zero] at hx
+  rcases eq_or_lt_of_le x_norm_le_1 with x_norm_eq_1 | x_norm_lt_1
+  . have x_in_sph: x ∈ sph n := by rwa [sph, Metric.mem_sphere', dist_zero]
+    rw [cb_extension_global_eq_on_sph hn f x x_in_sph]
+    apply hf
+  . have x_in_b: x ∈ b n := by rwa [b, Metric.mem_ball', dist_zero]
+    apply le_of_lt
+    apply cb_extension_global_pos_in_b hn f hf x x_in_b
 end
 end Chp5
 
