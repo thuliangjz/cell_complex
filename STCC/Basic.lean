@@ -1100,6 +1100,42 @@ theorem cb_extension_global_nonneg_in_cb {n: ℕ} (hn: 1 ≤ n) (f: sph n → �
   . have x_in_b: x ∈ b n := by rwa [b, Metric.mem_ball', dist_zero]
     apply le_of_lt
     apply cb_extension_global_pos_in_b hn f hf x x_in_b
+
+noncomputable def cb_extension {n: ℕ} (hn: 1 ≤ n) (f: @cb_boundary n → ℝ): cb n → ℝ := (cb_extension_global hn (f ∘ fun x:(sph n) ↦ ⟨sph_to_cb x, (by use x)⟩)) ∘ Subtype.val
+
+theorem cb_extension_continuous {n: ℕ} (hn: 1 ≤ n) {f: @cb_boundary n → ℝ} (hf: Continuous f): Continuous (cb_extension hn f) := by
+  unfold cb_extension
+  apply Continuous.comp
+  . apply cb_extension_global_continuous
+    apply Continuous.comp hf
+    . continuity
+  . exact continuous_subtype_val
+
+theorem cb_extension_eq_on_boundary {n: ℕ} (hn: 1 ≤ n) (f: @cb_boundary n → ℝ): ∀ x, (hx: x ∈ cb_boundary) → cb_extension hn f x = f ⟨x, hx⟩ := by
+  intro x hx
+  unfold cb_extension
+  have x_val_in_sph: x.1 ∈ sph n := by rcases hx with ⟨y, rfl⟩; simp
+  rw [Function.comp, cb_extension_global_eq_on_sph hn (f ∘ fun z:(sph n) ↦ ⟨sph_to_cb z, (by use z)⟩) _ x_val_in_sph, Function.comp]
+  congr
+
+theorem cb_extension_pos_in_inner {n: ℕ} (hn: 1 ≤ n) {f: @cb_boundary n → ℝ} (hf: ∀ x, 0 ≤ f x): ∀ x ∈ cb_inner, 0 < cb_extension hn f x := by
+  intro x hx
+  rw [cb_extension, Function.comp]
+  apply cb_extension_global_pos_in_b
+  . intro y
+    rw [Function.comp]
+    apply hf
+  . rcases hx with ⟨y, rfl⟩
+    simp
+
+theorem cb_extension_nonneg {n: ℕ} (hn: 1 ≤ n) {f: @cb_boundary n → ℝ} (hf: ∀ x, 0 ≤ f x): ∀ x, 0 ≤ cb_extension hn f x := by
+  intro x
+  rcases @cb_decomp n x with x_in_inner | x_in_boundary
+  . apply le_of_lt
+    exact cb_extension_pos_in_inner hn hf _ x_in_inner
+  . rw [cb_extension_eq_on_boundary hn f x x_in_boundary]
+    apply hf
+
 end
 end Chp5
 
