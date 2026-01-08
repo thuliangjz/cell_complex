@@ -1633,6 +1633,24 @@ theorem pid_to_sk_to_R_eq_0_iff (p: point_indices (CWC := CWC)): ∀ x, pid_to_s
       simp [this, direct_sum_to_R]
       rw [sep_fun_eq_0_iff (by apply isCompact_closedBall) (by rw [cb, interior_closedBall' 0 1]; exact xn.2)]
 
+noncomputable def direct_sum_to_R_extension {n: ℕ} (fn: CWC.Fsk n → ℝ): ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))) → ℝ := fun I ↦ match I with
+| Sum.inl x => fn x
+| Sum.inr ⟨i, x⟩ => cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1 ⟩, z.2⟩)) x
+
+lemma direct_sum_to_R_extension_factors {n: ℕ} (fn: CWC.Fsk n → ℝ): ∀ x₁ x₂: ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))),
+    glue_setoid _ (CWC.Ff n) x₁ x₂ → direct_sum_to_R_extension fn x₁ = direct_sum_to_R_extension fn x₂ := by
+  intro x₁ x₂ hx₁x₂
+  rcases glue_rel_equiv_explicit _ _ x₁ x₂ hx₁x₂ with c₀ | c₁ | c₂ | c₃ | c₄
+  . rcases c₀ with ⟨x, hx, rfl⟩; rfl
+  . rcases c₁ with ⟨x, y, y', hx, hy, hy', heq⟩
+    simp [hx, hy, direct_sum_to_R_extension, hy', cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y'.2, heq]
+  . rcases c₂ with ⟨y, x, y', hy, hx, hy', heq⟩
+    simp [hx, hy, direct_sum_to_R_extension, hy', cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y'.2, heq]
+  . rcases c₃ with ⟨y₁, y₂, y₁', y₂', hy₁, hy₂, hy₁', hy₂', hy₁'y₂', y₁_ne_y₂⟩
+    simp [hy₁, hy₂, direct_sum_to_R_extension, ←hy₁', ←hy₂']
+    simp [cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₁'.2, cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₂'.2, hy₁'y₂']
+  . rcases c₄ with ⟨y, hy, rfl⟩; rfl
+
 end CWComplexConstructor
 end
 
