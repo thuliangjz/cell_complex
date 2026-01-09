@@ -1497,6 +1497,19 @@ def pid_to_pt : (point_indices (CWC := CWC)) → X := fun I ↦ match I with
 | Sum.inl ⟨x, _⟩ => x
 | Sum.inr ⟨n, i, y⟩ => cell_define_map n i y
 
+lemma pid_to_pt_injective: Function.Injective (pid_to_pt (CWC := CWC)) := by
+  intro p₁ p₂ hp₁p₂
+  match p₁ with
+  | Sum.inl ⟨x₁, hx₁⟩ =>
+    match p₂ with
+    | Sum.inl ⟨x₂, hx₂⟩ =>
+      simp [pid_to_pt] at hp₁p₂
+      congr
+    | Sum.inr ⟨n₂, i₂, x₂⟩ =>
+      sorry
+  | Sum.inr ⟨n₁, i₁, x₁⟩ =>
+    sorry
+
 def pid_to_nat : (point_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
 | Sum.inl _ => 0
 | Sum.inr ⟨n, _⟩ => n + 1
@@ -1650,6 +1663,10 @@ lemma direct_sum_to_R_extension_factors {n: ℕ} (fn: CWC.Fsk n → ℝ): ∀ x�
     simp [hy₁, hy₂, direct_sum_to_R_extension, ←hy₁', ←hy₂']
     simp [cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₁'.2, cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₂'.2, hy₁'y₂']
   . rcases c₄ with ⟨y, hy, rfl⟩; rfl
+
+noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ) → CWC.Fsk (pid_to_nat p + n) → ℝ := fun n ↦ match n with
+| 0 => pid_to_sk_to_R p
+| Nat.succ n => Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p n)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p n)) ∘ (Function.invFun (CWC.Fφ (pid_to_nat p + n)))
 
 end CWComplexConstructor
 end
