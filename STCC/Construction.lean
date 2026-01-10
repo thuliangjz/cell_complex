@@ -1497,6 +1497,14 @@ def pid_to_pt : (point_indices (CWC := CWC)) → X := fun I ↦ match I with
 | Sum.inl ⟨x, _⟩ => x
 | Sum.inr ⟨n, i, y⟩ => cell_define_map n i y
 
+lemma pid_to_pt_inl_ne_inr {x₀: X} (hx₀: x₀ ∈ CWC.Fsk 0) {n: ℕ} (i: CWC.Fι n) (y: b (n + 1)): pid_to_pt (Sum.inl ⟨x₀, hx₀⟩) ≠ pid_to_pt (Sum.inr ⟨n, i, y⟩) := by
+  simp only [pid_to_pt]
+  let e := Set.range (cell_define_map n i)
+  have : cell_define_map n i y ∈ (Set.range (cell_define_map n i)) := by
+    exact Set.mem_range_self y
+  refine Disjoint.ne_of_mem ?_ hx₀ (Set.mem_range_self y)
+  exact Fsk_0_cell_disjoint n i
+
 lemma pid_to_pt_injective: Function.Injective (pid_to_pt (CWC := CWC)) := by
   intro p₁ p₂ hp₁p₂
   match p₁ with
@@ -1506,9 +1514,30 @@ lemma pid_to_pt_injective: Function.Injective (pid_to_pt (CWC := CWC)) := by
       simp [pid_to_pt] at hp₁p₂
       congr
     | Sum.inr ⟨n₂, i₂, x₂⟩ =>
-      sorry
+      let hne := pid_to_pt_inl_ne_inr hx₁ i₂ x₂
+      contradiction
   | Sum.inr ⟨n₁, i₁, x₁⟩ =>
-    sorry
+    match p₂ with
+    | Sum.inl ⟨x₂, hx₂⟩ =>
+      let hne := (pid_to_pt_inl_ne_inr hx₂ i₁ x₁).symm
+      contradiction
+    | Sum.inr ⟨n₂, i₂, x₂⟩ =>
+      simp [pid_to_pt] at hp₁p₂
+      rcases eq_or_ne n₁ n₂ with n₁_eq_n₂ | n₁_ne_n₂
+      . let i₁_congr := fun {t:ℕ} (ht: n₁ = t) ↦ (congrArg CWC.Fι ht).mp i₁
+        let x₁_congr := fun {t:ℕ} (ht: n₁ = t) ↦ (congrArg (fun m:ℕ ↦ (b (m + 1):Type)) ht).mp x₁
+        rw [Eq.rec (motive := fun (t:ℕ) (ht: n₁ = t) ↦ cell_define_map n₁ i₁ x₁ = cell_define_map t (i₁_congr ht) (x₁_congr ht)) rfl n₁_eq_n₂] at hp₁p₂
+        rw [Eq.rec (motive := fun (t:ℕ) (ht: n₁ = t) ↦ (Sum.inr ⟨n₁, i₁, x₁⟩:point_indices) = Sum.inr ⟨t, (i₁_congr ht), (x₁_congr ht)⟩) rfl  n₁_eq_n₂]
+        rcases eq_or_ne (i₁_congr n₁_eq_n₂) i₂ with i₁'_eq_i₂ | i₁'_ne_i₂
+        . sorry
+        . have: cell_define_map n₂ (i₁_congr n₁_eq_n₂) (x₁_congr n₁_eq_n₂) ≠ cell_define_map n₂ i₂ x₂ := by
+            refine Disjoint.ne_of_mem ?_ (Set.mem_range_self (x₁_congr n₁_eq_n₂)) (Set.mem_range_self x₂)
+            exact cell_of_same_n_different_i_disjoint n₂ (i₁_congr n₁_eq_n₂) i₂ i₁'_ne_i₂
+          contradiction
+      . have: cell_define_map n₁ i₁ x₁ ≠ cell_define_map n₂ i₂ x₂ := by
+          refine Disjoint.ne_of_mem ?_ (Set.mem_range_self x₁) (Set.mem_range_self x₂)
+          exact cell_of_different_n_disjoint n₁ i₁ n₂ i₂ n₁_ne_n₂
+        contradiction
 
 def pid_to_nat : (point_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
 | Sum.inl _ => 0
@@ -1702,7 +1731,7 @@ instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) 
 end
 
 section
-variable {X: Type*} {s: Set X}
-#check s.indicator (fun _ ↦ (1:ℝ))
-#check s.indicator_of_mem
+variable {X: Type*}
+example {s₁ s₂: Set X} (h: Disjoint s₁ s₂) {x₁ x₂: X} (h₁: x₁ ∈ s₁) (h₂: x₂ ∈ s₂): x₁ ≠ x₂ := by
+  exact Disjoint.ne_of_mem h h₁ h₂
 end
