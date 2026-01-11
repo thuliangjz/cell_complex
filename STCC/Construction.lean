@@ -683,6 +683,22 @@ def pre_characteristic_map: (n: ℕ) → (Σ_:(CWC.Fι n), cb (n + 1)) → X :=
 
 def cell_define_map: (n:ℕ) → (CWC.Fι n) → b (n + 1) → X := fun n i x ↦ pre_characteristic_map n ⟨i, ⟨x.1, b_in_cb x.2⟩⟩
 
+lemma cell_define_map_injective {n: ℕ} (i: CWC.Fι n): Function.Injective (cell_define_map n i) := by
+  intro x₁ x₂ heq
+  simp [cell_define_map, pre_characteristic_map, Subtype.val_inj] at heq
+  let heq' := (CWC.Fφ_heomorph n).injective heq
+  have aux: ∀ x: b (n + 1), (⟨i, ⟨x.1, b_in_cb x.2⟩⟩: (Σ_:(CWC.Fι n), cb (n + 1))) ∈ {y | y.2 ∈ cb_boundary}ᶜ := by
+    intro x
+    simp
+    show ⟨x.1, b_in_cb x.2⟩ ∈ cb_boundaryᶜ
+    rw [←cb_inner_eq_boundary_compl]
+    use x
+    rfl
+  have eq_right_adj_proj: ∀ x: b (n + 1), adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, ⟨x.1, b_in_cb x.2⟩⟩) = right_adj_proj _ _ ⟨_, aux x⟩ := by intro x; rfl
+  simp [eq_right_adj_proj] at heq'
+  let heq'' := right_adj_proj_injective _ _ heq'
+  simpa [Subtype.val_inj] using heq''
+
 def cell_sets : Set (Set X) := {e | e ∈ cell_of_dim0 ∪ ⋃ n:ℕ, Set.range (fun (i: CWC.Fι n) ↦ Set.range <| cell_define_map n i) ∧ e.Nonempty}
 
 theorem cell_sets_nonempty: ∀ e ∈ cell_sets (CWC := CWC), e.Nonempty := by
@@ -1529,7 +1545,10 @@ lemma pid_to_pt_injective: Function.Injective (pid_to_pt (CWC := CWC)) := by
         rw [Eq.rec (motive := fun (t:ℕ) (ht: n₁ = t) ↦ cell_define_map n₁ i₁ x₁ = cell_define_map t (i₁_congr ht) (x₁_congr ht)) rfl n₁_eq_n₂] at hp₁p₂
         rw [Eq.rec (motive := fun (t:ℕ) (ht: n₁ = t) ↦ (Sum.inr ⟨n₁, i₁, x₁⟩:point_indices) = Sum.inr ⟨t, (i₁_congr ht), (x₁_congr ht)⟩) rfl  n₁_eq_n₂]
         rcases eq_or_ne (i₁_congr n₁_eq_n₂) i₂ with i₁'_eq_i₂ | i₁'_ne_i₂
-        . sorry
+        . rw [i₁'_eq_i₂] at hp₁p₂
+          suffices x₁_congr n₁_eq_n₂ = x₂ by
+            rw [i₁'_eq_i₂, this]
+          exact cell_define_map_injective i₂ hp₁p₂
         . have: cell_define_map n₂ (i₁_congr n₁_eq_n₂) (x₁_congr n₁_eq_n₂) ≠ cell_define_map n₂ i₂ x₂ := by
             refine Disjoint.ne_of_mem ?_ (Set.mem_range_self (x₁_congr n₁_eq_n₂)) (Set.mem_range_self x₂)
             exact cell_of_same_n_different_i_disjoint n₂ (i₁_congr n₁_eq_n₂) i₂ i₁'_ne_i₂
