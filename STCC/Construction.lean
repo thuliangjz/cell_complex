@@ -1558,6 +1558,40 @@ lemma pid_to_pt_injective: Function.Injective (pid_to_pt (CWC := CWC)) := by
           exact cell_of_different_n_disjoint n₁ i₁ n₂ i₂ n₁_ne_n₂
         contradiction
 
+lemma pid_to_pt_surjective: Function.Surjective (pid_to_pt (CWC := CWC)) := by
+  intro x
+  have : x ∈ ⋃₀ cell_sets := by rw [cell_sets_cover]; trivial
+  rcases (Set.mem_sUnion.mp) this with ⟨e, e_in_sets, x_in_e⟩
+  rcases e_in_sets with ⟨e_in_sk0 | e_in_skn, e_nonempty⟩
+  . rcases e_in_sk0 with ⟨x₀, x₀_in_sk0, rfl⟩
+    use Sum.inl ⟨x₀, x₀_in_sk0⟩
+    simp [pid_to_pt]
+    rw [Set.mem_singleton_iff] at x_in_e
+    exact x_in_e.symm
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, range_eq⟩⟩
+    simp at range_eq
+    rw [←range_eq] at x_in_e
+    rcases x_in_e with ⟨y, rfl ⟩
+    use Sum.inr ⟨n, i, y⟩
+    rfl
+instance pid_nonempty: Nonempty (point_indices (CWC := CWC)) := by
+  rcases CWC.Fsk0_nonempty with ⟨x, x_in_sk0⟩
+  use Sum.inl ⟨x, x_in_sk0⟩
+
+noncomputable def pt_to_pid: X → (point_indices (CWC := CWC)) := Function.invFun pid_to_pt
+
+lemma pt_to_pid_left_inv: pt_to_pid ∘ (pid_to_pt (CWC := CWC)) = id := Function.invFun_comp pid_to_pt_injective
+lemma pt_to_pid_left_inv': ∀ I, pt_to_pid (pid_to_pt (CWC := CWC) I) = I := by
+  intro I
+  show (pt_to_pid ∘ pid_to_pt) I = I
+  rw [pt_to_pid_left_inv]
+  rfl
+lemma pt_to_pid_right_inv: (pid_to_pt (CWC := CWC)) ∘ pt_to_pid = id := by
+  ext x
+  apply Function.invFun_eq
+  exact pid_to_pt_surjective x
+
 def pid_to_nat : (point_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
 | Sum.inl _ => 0
 | Sum.inr ⟨n, _⟩ => n + 1
@@ -1715,6 +1749,8 @@ lemma direct_sum_to_R_extension_factors {n: ℕ} (fn: CWC.Fsk n → ℝ): ∀ x�
 noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ) → CWC.Fsk (pid_to_nat p + n) → ℝ := fun n ↦ match n with
 | 0 => pid_to_sk_to_R p
 | Nat.succ n => Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p n)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p n)) ∘ (Function.invFun (CWC.Fφ (pid_to_nat p + n)))
+
+noncomputable def skn_map_compose (fseq: (n:ℕ) → CWC.Fsk n → ℝ) : X → ℝ := fun x ↦ fseq (pid_to_nat (pt_to_pid x)) (⟨pid_to_pt (pt_to_pid x), pid_to_pt_in_sk (pt_to_pid x)⟩)
 
 end CWComplexConstructor
 end
