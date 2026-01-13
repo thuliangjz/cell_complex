@@ -1591,6 +1591,11 @@ lemma pt_to_pid_right_inv: (pid_to_pt (CWC := CWC)) ∘ pt_to_pid = id := by
   ext x
   apply Function.invFun_eq
   exact pid_to_pt_surjective x
+lemma pt_to_pid_right_inv': ∀ x, (pid_to_pt (CWC := CWC)) (pt_to_pid x) = x := by
+  intro x
+  show (pid_to_pt ∘ pt_to_pid) x = x
+  rw [pt_to_pid_right_inv]
+  rfl
 
 def pid_to_nat : (point_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
 | Sum.inl _ => 0
@@ -1750,7 +1755,21 @@ noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ
 | 0 => pid_to_sk_to_R p
 | Nat.succ n => Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p n)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p n)) ∘ (Function.invFun (CWC.Fφ (pid_to_nat p + n)))
 
-noncomputable def skn_map_compose (fseq: (n:ℕ) → CWC.Fsk n → ℝ) : X → ℝ := fun x ↦ fseq (pid_to_nat (pt_to_pid x)) (⟨pid_to_pt (pt_to_pid x), pid_to_pt_in_sk (pt_to_pid x)⟩)
+noncomputable def pt_to_sk_dim_refined (n:ℕ) : X → ℕ := fun x ↦ max (pid_to_nat (pt_to_pid x)) n - n
+lemma pt_in_sk_pt_to_sk_dim_refined (n: ℕ) (x: X): x ∈ CWC.Fsk (n + pt_to_sk_dim_refined n x) := by
+  have : n + pt_to_sk_dim_refined n x = max (pid_to_nat (pt_to_pid x)) n := Nat.add_sub_of_le (Nat.le_max_right (pid_to_nat (pt_to_pid x)) n)
+  rw [this]
+  apply Fsk_incl (le_max_left (pid_to_nat (pt_to_pid x)) _)
+  suffices (pid_to_pt (pt_to_pid x)) ∈ CWC.Fsk (pid_to_nat (pt_to_pid x)) by
+    simpa [pt_to_pid_right_inv'] using this
+  exact pid_to_pt_in_sk (pt_to_pid x)
+
+noncomputable def skn_map_compose {n: ℕ} (fseq: (k:ℕ) → CWC.Fsk (n + k) → ℝ) : X → ℝ := fun x ↦ fseq (pt_to_sk_dim_refined n x) ⟨x, pt_in_sk_pt_to_sk_dim_refined n x⟩
+
+noncomputable def pid_to_X_to_R (p: point_indices (CWC := CWC)): X → ℝ := skn_map_compose (pid_to_sk_chain_to_R p)
+
+theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X_to_R p) := by
+  sorry
 
 end CWComplexConstructor
 end
