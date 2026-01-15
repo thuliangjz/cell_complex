@@ -675,6 +675,37 @@ lemma singleton_in_sk0_closed: ∀ x:X, x ∈ CWC.Fsk 0 → IsClosed {x} := by
   rw [←closed_in_cwc_iff]
   apply @isClosed_discrete (CWC.Fsk 0) (CWC.Tsk 0) (CWC.Tsk0_discrete)
 
+lemma continuous_iff_continuous_on_Fsk {Y: Type*} [TopologicalSpace Y] (f: X → Y): Continuous f ↔ ∀ n:ℕ, Continuous ((fun x ↦ f x.1): CWC.Fsk n → Y) := by
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro f_cont n
+    show Continuous (f ∘ Subtype.val)
+    apply Continuous.comp f_cont
+    exact { isOpen_preimage := fun s a ↦ a n }
+  case mpr =>
+    intro hf
+    refine {isOpen_preimage := ?_}
+    intro s s_open_in_y n
+    rw [←Set.preimage_comp]
+    exact (hf n).isOpen_preimage s s_open_in_y
+
+lemma continuous_iff_continuous_on_Fsk' {Y: Type*} [TopologicalSpace Y] (f: X → Y): Continuous f ↔ ∃ n:ℕ, ∀ m, Continuous ((fun x ↦ f x.1): (CWC.Fsk (n + m) → Y)) := by
+  rw [continuous_iff_continuous_on_Fsk]
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hf
+    use 0
+    intro n
+    apply Eq.rec (motive := (fun m heq ↦ Continuous ((fun x ↦ f x.1): (CWC.Fsk m) → Y))) (hf n)
+    norm_num
+  case mpr =>
+    rintro ⟨n₀, hf⟩
+    intro n
+    rcases lt_or_ge n n₀ with n_lt_n₀ | n_ge_n₀
+    . sorry
+    . rcases Nat.exists_eq_add_of_le n_ge_n₀ with ⟨m, rfl⟩
+      exact hf m
+
 namespace CWComplexConstructor
 def cell_of_dim0: Set (Set X) := {{x} | x ∈ CWC.Fsk 0}
 -- using haskell pipe operator to ease expression of function composition
