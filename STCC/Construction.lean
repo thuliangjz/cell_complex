@@ -495,7 +495,7 @@ class CWComplexConstructor (X: Type*) where
   Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
   Fφ_fix: ∀ n:ℕ, (Fφ n) ∘ (left_adj_proj _ (Ff n)) = fun x ↦ ⟨x.1,  (Fsk_chain n) x.2⟩
 
-variable {X: Type*}
+variable {X: Type u₁}
 variable [CWC: CWComplexConstructor X]
 instance {n:ℕ}: TopologicalSpace (CWC.Fsk n) := CWC.Tsk n
 
@@ -529,6 +529,7 @@ theorem Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
   rw [←add_assoc]
   apply CWC.Fsk_chain
 
+def Fsk_adj_incl_map (n: ℕ) : CWC.Fsk n → CWC.Fsk (n + 1) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_add_right n 1) x.2⟩
 lemma Fsk_chain_incl_continuous {n: ℕ}: Continuous ((fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩): CWC.Fsk n → CWC.Fsk (n + 1)) := by
   rw [←CWC.Fφ_fix]
   refine Continuous.comp ?φ_cont ?left_adj_proj_cont
@@ -702,7 +703,15 @@ lemma continuous_iff_continuous_on_Fsk' {Y: Type*} [TopologicalSpace Y] (f: X �
     rintro ⟨n₀, hf⟩
     intro n
     rcases lt_or_ge n n₀ with n_lt_n₀ | n_ge_n₀
-    . sorry
+    . let h : (CWC.Fsk n₀) → Y := fun x ↦ f x.1
+      let g : (CWC.Fsk n) → Y := fun x ↦ f x.1
+      let φ : (CWC.Fsk n) → (CWC.Fsk n₀) := fun x ↦ ⟨x.1, Fsk_incl (le_of_lt n_lt_n₀) x.2⟩
+      have g_decomp : g = h ∘ φ := by ext x; simp [g, h, φ]
+      show Continuous g
+      rw [g_decomp]
+      apply Continuous.comp
+      . exact Eq.rec (motive := (fun m heq ↦ Continuous ((fun x ↦ f x.1): (CWC.Fsk m) → Y))) (hf 0) (rfl: n₀ + 0 = n₀)
+      . exact Fsk_incl_continuous (le_of_lt n_lt_n₀)
     . rcases Nat.exists_eq_add_of_le n_ge_n₀ with ⟨m, rfl⟩
       exact hf m
 
@@ -1797,9 +1806,35 @@ lemma pt_in_sk_pt_to_sk_dim_refined (n: ℕ) (x: X): x ∈ CWC.Fsk (n + pt_to_sk
 
 noncomputable def skn_map_compose {n: ℕ} (fseq: (k:ℕ) → CWC.Fsk (n + k) → ℝ) : X → ℝ := fun x ↦ fseq (pt_to_sk_dim_refined n x) ⟨x, pt_in_sk_pt_to_sk_dim_refined n x⟩
 
+lemma skn_map_compose_coeherent {n:ℕ} (fseq: (m:ℕ) → CWC.Fsk (n + m) → ℝ) (hfseq: ∀ m, fseq m = (fseq (m + 1)) ∘ Fsk_adj_incl_map (n + m)): ∀ m:ℕ, (fun x:(CWC.Fsk (n + m)) ↦ skn_map_compose fseq x.1) = fseq m := by
+  intro m
+  ext x
+  unfold skn_map_compose
+  have aux: ∀ m₁:ℕ, ∀ x:CWC.Fsk (n + m₁), ∀ m₂:ℕ, ∀ y:CWC.Fsk (n + m₂), x.1 = y.1 → fseq m₁ x = fseq m₂ y := by
+    intro m₁ x m₂ y hxy
+    wlog m₁_le_m₂: m₁ ≤ m₂ generalizing m₁ x m₂ y hxy
+    . have h: m₂ ≤ m₁ := by linarith
+      rw[this m₂ y m₁ x hxy.symm h]
+    rcases Nat.exists_eq_add_of_le m₁_le_m₂ with ⟨k, rfl⟩
+    induction' k with k ih
+    . simp
+      congr
+      exact SetCoe.ext hxy
+    let y': (CWC.Fsk (n + (m₁ + k))) := ⟨x.1, Fsk_incl (by linarith) x.2⟩
+    rw[ih y' (rfl) (Nat.le_add_right m₁ k)]
+    have:  Fsk_adj_incl_map (n + (m₁ + k)) y' = y := by
+      simp [Fsk_adj_incl_map]
+      exact Eq.symm (SetCoe.ext (id (Eq.symm hxy)))
+    simp [←this, hfseq (m₁ + k)]
+    congr
+  apply aux
+  rfl
+
 noncomputable def pid_to_X_to_R (p: point_indices (CWC := CWC)): X → ℝ := skn_map_compose (pid_to_sk_chain_to_R p)
 
 theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X_to_R p) := by
+  rw [continuous_iff_continuous_on_Fsk']
+  use (pid_to_nat p)
   sorry
 
 end CWComplexConstructor
