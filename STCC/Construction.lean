@@ -1690,7 +1690,7 @@ noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (p
 | Sum.inl x => fun y ↦ if y = x then 0 else 1
 | Sum.inr ⟨n, i, x⟩ => (Quotient.lift (direct_sum_to_R i (b_to_cb x)) (direct_sum_to_R_factors i (b_to_cb x) (by use x))) ∘ (Function.invFun (CWC.Fφ n))
 
-theorem pid_to_sk_R_continuous {p: point_indices (CWC := CWC)} : Continuous (pid_to_sk_to_R p) := by
+theorem pid_to_sk_to_R_continuous {p: point_indices (CWC := CWC)} : Continuous (pid_to_sk_to_R p) := by
   match p with
   | Sum.inl x =>
     simp [pid_to_sk_to_R]
@@ -1795,6 +1795,14 @@ noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ
 | 0 => pid_to_sk_to_R p
 | Nat.succ n => Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p n)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p n)) ∘ (Function.invFun (CWC.Fφ (pid_to_nat p + n)))
 
+lemma pid_to_sk_chain_to_R_adj_coeherent (p: point_indices (CWC := CWC)): ∀ n, pid_to_sk_chain_to_R p n = pid_to_sk_chain_to_R p (n + 1) ∘ Fsk_adj_incl_map ((pid_to_nat p + n)) := by
+  intro n
+  nth_rw 1 [pid_to_sk_chain_to_R]
+  unfold Fsk_adj_incl_map
+  rw [←CWC.Fφ_fix, Function.comp_assoc, ←Function.comp_assoc (g := CWC.Fφ (pid_to_nat p + n))]
+  simp [Function.invFun_comp (CWC.Fφ_heomorph _).injective]
+  rfl
+
 noncomputable def pt_to_sk_dim_refined (n:ℕ) : X → ℕ := fun x ↦ max (pid_to_nat (pt_to_pid x)) n - n
 lemma pt_in_sk_pt_to_sk_dim_refined (n: ℕ) (x: X): x ∈ CWC.Fsk (n + pt_to_sk_dim_refined n x) := by
   have : n + pt_to_sk_dim_refined n x = max (pid_to_nat (pt_to_pid x)) n := Nat.add_sub_of_le (Nat.le_max_right (pid_to_nat (pt_to_pid x)) n)
@@ -1835,7 +1843,17 @@ noncomputable def pid_to_X_to_R (p: point_indices (CWC := CWC)): X → ℝ := sk
 theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X_to_R p) := by
   rw [continuous_iff_continuous_on_Fsk']
   use (pid_to_nat p)
-  sorry
+  unfold pid_to_X_to_R
+  simp [skn_map_compose_coeherent _ (pid_to_sk_chain_to_R_adj_coeherent p)]
+  intro m
+  induction' m with m ih
+  . unfold pid_to_sk_chain_to_R
+    apply pid_to_sk_to_R_continuous
+  . unfold pid_to_sk_chain_to_R
+    apply Continuous.comp
+    . refine Continuous.quotient_lift ?_ _
+      sorry
+    . sorry
 
 end CWComplexConstructor
 end
