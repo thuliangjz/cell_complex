@@ -529,6 +529,27 @@ theorem Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
   rw [←add_assoc]
   apply CWC.Fsk_chain
 
+instance instNonemptyConstructorFsk {n: ℕ}: Nonempty (CWC.Fsk n) := by
+  rcases CWC.Fsk0_nonempty with ⟨x, hx⟩
+  use x
+  exact Fsk_incl (m := 0) (by norm_num) hx
+
+lemma inv_Fφ_heomorph (n:ℕ): IsHomeomorph (Function.invFun (CWC.Fφ n)) := by
+  let Fφ_heom := CWC.Fφ_heomorph n
+  rw [isHomeomorph_iff_exists_inverse] at Fφ_heom
+  rcases Fφ_heom with ⟨Fφ_cont, g, g_left_inv, g_right_inv, g_cont⟩
+  have: g = Function.invFun (CWC.Fφ n) := by
+    ext y
+    suffices CWC.Fφ n (g y) = (CWC.Fφ n) (Function.invFun (CWC.Fφ n) y) by
+      exact g_left_inv.injective this
+    rw [g_right_inv, Function.invFun_eq ⟨g y, g_right_inv y⟩]
+  rw [isHomeomorph_iff_exists_inverse]
+  constructor
+  . rwa [←this]
+  . use (CWC.Fφ n)
+    simp [←this]
+    use g_right_inv.leftInverse, g_left_inv.rightInverse
+
 def Fsk_adj_incl_map (n: ℕ) : CWC.Fsk n → CWC.Fsk (n + 1) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_add_right n 1) x.2⟩
 lemma Fsk_chain_incl_continuous {n: ℕ}: Continuous ((fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩): CWC.Fsk n → CWC.Fsk (n + 1)) := by
   rw [←CWC.Fφ_fix]
@@ -1679,10 +1700,6 @@ lemma direct_sum_to_R_factors {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)) (hp: p ∈
   . rcases c₄ with ⟨_, _, heq⟩
     rw [heq]
 
-instance instNonemptyConstructorFsk {n: ℕ}: Nonempty (CWC.Fsk n) := by
-  rcases CWC.Fsk0_nonempty with ⟨x, hx⟩
-  use x
-  exact Fsk_incl (m := 0) (by norm_num) hx
 instance instNonemptyConstructorAdjointSpace {n: ℕ}: Nonempty (AdjointSpace _ (CWC.Ff n)) := by
   infer_instance
 
@@ -1718,15 +1735,7 @@ theorem pid_to_sk_to_R_continuous {p: point_indices (CWC := CWC)} : Continuous (
         . have: (fun a ↦ (direct_sum_to_R i (b_to_cb x) ∘ Sum.inr) ⟨i₀, a⟩) = fun _ ↦ 1 := by ext y; simp [direct_sum_to_R, i₀_ne_i]
           rw [this]
           exact continuous_const
-    . let Fφ_heom := CWC.Fφ_heomorph n
-      rw [isHomeomorph_iff_exists_inverse] at Fφ_heom
-      rcases Fφ_heom with ⟨Fφ_cont, g, g_left_inv, g_right_inv, g_cont⟩
-      have: g = Function.invFun (CWC.Fφ n) := by
-        ext y
-        suffices CWC.Fφ n (g y) = (CWC.Fφ n) (Function.invFun (CWC.Fφ n) y) by
-          exact g_left_inv.injective this
-        rw [g_right_inv, Function.invFun_eq ⟨g y, g_right_inv y⟩]
-      rwa [←this]
+    . exact (inv_Fφ_heomorph n).continuous
 
 theorem pid_to_sk_to_R_eq_0_iff (p: point_indices (CWC := CWC)): ∀ x, pid_to_sk_to_R p x = 0 ↔ x = ⟨pid_to_pt p, pid_to_pt_in_sk p⟩ := by
   intro x
@@ -1776,6 +1785,20 @@ theorem pid_to_sk_to_R_eq_0_iff (p: point_indices (CWC := CWC)): ∀ x, pid_to_s
 noncomputable def direct_sum_to_R_extension {n: ℕ} (fn: CWC.Fsk n → ℝ): ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))) → ℝ := fun I ↦ match I with
 | Sum.inl x => fn x
 | Sum.inr ⟨i, x⟩ => cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1 ⟩, z.2⟩)) x
+
+lemma direct_sum_to_R_extension_continuous {n: ℕ} (fn: CWC.Fsk n → ℝ) (hfn: Continuous fn): Continuous (direct_sum_to_R_extension (CWC := CWC) (n := n) fn) := by
+  rw [continuous_sum_dom]
+  constructor
+  . have: direct_sum_to_R_extension fn ∘ Sum.inl = fn := by ext x; rfl
+    rwa [this]
+  . have: direct_sum_to_R_extension fn ∘ Sum.inr = fun ⟨i, x⟩ ↦ cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1 ⟩, z.2⟩)) x := by ext y; rfl
+    rw [this, continuous_sigma_iff]
+    intro i
+    simp
+    refine cb_extension_continuous (Nat.le_add_left 1 n) ?_
+    show Continuous (fn ∘ CWC.Ff n ∘ fun z:(@cb_boundary (n + 1)) ↦ ⟨⟨i, z⟩, z.2⟩)
+    apply Continuous.comp hfn (Continuous.comp (CWC.Ff_continuous n) ?_)
+    continuity
 
 lemma direct_sum_to_R_extension_factors {n: ℕ} (fn: CWC.Fsk n → ℝ): ∀ x₁ x₂: ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))),
     glue_setoid _ (CWC.Ff n) x₁ x₂ → direct_sum_to_R_extension fn x₁ = direct_sum_to_R_extension fn x₂ := by
@@ -1851,9 +1874,9 @@ theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X
     apply pid_to_sk_to_R_continuous
   . unfold pid_to_sk_chain_to_R
     apply Continuous.comp
-    . refine Continuous.quotient_lift ?_ _
-      sorry
-    . sorry
+    . apply Continuous.quotient_lift
+      exact direct_sum_to_R_extension_continuous (pid_to_sk_chain_to_R p m) ih
+    . exact (inv_Fφ_heomorph _).continuous
 
 end CWComplexConstructor
 end
