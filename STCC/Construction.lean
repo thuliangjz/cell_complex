@@ -1837,7 +1837,7 @@ lemma pt_in_sk_pt_to_sk_dim_refined (n: ℕ) (x: X): x ∈ CWC.Fsk (n + pt_to_sk
 
 noncomputable def skn_map_compose {n: ℕ} (fseq: (k:ℕ) → CWC.Fsk (n + k) → ℝ) : X → ℝ := fun x ↦ fseq (pt_to_sk_dim_refined n x) ⟨x, pt_in_sk_pt_to_sk_dim_refined n x⟩
 
-lemma skn_map_compose_coeherent {n:ℕ} (fseq: (m:ℕ) → CWC.Fsk (n + m) → ℝ) (hfseq: ∀ m, fseq m = (fseq (m + 1)) ∘ Fsk_adj_incl_map (n + m)): ∀ m:ℕ, (fun x:(CWC.Fsk (n + m)) ↦ skn_map_compose fseq x.1) = fseq m := by
+lemma coeherent_skn_map_compose_eq {n:ℕ} (fseq: (m:ℕ) → CWC.Fsk (n + m) → ℝ) (hfseq: ∀ m, fseq m = (fseq (m + 1)) ∘ Fsk_adj_incl_map (n + m)): ∀ m:ℕ, (fun x:(CWC.Fsk (n + m)) ↦ skn_map_compose fseq x.1) = fseq m := by
   intro m
   ext x
   unfold skn_map_compose
@@ -1861,13 +1861,37 @@ lemma skn_map_compose_coeherent {n:ℕ} (fseq: (m:ℕ) → CWC.Fsk (n + m) → �
   apply aux
   rfl
 
+lemma coeherent_skn_map_compose_preimage {n: ℕ} (fseq: (m:ℕ) → CWC.Fsk (n + m) → ℝ) (hfseq: ∀ m, fseq m = (fseq (m + 1)) ∘ Fsk_adj_incl_map (n + m)) (A: Set ℝ): (skn_map_compose fseq) ⁻¹' A = ⋃ m:ℕ, Subtype.val '' (fseq m ⁻¹' A) := by
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    have : ∃ m, x ∈ CWC.Fsk (n + m) := by
+      let h : x ∈ Set.univ := trivial
+      rw [←CWC.Fsk_cover, Set.mem_iUnion] at h
+      rcases h with ⟨n₀, hn₀⟩
+      use n₀
+      apply Fsk_incl (m := n₀) (n := n + n₀) (by linarith) hn₀
+    rcases this with ⟨m, x_in_sk_npm⟩
+    rw [Set.mem_iUnion]
+    use m
+    rw [←coeherent_skn_map_compose_eq fseq hfseq]
+    use ⟨x, x_in_sk_npm⟩
+    simpa using hx
+  case mpr =>
+    intro hx
+    rw [Set.mem_iUnion] at hx
+    rcases hx with ⟨m, hm⟩
+    simp [←coeherent_skn_map_compose_eq fseq hfseq] at hm
+    exact hm.1
+
 noncomputable def pid_to_X_to_R (p: point_indices (CWC := CWC)): X → ℝ := skn_map_compose (pid_to_sk_chain_to_R p)
 
 theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X_to_R p) := by
   rw [continuous_iff_continuous_on_Fsk']
   use (pid_to_nat p)
   unfold pid_to_X_to_R
-  simp [skn_map_compose_coeherent _ (pid_to_sk_chain_to_R_adj_coeherent p)]
+  simp [coeherent_skn_map_compose_eq _ (pid_to_sk_chain_to_R_adj_coeherent p)]
   intro m
   induction' m with m ih
   . unfold pid_to_sk_chain_to_R
@@ -1877,6 +1901,10 @@ theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X
     . apply Continuous.quotient_lift
       exact direct_sum_to_R_extension_continuous (pid_to_sk_chain_to_R p m) ih
     . exact (inv_Fφ_heomorph _).continuous
+
+theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_to_R p) ⁻¹' ({0}) = {pid_to_pt p} := by
+  rw [pid_to_X_to_R, coeherent_skn_map_compose_preimage _ (pid_to_sk_chain_to_R_adj_coeherent p)]
+  sorry
 
 end CWComplexConstructor
 end
