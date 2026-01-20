@@ -1904,7 +1904,26 @@ theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X
 
 theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_to_R p) ⁻¹' ({0}) = {pid_to_pt p} := by
   rw [pid_to_X_to_R, coeherent_skn_map_compose_preimage _ (pid_to_sk_chain_to_R_adj_coeherent p)]
-  sorry
+  suffices ∀ m, Subtype.val '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) = {pid_to_pt p} by
+    simp [this]
+  intro m
+  induction' m with m ih
+  . unfold pid_to_sk_chain_to_R
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      rintro ⟨x', hx', rfl⟩
+      simp at hx'
+      rw [pid_to_sk_to_R_eq_0_iff] at hx'
+      simp [hx']
+    case mpr =>
+      intro hx
+      simp at hx
+      use ⟨pid_to_pt p, pid_to_pt_in_sk p⟩
+      simp [hx, pid_to_sk_to_R_eq_0_iff]
+  . unfold pid_to_sk_chain_to_R
+    rw [Set.preimage_comp]
+    sorry
 
 end CWComplexConstructor
 end
