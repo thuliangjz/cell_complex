@@ -1923,9 +1923,35 @@ theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_t
       simp [hx, pid_to_sk_to_R_eq_0_iff]
   . unfold pid_to_sk_chain_to_R
     rw [Set.preimage_comp]
+    have : (Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p m)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p m))) ⁻¹' {0} = (Quotient.mk _) '' (direct_sum_to_R_extension (pid_to_sk_chain_to_R p m) ⁻¹' {0}) := by
+      sorry
+    rw [this]
     sorry
 
 end CWComplexConstructor
+
+section
+variable {X: Type*} (S: Setoid X)
+variable {Y: Type*} (f: X → Y) (hf: ∀ x₁ x₂, S x₁ x₂ → f x₁ = f x₂)
+
+example (A: Set Y): (Quotient.lift f hf) ⁻¹' A = (Quotient.mk S)'' (f ⁻¹' A) := by
+  ext x'
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx'
+    rcases Quotient.exists_rep x' with ⟨x, rfl⟩
+    simp at hx'
+    use x
+    simp [hx']
+  case mpr =>
+    intro hx'
+    rcases Quotient.exists_rep x' with ⟨x, rfl⟩
+    simp at hx'
+    rcases hx' with ⟨x₁, f_x₁_in_A, x₁_equiv_x⟩
+    simp [←hf x₁ x x₁_equiv_x, f_x₁_in_A]
+
+end
+
 end
 
 end Chp5
