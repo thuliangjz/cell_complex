@@ -1814,6 +1814,54 @@ lemma direct_sum_to_R_extension_factors {n: ℕ} (fn: CWC.Fsk n → ℝ): ∀ x�
     simp [cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₁'.2, cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₂'.2, hy₁'y₂']
   . rcases c₄ with ⟨y, hy, rfl⟩; rfl
 
+lemma direct_sum_to_R_extension_preimage_zero {n: ℕ} (fn: CWC.Fsk n → ℝ)
+  (hfn_boundary_nonneg: ∀ i: CWC.Fι n, ∀ z: @cb_boundary (n + 1), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)):
+  (direct_sum_to_R_extension fn) ⁻¹' {0} = 
+  {x | (∃ y: CWC.Fsk n, x = Sum.inl y ∧ fn y = 0) ∨ 
+       (∃ i: CWC.Fι n, ∃ z: cb (n + 1), ∃ hz: z ∈ cb_boundary, x = Sum.inr ⟨i, z⟩ ∧ 
+        fn (CWC.Ff n ⟨⟨i, z⟩, hz⟩) = 0)} := by
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    simp at hx
+    match x with
+    | Sum.inl y =>
+      left
+      use y
+      simp [direct_sum_to_R_extension] at hx
+      exact ⟨rfl, hx⟩
+    | Sum.inr ⟨i, z⟩ =>
+      right
+      simp [direct_sum_to_R_extension] at hx
+      have hz_boundary_or_inner: z ∈ cb_boundary ∨ z ∈ cb_inner := by
+        rcases @cb_decomp (n + 1) z with h | h
+        · right; exact h
+        · left; exact h
+      cases hz_boundary_or_inner with
+      | inl hz_boundary =>
+        have h_eq: cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z = 
+                (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) ⟨z, hz_boundary⟩ := by
+          apply cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ z hz_boundary
+        rw [h_eq] at hx
+        simp at hx
+        exact ⟨i, z, hz_boundary, rfl, hx⟩
+      | inr hz_inner =>
+        -- Since the boundary function is non-negative, cb_extension is positive in the inner part
+        have boundary_fn_nonneg: ∀ z: @cb_boundary (n + 1), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩) := hfn_boundary_nonneg i
+        have : 0 < cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z := by
+          apply cb_extension_pos_in_inner (Nat.le_add_left 1 n) boundary_fn_nonneg z hz_inner
+        linarith [hx, this]
+  case mpr =>
+    intro hx
+    simp
+    rcases hx with ⟨y, rfl, hy⟩ | ⟨i, z, hz_boundary, rfl, hz⟩
+    · simp [direct_sum_to_R_extension, hy]
+    · simp [direct_sum_to_R_extension]
+      rw [cb_extension_eq_on_boundary (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z hz_boundary]
+      simp
+      exact hz
+
 noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ) → CWC.Fsk (pid_to_nat p + n) → ℝ := fun n ↦ match n with
 | 0 => pid_to_sk_to_R p
 | Nat.succ n => Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p n)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p n)) ∘ (Function.invFun (CWC.Fφ (pid_to_nat p + n)))
