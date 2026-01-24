@@ -1816,9 +1816,9 @@ lemma direct_sum_to_R_extension_factors {n: ℕ} (fn: CWC.Fsk n → ℝ): ∀ x�
 
 lemma direct_sum_to_R_extension_preimage_zero {n: ℕ} (fn: CWC.Fsk n → ℝ)
   (hfn_boundary_nonneg: ∀ i: CWC.Fι n, ∀ z: @cb_boundary (n + 1), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)):
-  (direct_sum_to_R_extension fn) ⁻¹' {0} = 
-  {x | (∃ y: CWC.Fsk n, x = Sum.inl y ∧ fn y = 0) ∨ 
-       (∃ i: CWC.Fι n, ∃ z: cb (n + 1), ∃ hz: z ∈ cb_boundary, x = Sum.inr ⟨i, z⟩ ∧ 
+  (direct_sum_to_R_extension fn) ⁻¹' {0} =
+  {x | (∃ y: CWC.Fsk n, x = Sum.inl y ∧ fn y = 0) ∨
+       (∃ i: CWC.Fι n, ∃ z: cb (n + 1), ∃ hz: z ∈ cb_boundary, x = Sum.inr ⟨i, z⟩ ∧
         fn (CWC.Ff n ⟨⟨i, z⟩, hz⟩) = 0)} := by
   ext x
   refine Iff.intro ?mp ?mpr
@@ -1840,7 +1840,7 @@ lemma direct_sum_to_R_extension_preimage_zero {n: ℕ} (fn: CWC.Fsk n → ℝ)
         · left; exact h
       cases hz_boundary_or_inner with
       | inl hz_boundary =>
-        have h_eq: cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z = 
+        have h_eq: cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z =
                 (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) ⟨z, hz_boundary⟩ := by
           apply cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ z hz_boundary
         rw [h_eq] at hx
@@ -1870,6 +1870,39 @@ lemma direct_sum_to_R_extension_nonneg {n: ℕ} (fn: CWC.Fsk n → ℝ) (hfn: �
   | Sum.inr ⟨i, z_cb⟩ =>
     simp [direct_sum_to_R_extension]
     exact cb_extension_nonneg (Nat.le_add_left 1 n) (fun z' => hfn_boundary i z') z_cb
+
+lemma quotient_mk_direct_sum_preimage_zero_eq_left_adj_proj_preimage {n: ℕ} (fn: CWC.Fsk n → ℝ)
+  (hfn_boundary_nonneg: ∀ i (z : @cb_boundary (n + 1)), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)):
+  let A := {x: Σ_:(CWC.Fι n), cb (n + 1) | x.2 ∈ cb_boundary}
+  (Quotient.mk (glue_setoid A (CWC.Ff n))) ''
+    (direct_sum_to_R_extension fn ⁻¹' {0}) =
+  (left_adj_proj A (CWC.Ff n)) '' (fn ⁻¹' {0}) := by
+  intro A
+  ext q
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hq
+    rcases hq with ⟨x, hx, rfl⟩
+    rw [direct_sum_to_R_extension_preimage_zero fn hfn_boundary_nonneg] at hx
+    rcases hx with ⟨y, rfl, hy⟩ | ⟨i, z, hz_boundary, rfl, hz⟩
+    · use y, hy
+      simp [left_adj_proj, adj_proj]
+    · use CWC.Ff n ⟨⟨i, z⟩, hz_boundary⟩, hz
+      simp [left_adj_proj, adj_proj]
+      simp [glue_setoid]
+      apply Relation.EqvGen.rel
+      exact ⟨⟨⟨i, z⟩, hz_boundary⟩, rfl, rfl⟩
+  case mpr =>
+    intro hq
+    rcases hq with ⟨y, hy, rfl⟩
+    simp [left_adj_proj, adj_proj]
+    left
+    use y.1, y.2
+    constructor
+    · simp [direct_sum_to_R_extension]
+      convert hy using 1
+    · simp [glue_setoid]
+      apply Relation.EqvGen.refl
 
 noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ) → CWC.Fsk (pid_to_nat p + n) → ℝ := fun n ↦ match n with
 | 0 => pid_to_sk_to_R p
@@ -2038,8 +2071,47 @@ theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_t
     rw [this]
     have h_boundary : ∀ i (z : @cb_boundary (pid_to_nat p + m + 1)), 0 ≤ (pid_to_sk_chain_to_R p m) (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩) := by
       intro i z; exact pid_to_sk_chain_to_R_nonneg p m (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩)
-    rw [direct_sum_to_R_extension_preimage_zero (pid_to_sk_chain_to_R p m) h_boundary]
-    sorry
+    simp [quotient_mk_direct_sum_preimage_zero_eq_left_adj_proj_preimage (pid_to_sk_chain_to_R p m) h_boundary]
+    let n := pid_to_nat p + m
+    let A := {x: Σ_:(CWC.Fι n), cb (n + 1) | x.2 ∈ cb_boundary}
+    have h_inv_preimage : Function.invFun (CWC.Fφ n) ⁻¹' (left_adj_proj A (CWC.Ff n) '' (pid_to_sk_chain_to_R p m ⁻¹' {0})) =
+      (CWC.Fφ n) '' (left_adj_proj A (CWC.Ff n) '' (pid_to_sk_chain_to_R p m ⁻¹' {0})) := by
+      ext z
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        intro hz
+        have h_mem : Function.invFun (CWC.Fφ n) z ∈ left_adj_proj A (CWC.Ff n) '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) := hz
+        use Function.invFun (CWC.Fφ n) z, h_mem
+        rcases (CWC.Fφ_heomorph n).surjective z with ⟨w, hw⟩
+        exact Function.invFun_eq ⟨w, hw⟩
+      case mpr =>
+        intro hz
+        rcases hz with ⟨y, hy, rfl⟩
+        have : Function.invFun (CWC.Fφ n) ((CWC.Fφ n) y) = y := by
+          apply (CWC.Fφ_heomorph n).injective
+          exact Function.invFun_eq ⟨y, rfl⟩
+        rw [Set.mem_preimage, this]
+        exact hy
+    rw [h_inv_preimage]
+    rw [←Set.image_comp]
+    rw [←Set.image_comp]
+    rw [Function.comp_assoc]
+    rw [CWC.Fφ_fix]
+    have h_comp : (Subtype.val : CWC.Fsk (n + 1) → X) ∘ (fun x : CWC.Fsk n ↦ ⟨x.1, CWC.Fsk_chain n x.2⟩) = fun x ↦ x.1 := by
+      ext x; simp
+    simp
+    have : (fun x : CWC.Fsk n ↦ x.1) '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) = Subtype.val '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) := by
+      ext x
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        intro hx
+        rcases hx with ⟨y, hy, rfl⟩
+        exact ⟨y, hy, rfl⟩
+      case mpr =>
+        intro hx
+        rcases hx with ⟨y, hy, rfl⟩
+        exact ⟨y, hy, rfl⟩
+    rw [this, ih]
 
 end CWComplexConstructor
 end
