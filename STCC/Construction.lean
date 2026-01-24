@@ -1862,6 +1862,15 @@ lemma direct_sum_to_R_extension_preimage_zero {n: ℕ} (fn: CWC.Fsk n → ℝ)
       simp
       exact hz
 
+lemma direct_sum_to_R_extension_nonneg {n: ℕ} (fn: CWC.Fsk n → ℝ) (hfn: ∀ x, 0 ≤ fn x)
+  (hfn_boundary: ∀ i (z : @cb_boundary (n + 1)), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) (x: (CWC.Fsk n) ⊕ (Σ_: CWC.Fι n, cb (n + 1))):
+  0 ≤ direct_sum_to_R_extension fn x := by
+  match x with
+  | Sum.inl y => simp [direct_sum_to_R_extension]; exact hfn y
+  | Sum.inr ⟨i, z_cb⟩ =>
+    simp [direct_sum_to_R_extension]
+    exact cb_extension_nonneg (Nat.le_add_left 1 n) (fun z' => hfn_boundary i z') z_cb
+
 noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ) → CWC.Fsk (pid_to_nat p + n) → ℝ := fun n ↦ match n with
 | 0 => pid_to_sk_to_R p
 | Nat.succ n => Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p n)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p n)) ∘ (Function.invFun (CWC.Fφ (pid_to_nat p + n)))
@@ -1873,6 +1882,46 @@ lemma pid_to_sk_chain_to_R_adj_coeherent (p: point_indices (CWC := CWC)): ∀ n,
   rw [←CWC.Fφ_fix, Function.comp_assoc, ←Function.comp_assoc (g := CWC.Fφ (pid_to_nat p + n))]
   simp [Function.invFun_comp (CWC.Fφ_heomorph _).injective]
   rfl
+
+lemma pid_to_sk_chain_to_R_nonneg (p: point_indices (CWC := CWC)): ∀ m x, 0 ≤ pid_to_sk_chain_to_R p m x := by
+  intro m
+  induction' m with m ih
+  · intro x
+    match p with
+    | Sum.inl x₀ =>
+      simp [pid_to_sk_chain_to_R, pid_to_sk_to_R]
+      split_ifs <;> norm_num
+    | Sum.inr ⟨n, i, xn⟩ =>
+      simp [pid_to_sk_chain_to_R, pid_to_sk_to_R]
+      let f := Quotient.lift (direct_sum_to_R i (b_to_cb xn)) (direct_sum_to_R_factors i (b_to_cb xn) (by use xn))
+      let x' := Function.invFun (CWC.Fφ n) x
+      rcases Quotient.exists_rep x' with ⟨x'_rep, rep_eq⟩
+      change 0 ≤ f x'
+      rw [←rep_eq]
+      simp only [f, Quotient.lift_mk]
+      match x'_rep with
+      | Sum.inl _ => simp [direct_sum_to_R]
+      | Sum.inr ⟨i', z⟩ =>
+        simp only [direct_sum_to_R]
+        split_ifs with h_i
+        · norm_num
+        · rcases eq_or_ne z.1 (b_to_cb xn).1 with heq | hne
+          · rw [Subtype.eq heq]; unfold sep_fun b_to_cb; simp
+          · rw [sep_fun, if_neg hne]
+            have hp : (b_to_cb xn).1 ∈ interior (cb (n + 1)) := by
+              simp only [cb]; rw [interior_closedBall' 0 1]; exact xn.2
+            have hpos : 0 < sSup (seg_inside (b_to_cb xn).1 z.1 (cb (n + 1))) :=
+              seg_inside_sup_pos_of_interior (b_to_cb xn).1 z.1 (cb (n + 1))
+                (isCompact_closedBall (α := EuclideanSpace ℝ (Fin (n + 1))) 0 1) hne hp
+            exact div_nonneg zero_le_one (le_of_lt hpos)
+  · intro x
+    unfold pid_to_sk_chain_to_R
+    simp
+    have h_boundary : ∀ i (z : @cb_boundary (pid_to_nat p + m + 1)), 0 ≤ (pid_to_sk_chain_to_R p m) (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩) := by
+      intro i z; exact ih (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩)
+    rcases Quotient.exists_rep (Function.invFun (CWC.Fφ (pid_to_nat p + m)) x) with ⟨x_rep, rep_eq⟩
+    rw [←rep_eq]
+    exact direct_sum_to_R_extension_nonneg (pid_to_sk_chain_to_R p m) (fun y => ih y) h_boundary x_rep
 
 noncomputable def pt_to_sk_dim_refined (n:ℕ) : X → ℕ := fun x ↦ max (pid_to_nat (pt_to_pid x)) n - n
 lemma pt_in_sk_pt_to_sk_dim_refined (n: ℕ) (x: X): x ∈ CWC.Fsk (n + pt_to_sk_dim_refined n x) := by
@@ -1987,6 +2036,9 @@ theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_t
         rw [←x₁_quot_eq_x]
         simpa using hx₁
     rw [this]
+    have h_boundary : ∀ i (z : @cb_boundary (pid_to_nat p + m + 1)), 0 ≤ (pid_to_sk_chain_to_R p m) (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩) := by
+      intro i z; exact pid_to_sk_chain_to_R_nonneg p m (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩)
+    rw [direct_sum_to_R_extension_preimage_zero (pid_to_sk_chain_to_R p m) h_boundary]
     sorry
 
 end CWComplexConstructor
