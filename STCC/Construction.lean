@@ -2113,16 +2113,16 @@ theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_t
         exact ⟨y, hy, rfl⟩
     rw [this, ih]
 
-end CWComplexConstructor
-end
-
-end Chp5
-
-section
-variable {X: Type*} [TopologicalSpace X]
-instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) : T2Space X := by
+instance instT2Space: T2Space X := by
   refine { t2 := ?_ }
   intro x y x_ne_y
+  have h : ∀ p : X, ∃ (f : X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p} := by
+    intro x₀
+    use pid_to_X_to_R (pt_to_pid x₀)
+    constructor
+    · exact pid_to_X_to_R_cont (pt_to_pid x₀)
+    · rw [pid_to_X_to_R_preimage_of_0 (pt_to_pid x₀)]
+      simp [pt_to_pid_right_inv' x₀]
   rcases h x with ⟨f, f_cont, hf⟩
   have fx_eq_0: f x = 0 := by
     have : x ∈ ({x}: Set X) := by rfl
@@ -2144,7 +2144,11 @@ instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) 
   have y_in_v: y ∈ v := fy_in_v'
   have uv_disj: Disjoint u v := by exact Disjoint.preimage f u'_v'_disjoint
   use u, v
+
+end CWComplexConstructor
 end
+
+end Chp5
 
 section
 variable {X: Type*}
