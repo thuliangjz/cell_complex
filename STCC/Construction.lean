@@ -2113,7 +2113,7 @@ theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_t
         exact ⟨y, hy, rfl⟩
     rw [this, ih]
 
-instance instT2Space: T2Space X := by
+instance instCWConstructorTopologyT2Space: T2Space X := by
   refine { t2 := ?_ }
   intro x y x_ne_y
   have h : ∀ p : X, ∃ (f : X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p} := by
@@ -2144,6 +2144,19 @@ instance instT2Space: T2Space X := by
   have y_in_v: y ∈ v := fy_in_v'
   have uv_disj: Disjoint u v := by exact Disjoint.preimage f u'_v'_disjoint
   use u, v
+
+noncomputable instance instCWConstructorCellComplexClass: CellComplexClass X := {
+  sets := cell_sets
+  nonempty := cell_sets_nonempty
+  disjoint := cell_sets_disjoint
+  cover := cell_sets_cover
+  dim_map := dim_map
+  characteristic_map := characteristic_map
+  characteristic_map_continuous := characteristic_map_continuous
+  characteristic_map_inner_range := characteristic_map_inner_range
+  characteristic_map_inner_embd := characteristic_map_inner_embedding
+  characteristic_map_boundary := characteristic_map_boundary
+}
 
 end CWComplexConstructor
 end
