@@ -2158,6 +2158,82 @@ noncomputable instance instCWConstructorCellComplexClass: CellComplexClass X := 
   characteristic_map_boundary := characteristic_map_boundary
 }
 
+def CWConstructorSkeleton (n:ℕ): SubCellComplex X where
+  carrier := CWC.Fsk n
+  cell_incl_or_disjoint := by
+    intro e he
+    rcases le_or_gt (dim_map ⟨e, he⟩) n with h_le | h_gt
+    · left
+      trans CWC.Fsk (dim_map ⟨e, he⟩)
+      · show dim_map ⟨e, he⟩ ∈ {m | e ⊆ CWC.Fsk m}
+        apply WellFounded.min_mem
+      · exact Fsk_incl h_le
+    · right
+      -- If dim_map e > n, then e is disjoint from Fsk n
+      -- Proof outline:
+      -- 1. dim_map e is the smallest m such that e ⊆ Fsk m
+      -- 2. Since n < dim_map e, we know e is NOT in Fsk n
+      -- 3. There are 2 cases for e ∈ cell_sets:
+      --    Case 1: e is in Fsk 0 (singleton) → e ⊆ Fsk n, contradiction
+      --    Case 2: e = Set.range (cell_define_map m i) → e disjoint from Fsk m, and Fsk n ⊆ Fsk m
+      rw [Set.disjoint_iff_inter_eq_empty]
+      by_contra h_not_empty
+      -- h_not_empty : e ∩ Fsk n ≠ ∅
+      have h_inter_nonempty : (e ∩ CWC.Fsk n).Nonempty := by
+        rw [Set.nonempty_iff_ne_empty]
+        exact h_not_empty
+      -- dim_map e is the smallest m such that e ⊆ Fsk m
+      let e' : cell_sets := ⟨e, he⟩
+      have dim_gt_n : dim_map e' > n := h_gt
+      -- Since dim_map e' > n and it's minimal, e is NOT contained in Fsk n
+      have e_not_in_Fsk_n : ¬(e ⊆ CWC.Fsk n) := by
+        by_contra e_sub_Fsk_n
+        have : dim_map e' ≤ n := by
+          apply WellFounded.min_le
+          exact e_sub_Fsk_n
+        linarith
+      -- Now consider the two cases for e ∈ cell_sets
+      rcases he with ⟨e_in_sk0 | e_in_skn, e_nonempty⟩
+      · -- Case 1: e is in cell_of_dim0, i.e., e = {x} for some x ∈ Fsk 0
+        rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+        -- Then e = {x} ⊆ Fsk 0 ⊆ Fsk n (since n ≥ 0)
+        have e_sub_Fsk_n : {x} ⊆ CWC.Fsk n := by
+          apply Set.singleton_subset_iff.mpr
+          exact Fsk_incl (by norm_num) x_in_sk0
+        contradiction
+      · -- Case 2: e is of form Set.range (cell_define_map m i)
+        simp at e_in_skn
+        rcases e_in_skn with ⟨m, ⟨i, rfl⟩⟩
+        -- e = Set.range (cell_define_map m i)
+        have dim_eq_mp1 : dim_map e' = m + 1 := dim_map_cell_n_is_np1 m i
+        -- Since dim_map e' = m + 1 > n, we have n ≤ m
+        have n_le_m : n ≤ m := by
+          rw [dim_eq_mp1] at dim_gt_n
+          -- dim_gt_n : m + 1 > n, so n < m + 1, hence n ≤ m
+          have : n < m + 1 := dim_gt_n
+          exact Nat.le_of_lt_succ this
+        -- Fsk n ⊆ Fsk m
+        have Fsk_n_sub_Fsk_m : CWC.Fsk n ⊆ CWC.Fsk m := Fsk_incl n_le_m
+        -- e is disjoint from Fsk m (by Fsk_n_cell_np1_disjoint)
+        have e_disjoint_Fsk_m : Disjoint (Set.range (cell_define_map m i)) (CWC.Fsk m) := 
+          Disjoint.symm (Fsk_n_cell_np1_disjoint m i)
+        -- Since Fsk n ⊆ Fsk m and e is disjoint from Fsk m, e is disjoint from Fsk n
+        have e_disjoint_Fsk_n : Disjoint (Set.range (cell_define_map m i)) (CWC.Fsk n) :=
+          Disjoint.mono_right Fsk_n_sub_Fsk_m e_disjoint_Fsk_m
+        -- But we have e ∩ Fsk n ≠ ∅, contradiction
+        rw [Set.disjoint_iff_inter_eq_empty] at e_disjoint_Fsk_n
+        have : (Set.range (cell_define_map m i) ∩ CWC.Fsk n) = ∅ := e_disjoint_Fsk_n
+        rw [this] at h_inter_nonempty
+        simp at h_inter_nonempty
+  cell_closure_incl := by
+    intro e he e_sub_Fsk_n
+    -- Since Fsk n is closed, closure e ⊆ closure (Fsk n) = Fsk n
+    have Fsk_n_closed : IsClosed (CWC.Fsk n) := Fsk_closed n
+    have closure_e_sub_closure_Fsk_n : closure e ⊆ closure (CWC.Fsk n) := closure_mono e_sub_Fsk_n
+    have closure_Fsk_n_eq_Fsk_n : closure (CWC.Fsk n) = CWC.Fsk n := IsClosed.closure_eq Fsk_n_closed
+    rwa [closure_Fsk_n_eq_Fsk_n] at closure_e_sub_closure_Fsk_n
+
+
 end CWComplexConstructor
 end
 
