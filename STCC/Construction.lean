@@ -2215,7 +2215,7 @@ def CWConstructorSkeleton (n:ℕ): SubCellComplex X where
         -- Fsk n ⊆ Fsk m
         have Fsk_n_sub_Fsk_m : CWC.Fsk n ⊆ CWC.Fsk m := Fsk_incl n_le_m
         -- e is disjoint from Fsk m (by Fsk_n_cell_np1_disjoint)
-        have e_disjoint_Fsk_m : Disjoint (Set.range (cell_define_map m i)) (CWC.Fsk m) := 
+        have e_disjoint_Fsk_m : Disjoint (Set.range (cell_define_map m i)) (CWC.Fsk m) :=
           Disjoint.symm (Fsk_n_cell_np1_disjoint m i)
         -- Since Fsk n ⊆ Fsk m and e is disjoint from Fsk m, e is disjoint from Fsk n
         have e_disjoint_Fsk_n : Disjoint (Set.range (cell_define_map m i)) (CWC.Fsk n) :=
@@ -2233,6 +2233,66 @@ def CWConstructorSkeleton (n:ℕ): SubCellComplex X where
     have closure_Fsk_n_eq_Fsk_n : closure (CWC.Fsk n) = CWC.Fsk n := IsClosed.closure_eq Fsk_n_closed
     rwa [closure_Fsk_n_eq_Fsk_n] at closure_e_sub_closure_Fsk_n
 
+lemma instCWConstructorSkeletonCW0: CWComplexClass (CWConstructorSkeleton (CWC := CWC) 0) := by
+  let Y := CWConstructorSkeleton (CWC := CWC) 0
+  have Y_discrete: DiscreteTopology Y := by
+    change DiscreteTopology (CWConstructorSkeleton (CWC := CWC) 0)
+    show @DiscreteTopology (CWConstructorSkeleton (CWC := CWC) 0) instTopologicalSpaceSubtype
+    rw [← Tsk_eq_subspace 0]
+    exact CWC.Tsk0_discrete
+  refine {
+      closure_finite := ?zero.refine_1
+      coeherent := ?zero.refine_2
+    }
+  case zero.refine_1 =>
+    intro s hs
+    have closure_s_eq_s : closure s = s := by
+      have : IsClosed s := by
+        exact @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete s
+      exact IsClosed.closure_eq this
+    let ss : Set (Set Y) := {s}
+    use ss
+    have ss_in_sets : ss ⊆ sub_cell_complex_sets Y := by
+      intro t ht
+      simp [ss] at ht
+      rw [ht]
+      exact hs
+    have ss_finite : ss.Finite := by
+      simp [ss]
+    have closure_s_in_ss : closure s ⊆ ⋃₀ ss := by
+      rw [closure_s_eq_s]
+      simp [ss]
+    tauto
+  case zero.refine_2 =>
+    let B := {closure s | s ∈ sub_cell_complex_sets Y}
+    have cover : ⋃₀ B = Set.univ := by
+      have : ⋃₀ sub_cell_complex_sets Y = Set.univ := sub_cell_complex_set_cover Y
+      have B_eq_sets : B = sub_cell_complex_sets Y := by
+        ext s
+        constructor
+        · intro hs
+          rcases hs with ⟨t, ht, rfl⟩
+          have closure_t_eq_t : closure t = t := by
+            have : IsClosed t := @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete t
+            exact IsClosed.closure_eq this
+          rw [closure_t_eq_t]
+          exact ht
+        · intro hs
+          use s, hs
+          have closure_s_eq_s : closure s = s := by
+            have : IsClosed s := @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete s
+            exact IsClosed.closure_eq this
+          exact closure_s_eq_s
+      rw [B_eq_sets]
+      exact this
+    refine coeherent_of_closed_crit_and_cover' ?_ cover
+    intro s h_close_crit
+    exact @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete s
+
+instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkeleton (CWC := CWC) n) := by
+  induction' n with n ih
+  . exact instCWConstructorSkeletonCW0
+  . sorry
 
 end CWComplexConstructor
 end
