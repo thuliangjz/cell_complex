@@ -2289,10 +2289,100 @@ lemma instCWConstructorSkeletonCW0: CWComplexClass (CWConstructorSkeleton (CWC :
     intro s h_close_crit
     exact @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete s
 
+lemma closure_finite_case_cell_in_Fsk_n (n : ℕ) (ih : CWComplexClass (CWConstructorSkeleton (CWC := CWC) n))
+  (s : Set (CWConstructorSkeleton (CWC := CWC) (n + 1))) (hs : s ∈ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)))
+  (h_dim : dim_map ⟨Subtype.val '' s, by simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using hs⟩ ≤ n) :
+  ∃ ss ⊆ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)), ss.Finite ∧ closure s ⊆ ⋃₀ ss := by
+  let Y_n := CWConstructorSkeleton (CWC := CWC) n
+  let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+  let g_n1 : Y_n1 → X := (↑)
+  let g_n : Y_n → X := (↑)
+  let s' := Subtype.val '' s
+  have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using hs
+  have s'_eq : s' = Subtype.val '' s := rfl
+  -- Step 1: s' ⊆ Fsk n
+  have s'_sub_Fsk_n : s' ⊆ CWC.Fsk n := by
+    trans CWC.Fsk (dim_map ⟨s', hs'⟩)
+    · show dim_map ⟨s', hs'⟩ ∈ {m | s' ⊆ CWC.Fsk m}
+      apply WellFounded.min_mem
+    · exact Fsk_incl h_dim
+  -- Step 2: preimage g_n ⁻¹' s' is the same cell in Y_n, so lies in sub_cell_complex_sets Y_n
+  have s_in_Y_n_sets : (g_n ⁻¹' s') ∈ sub_cell_complex_sets Y_n := by
+    simp [sub_cell_complex_sets]
+    rw [Set.image_preimage_eq_of_subset]
+    · exact hs'
+    · rw [Subtype.range_coe]; exact s'_sub_Fsk_n
+  -- Step 3: use IH to get a finite set ss_n of cells of Y_n covering the closure of g_n ⁻¹' s'
+  rcases ih.closure_finite (g_n ⁻¹' s') s_in_Y_n_sets with ⟨ss_n, ss_n_sub, ss_n_fin, ss_n_cover⟩
+  -- Step 4: lift to Y_n1: define inclusion and ss = { incl '' t : t ∈ ss_n }
+  let incl : Y_n → Y_n1 := fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩
+  let ss : Set (Set Y_n1) := Set.image (fun t => incl '' t) ss_n
+  -- Step 5: check conditions (ss ⊆ sets, ss.Finite, closure s ⊆ ⋃₀ ss)
+  use ss
+  constructor
+  · intro t' ht'
+    rcases (Set.mem_image _ _ _).mp ht' with ⟨t, t_in_ss_n, rfl⟩
+    have coe_eq : g_n1 '' (incl '' t) = g_n '' t := by
+      ext x
+      constructor
+      · rintro ⟨y, ⟨z, z_in_t, rfl⟩, rfl⟩; exact ⟨z, z_in_t, rfl⟩
+      · rintro ⟨z, z_in_t, rfl⟩; exact ⟨⟨z, Fsk_incl (Nat.le_succ n) z.2⟩, ⟨z, z_in_t, rfl⟩, rfl⟩
+    show (incl '' t) ∈ sub_cell_complex_sets Y_n1
+    simp only [sub_cell_complex_sets, Set.mem_setOf_eq]
+    rw [show (Subtype.val : Y_n1 → X) '' (incl '' t) = g_n1 '' (incl '' t) from rfl, coe_eq]
+    exact ss_n_sub t_in_ss_n
+  constructor
+  · apply Set.Finite.image; exact ss_n_fin
+  · intro x hx
+    have s_eq : s = incl '' (g_n ⁻¹' s') := by
+      ext y
+      constructor
+      · intro hy
+        have y_val_in_s' : (y : X) ∈ s' := by rw [s'_eq]; exact Set.mem_image_of_mem g_n1 hy
+        let z : Y_n := ⟨y.1, s'_sub_Fsk_n y_val_in_s'⟩
+        use z
+        constructor
+        · simp [g_n]; exact y_val_in_s'
+        · exact Subtype.ext rfl
+      · rintro ⟨z, z_in_pre, rfl⟩
+        have s_eq_pre : s = g_n1 ⁻¹' s' := by
+          ext w
+          simp only [g_n1, Set.mem_preimage]
+          constructor
+          · intro h; rw [s'_eq]; exact Set.mem_image_of_mem g_n1 h
+          · intro h; rw [s'_eq] at h; rcases h with ⟨w', hw', heq⟩; rw [←Subtype.val_injective heq]; exact hw'
+        rw [s_eq_pre, Set.mem_preimage]; simp only [g_n1, incl]; exact z_in_pre
+    have closure_s_sub : closure s ⊆ incl '' (closure (g_n ⁻¹' s')) := by
+      rw [s_eq]
+      have : IsClosedMap incl := by
+        convert Fsk_incl_closed_map (Nat.le_succ n)
+        . show instTopologicalSpaceSubtype = CWC.Tsk n
+          rw [Tsk_eq_subspace]
+        . show instTopologicalSpaceSubtype = CWC.Tsk (n + 1)
+          rw [Tsk_eq_subspace]
+      apply IsClosedMap.closure_image_subset this
+    rcases closure_s_sub hx with ⟨z, z_in_closure, rfl⟩
+    have z_in_ss_n : z ∈ ⋃₀ ss_n := ss_n_cover z_in_closure
+    rcases z_in_ss_n with ⟨t, t_in_ss_n, z_in_t⟩
+    use incl '' t
+    constructor
+    · simp [ss]; exact ⟨t, t_in_ss_n, rfl⟩
+    · exact ⟨z, z_in_t, rfl⟩
+
 instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkeleton (CWC := CWC) n) := by
   induction' n with n ih
   . exact instCWConstructorSkeletonCW0
-  . sorry
+  . constructor
+    . intro s hs
+      let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+      let g_n1 : Y_n1 → X := (↑)
+      let s' := g_n1 '' s
+      have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa [s'] using hs
+      by_cases h_dim : dim_map ⟨s', hs'⟩ ≤ n
+      · exact closure_finite_case_cell_in_Fsk_n n ih s hs h_dim
+      · -- Case 2: (n+1)-cell
+        sorry
+    . sorry
 
 end CWComplexConstructor
 end
