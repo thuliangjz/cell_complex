@@ -2380,7 +2380,11 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
       have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa [s'] using hs
       by_cases h_dim : dim_map ⟨s', hs'⟩ ≤ n
       · exact closure_finite_case_cell_in_Fsk_n n ih s hs h_dim
-      · -- Case 2: (n+1)-cell
+      · -- Case 2: (n+1)-cell. Step 1: boundary closure(s') \ s' is closed and compact in X
+        have boundary_closed : IsClosed (closure s' \ s') :=
+          cell_boundary_closed ⟨s', hs'⟩
+        have boundary_compact : IsCompact (closure s' \ s') :=
+          cell_boundary_compact ⟨s', hs'⟩
         sorry
     . sorry
 
