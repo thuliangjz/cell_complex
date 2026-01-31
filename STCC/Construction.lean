@@ -2369,6 +2369,130 @@ lemma closure_finite_case_cell_in_Fsk_n (n : ℕ) (ih : CWComplexClass (CWConstr
     · simp [ss]; exact ⟨t, t_in_ss_n, rfl⟩
     · exact ⟨z, z_in_t, rfl⟩
 
+lemma closure_finite_case_cell_in_Fsk_n1 (n : ℕ) (ih : CWComplexClass (CWConstructorSkeleton (CWC := CWC) n))
+  (s : Set (CWConstructorSkeleton (CWC := CWC) (n + 1))) (hs : s ∈ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)))
+  (h_dim : ¬ dim_map ⟨Subtype.val '' s, by simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using hs⟩ ≤ n) :
+  ∃ ss ⊆ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)), ss.Finite ∧ closure s ⊆ ⋃₀ ss := by
+  let Y_n := CWConstructorSkeleton (CWC := CWC) n
+  let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+  let g_n1 : Y_n1 → X := (↑)
+  let g_n : Y_n → X := (↑)
+  let s' := g_n1 '' s
+  have s'_eq : s' = g_n1 '' s := rfl
+  have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa [s'] using hs
+  -- Step 1: boundary closure(s') \ s' is closed and compact in X
+  have boundary_closed : IsClosed (closure s' \ s') :=
+    cell_boundary_closed ⟨s', hs'⟩
+  have boundary_compact : IsCompact (closure s' \ s') :=
+    cell_boundary_compact ⟨s', hs'⟩
+  -- Step 2: boundary is contained in Fsk n (cell_boundary_cover + dim_map ⟨s', hs'⟩ = n+1)
+  have boundary_sub_Fsk_n : closure s' \ s' ⊆ CWC.Fsk n := by
+    have s'_sub_Fsk_n1 : s' ⊆ CWC.Fsk (n + 1) := by
+      intro x hx; obtain ⟨y, hy, rfl⟩ := hx; exact y.2
+    have dim_le_n1 : dim_map ⟨s', hs'⟩ ≤ n + 1 := by apply WellFounded.min_le; exact s'_sub_Fsk_n1
+    have dim_eq_n1 : dim_map ⟨s', hs'⟩ = n + 1 :=
+      Nat.le_antisymm dim_le_n1 (Nat.succ_le_of_lt (Nat.not_le.mp h_dim))
+    have boundary_sub_union : closure s' \ s' ⊆ ⋃ p : instCWConstructorCellComplexClass.sets, ⋃ _ : (dim_map p < dim_map ⟨s', hs'⟩), p.val :=
+      cell_boundary_cover ⟨s', hs'⟩
+    have union_sub_Fsk_n : (⋃ p : instCWConstructorCellComplexClass.sets, ⋃ _ : (dim_map p < dim_map ⟨s', hs'⟩), p.val) ⊆ CWC.Fsk n := by
+      intro x hx
+      rw [Set.mem_iUnion] at hx
+      rcases hx with ⟨p, hp⟩
+      rw [Set.mem_iUnion] at hp
+      rcases hp with ⟨dim_lt, x_in_p⟩
+      rw [dim_eq_n1] at dim_lt
+      have dim_p_le_n : dim_map p ≤ n := Nat.le_of_lt_succ dim_lt
+      have p_sub_Fsk : p.val ⊆ CWC.Fsk (dim_map p) := by
+        trans CWC.Fsk (dim_map p)
+        · show dim_map p ∈ {m | p.val ⊆ CWC.Fsk m}
+          unfold dim_map
+          exact WellFounded.min_mem wellFounded_lt _ (by rcases exists_skn_contain_cell p.1 p.2 with ⟨k, hk⟩; use k, hk)
+        · exact Fsk_incl (le_refl (dim_map p))
+      exact Fsk_incl dim_p_le_n (p_sub_Fsk x_in_p)
+    exact Set.Subset.trans boundary_sub_union union_sub_Fsk_n
+  -- Step 3: view boundary in Y_n; it is compact in Y_n
+  let boundary_Y_n : Set Y_n := g_n ⁻¹' (closure s' \ s')
+  have boundary_Y_n_compact : IsCompact boundary_Y_n := by
+    let boundary_subtype := closure s' \ s'
+    have boundary_Y_n_eq_range : boundary_Y_n = Set.range (fun x : ↥boundary_subtype => ⟨x.1, boundary_sub_Fsk_n x.2⟩) := by
+      ext y
+      constructor
+      · intro hy
+        have y_val_in : (y : X) ∈ boundary_subtype := hy
+        use ⟨(y : X), y_val_in⟩
+      · rintro ⟨x, rfl⟩
+        exact x.2
+    rw [boundary_Y_n_eq_range, ← Set.image_univ]
+    have : CompactSpace ↥boundary_subtype := isCompact_iff_compactSpace.mp boundary_compact
+    apply IsCompact.image
+    · exact isCompact_univ
+    · continuity
+  -- Step 4: apply compactness characterisation in Y_n (CW by ih) to get finite set of cells covering boundary_Y_n
+  rcases compact_exists_finite_cells_cover boundary_Y_n_compact with ⟨ss_n, ss_n_sub, ss_n_fin, ss_n_cover⟩
+  -- Step 5: build covering set in Y_n1: ss = {s} ∪ { incl '' t : t ∈ ss_n }
+  let incl : Y_n → Y_n1 := fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩
+  let ss : Set (Set Y_n1) := {s} ∪ Set.image (fun t => incl '' t) ss_n
+  -- Step 6: verify the three conditions (ss ⊆ sets, ss.Finite, closure s ⊆ ⋃₀ ss)
+  use ss
+  constructor
+  · intro t ht
+    rw [Set.mem_union, Set.mem_image] at ht
+    rcases ht with (rfl | ⟨t', t'_in_ss_n, rfl⟩)
+    · exact hs
+    · have coe_eq : g_n1 '' (incl '' t') = g_n '' t' := by
+        ext x
+        constructor
+        · rintro ⟨y, ⟨z, z_in_t', rfl⟩, rfl⟩; exact ⟨z, z_in_t', rfl⟩
+        · rintro ⟨z, z_in_t', rfl⟩; exact ⟨⟨z, Fsk_incl (Nat.le_succ n) z.2⟩, ⟨z, z_in_t', rfl⟩, rfl⟩
+      show (incl '' t') ∈ sub_cell_complex_sets Y_n1
+      simp only [sub_cell_complex_sets, Set.mem_setOf_eq]
+      rw [coe_eq]
+      exact ss_n_sub t'_in_ss_n
+  constructor
+  · apply Set.Finite.union
+    · exact Set.finite_singleton s
+    · apply Set.Finite.image; exact ss_n_fin
+  · intro x hx
+    -- closure s ⊆ g_n1 ⁻¹' closure s', so (x : X) ∈ closure s'
+    have s_eq_pre : s = g_n1 ⁻¹' s' := by
+      ext w
+      simp only [g_n1, Set.mem_preimage]
+      constructor
+      · intro h; rw [s'_eq]; exact Set.mem_image_of_mem g_n1 h
+      · intro h; rw [s'_eq] at h; rcases h with ⟨w', hw', heq⟩; rw [← Subtype.val_injective heq]; exact hw'
+    have closure_pre_closed : IsClosed (g_n1 ⁻¹' closure s') :=
+      IsClosed.preimage (continuous_subtype_val) isClosed_closure
+    have closure_s_sub : closure s ⊆ g_n1 ⁻¹' closure s' := by
+      rw [s_eq_pre]
+      exact closure_minimal (Set.preimage_mono subset_closure) closure_pre_closed
+    have x_in_closure_s' : (x : X) ∈ closure s' := by simpa only [g_n1, Set.mem_preimage] using closure_s_sub hx
+    by_cases h_in_s' : (x : X) ∈ s'
+    · rw [Set.mem_sUnion]
+      use s
+      constructor
+      · left
+        exact Set.mem_singleton s
+      · rw [s'_eq] at h_in_s'
+        rcases h_in_s' with ⟨w, hw, heq⟩
+        have w_eq_x : w = x := Subtype.ext heq
+        rw [← w_eq_x]
+        exact hw
+    · -- (x : X) ∈ closure s' \ s'
+      have x_in_boundary : (x : X) ∈ closure s' \ s' := ⟨x_in_closure_s', h_in_s'⟩
+      have x_in_Fsk_n : (x : X) ∈ CWC.Fsk n := boundary_sub_Fsk_n x_in_boundary
+      let y_n : Y_n := ⟨x, x_in_Fsk_n⟩
+      have y_n_in_boundary : y_n ∈ boundary_Y_n := by
+        simp only [boundary_Y_n, g_n, Set.mem_preimage]
+        exact x_in_boundary
+      have y_n_in_union : y_n ∈ ⋃₀ ss_n := ss_n_cover y_n_in_boundary
+      rcases y_n_in_union with ⟨t', t'_in_ss_n, y_n_in_t'⟩
+      rw [Set.mem_sUnion]
+      use incl '' t'
+      constructor
+      · right
+        exact Set.mem_image_of_mem (fun t => incl '' t) t'_in_ss_n
+      · refine ⟨y_n, y_n_in_t', Subtype.ext rfl⟩
+
 instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkeleton (CWC := CWC) n) := by
   induction' n with n ih
   . exact instCWConstructorSkeletonCW0
@@ -2380,21 +2504,10 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
       have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa [s'] using hs
       by_cases h_dim : dim_map ⟨s', hs'⟩ ≤ n
       · exact closure_finite_case_cell_in_Fsk_n n ih s hs h_dim
-      · -- Case 2: (n+1)-cell. Step 1: boundary closure(s') \ s' is closed and compact in X
-        have boundary_closed : IsClosed (closure s' \ s') :=
-          cell_boundary_closed ⟨s', hs'⟩
-        have boundary_compact : IsCompact (closure s' \ s') :=
-          cell_boundary_compact ⟨s', hs'⟩
-        sorry
+      · exact closure_finite_case_cell_in_Fsk_n1 n ih s hs h_dim
     . sorry
 
 end CWComplexConstructor
 end
 
 end Chp5
-
-section
-variable {X: Type*}
-example {s₁ s₂: Set X} (h: Disjoint s₁ s₂) {x₁ x₂: X} (h₁: x₁ ∈ s₁) (h₂: x₂ ∈ s₂): x₁ ≠ x₂ := by
-  exact Disjoint.ne_of_mem h h₁ h₂
-end
