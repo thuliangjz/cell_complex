@@ -550,6 +550,14 @@ def sub_cell_complex_set_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: C
     simp
     tauto
 
+theorem sub_cell_complex_closure_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (Y: SubCellComplex X) :
+  ⋃₀ {closure s | s ∈ sub_cell_complex_sets Y} = Set.univ := by
+  rw [Set.sUnion_eq_univ_iff]
+  intro x
+  have : x ∈ ⋃₀ sub_cell_complex_sets Y := by rw [sub_cell_complex_set_cover Y]; exact Set.mem_univ x
+  rcases this with ⟨s, hs, hx⟩
+  exact ⟨closure s, ⟨s, hs, rfl⟩, subset_closure hx⟩
+
 def sub_cell_complex_characteristic_g {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (Y: SubCellComplex X) (s: sub_cell_complex_sets Y): cb (sub_cell_complex_dim_map Y s) → closure (((↑): Y → X) '' s.1) := by
     set s' := ((↑): Y → X) '' s.1
     intro p

@@ -1,0 +1,234 @@
+# Detailed Proof Plan: `coeherent` for CWConstructorSkeleton (n+1)
+
+## Goal
+Prove that if `CWConstructorSkeleton n` is a `CWComplexClass`, then `CWConstructorSkeleton (n+1)` is also a `CWComplexClass`. The `closure_finite` property is already proved; we need to prove the `coeherent` property.
+
+## Target Statement
+```lean
+IsCoeherent {closure s | s ∈ sub_cell_complex_sets (CWConstructorSkeleton (n + 1))}
+```
+
+## Key Theorem to Use
+From `Basic.lean:1167`:
+```lean
+theorem coeherent_of_closed_crit_and_cover' {X: Type*} [TopologicalSpace X] {B: Set (Set X)}
+  (h_close_crit': ∀ s : Set X, (∀ b ∈ B, IsClosed (((↑): b → X) ⁻¹' s)) → IsClosed s)
+  (h_cover: ⋃₀ B = Set.univ) : IsCoeherent B
+```
+
+So we must prove:
+1. **Cover**: `⋃₀ {closure s | s ∈ sub_cell_complex_sets Y_n1} = Set.univ` (where Y_n1 = CWConstructorSkeleton (n+1))
+2. **Closed criterion**: For any `B : Set Y_n1`, if `∀ b ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}, IsClosed (((↑): b → Y_n1) ⁻¹' B)`, then `IsClosed B`
+
+---
+
+## Part 1: Cover Condition ✓
+
+**Claim**: `⋃₀ {closure s | s ∈ sub_cell_complex_sets Y_n1} = Set.univ`
+
+**Implemented as**: `sub_cell_complex_closure_cover` in `CellComplex.lean` (works for any `SubCellComplex Y`).
+
+**Proof outline**:
+- We have `sub_cell_complex_set_cover Y_n1 : ⋃₀ sub_cell_complex_sets Y_n1 = Set.univ`
+- For each cell `s`, we have `s ⊆ closure s`
+- Thus `⋃₀ sub_cell_complex_sets Y_n1 ⊆ ⋃₀ {closure s | s ∈ sub_cell_complex_sets Y_n1}`
+- So the right-hand side covers `Set.univ`
+
+*This should be straightforward; may already exist as a lemma.*
+
+---
+
+## Part 2: Closed Criterion (Main Work)
+
+**Setup**:
+- Let `Y_n := CWConstructorSkeleton n`, `Y_n1 := CWConstructorSkeleton (n+1)`
+- `Y_n1` has carrier `CWC.Fsk (n+1)` with subspace topology from `X`
+- **Key structural fact**: `Fsk (n+1)` is homeomorphic to `AdjointSpace (Fsk n) (Ff n)` via `Fφ n`
+- The adjoint space is the quotient of `(Fsk n) ⊕ Σ_{i : Fι n} (cb (n+1))` with boundary identified
+
+**Quotient map**: The map
+```
+f : (Fsk n) ⊕ Σ(cb (n+1)) → Fsk (n+1)
+```
+is the composition of the quotient map `adj_proj` and `Fφ n`. By `Fφ_heomorph`, this is a quotient map (even a homeomorphism when we consider the full adjoint space).
+
+**Strategy**: A set `B ⊆ Y_n1` is closed in `Y_n1` iff its preimage under the quotient map `f` is closed. The preimage decomposes into two parts:
+1. The part coming from `Fsk n` (left summand)
+2. The part coming from each `(n+1)`-cell (right summand, one copy of `cb (n+1)` per index `i`)
+
+---
+
+### Variable Setup (before Step 2.1)
+
+**Goal context** (from `coeherent_of_closed_crit_and_cover'`):
+- `B : Set Y_n1` — the set we need to show is closed
+- `hB : ∀ b ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}, IsClosed (((↑): b → Y_n1) ⁻¹' B)`
+
+**Introduce**:
+```
+Y_n   := CWConstructorSkeleton n
+Y_n1  := CWConstructorSkeleton (n + 1)
+ih    : CWComplexClass Y_n
+g_n1  : Y_n1 → X := (↑)
+```
+
+**AdjointSpace parameters** (for `n : ℕ`):
+- `A     := {x : Σ (Fι n) (cb (n+1)) | x.2 ∈ cb_boundary}` — the boundary set (CellAttached_boundary)
+- `X_adj := CWC.Fsk n`, `Y_adj := Σ (Fι n) (cb (n+1))`
+- `f_adj := CWC.Ff n : A → CWC.Fsk n`
+
+**Key maps**:
+- `adj_proj A (Ff n) : (Fsk n) ⊕ Σ(Fι n)(cb (n+1)) → AdjointSpace A (Ff n)`
+- `left_adj_proj A (Ff n) : Fsk n → AdjointSpace A (Ff n)`
+- `right_adj_proj A (Ff n) : Aᶜ → AdjointSpace A (Ff n)` where `Aᶜ = {x | x.2 ∉ cb_boundary}`
+- `Fφ n : AdjointSpace A (Ff n) → Fsk (n+1)` — homeomorphism
+- `cell_define_map n i : cb (n+1) → X` — characteristic map for (n+1)-cell indexed by `i`
+
+**Identifications**:
+- `Y_n1` has carrier `Fsk (n+1)`; topologically `Y_n1 = Fsk (n+1)` as subspace of `X`
+- `Fφ_fix n`: `(Fφ n) ∘ left_adj_proj = inclusion Fsk n → Fsk (n+1)`
+- `left_adj_right_adj_cover`: `range (left_adj_proj) ∪ range (right_adj_proj) = univ`
+
+**Useful lemmas**: `adj_proj_quotient`, `Fφ_heomorph`, `sigma_boundary_closed n` (for `IsClosed A`), `isClosed_sum_iff`
+
+---
+
+### Step 2.1: Express Closedness via Quotient Preimage
+
+**Lemma to use**: For a quotient map `q : Z → Y_n1`, a set `B ⊆ Y_n1` is closed iff `q ⁻¹' B` is closed in `Z`.
+
+**Construction of the quotient source**:
+- `Z = AdjointSpace (Fsk n) (Ff n)` — this is the domain before applying `Fφ n`
+- The map `Subtype.val ∘ Fφ n : AdjointSpace → Fsk (n+1)` gives the quotient structure
+- Actually: `Fφ n` itself is a homeomorphism `AdjointSpace ≃ₜ Fsk (n+1)`, so the topology on `Fsk (n+1)` is the same as that on `AdjointSpace`
+- The topology on `AdjointSpace` is the quotient topology from `(Fsk n) ⊕ Σ(...)` via `adj_proj`
+
+**Therefore**: `B ⊆ Fsk (n+1)` is closed iff `(adj_proj ⁻¹' (Fφ n ⁻¹' B))` is closed in `(Fsk n) ⊕ Σ(...)`.
+
+Since `Fφ n` is a homeomorphism, `Fφ n ⁻¹' B` is just the preimage. Let `B' = (Fφ n)⁻¹' B` as a subset of `AdjointSpace`. Then `B` is closed iff `B'` is closed in `AdjointSpace` iff `adj_proj ⁻¹' B'` is closed in the disjoint union.
+
+**Decomposition of the preimage**:
+- `adj_proj ⁻¹' B' = (Sum.inl ⁻¹' (adj_proj ⁻¹' B')) ∪ (Sum.inr ⁻¹' (adj_proj ⁻¹' B'))`
+- **Left part** `L := left_adj_proj ⁻¹' B'` — preimage from `Fsk n`
+- **Right part** `R := right_adj_proj ⁻¹' (B' restricted to right_adj_proj range)` — preimage from `Σ (Fι n) (cb (n+1))` minus boundary
+
+The disjoint union is closed iff both `L` and `R` are closed (by `isClosed_sum_iff` or similar).
+
+---
+
+### Step 2.2: Left Part — B ∩ Fsk n is Closed in Fsk n
+
+**Claim**: The preimage of `B` under the left inclusion (from `Fsk n` into `Fsk (n+1)`) equals `B ∩ Fsk n` when viewed in `Y_n1`.
+
+**More precisely**:
+- `left_adj_proj` embeds `Fsk n` into `AdjointSpace`
+- `Fφ n ∘ left_adj_proj` equals the inclusion `Fsk n → Fsk (n+1)` (by `Fφ_fix`: it sends `x` to `⟨x.1, Fsk_chain x.2⟩`, i.e. the same point in the larger skeleton)
+- So `(Fφ n ∘ left_adj_proj) ⁻¹' B = B ∩ Fsk n` (as subsets of `Fsk n`)
+
+**What we need**: `B ∩ Fsk n` is closed in `Fsk n` (with its subspace topology from `X`).
+
+**How to get it**: Use the **inductive hypothesis** that `Y_n = CWConstructorSkeleton n` is a `CWComplexClass`, hence has `coeherent`:
+- `B_n := {closure t | t ∈ sub_cell_complex_sets Y_n}` is coherent
+- The closed criterion says: if for every `b ∈ B_n`, `(↑)⁻¹' (B ∩ Fsk n)` is closed in `b`, then `B ∩ Fsk n` is closed in `Fsk n`
+
+**Observation**: The cells of `Y_n1` that lie entirely in `Fsk n` are exactly the cells of `Y_n`. For such a cell `s`, `closure s` (in `Y_n1`) equals `closure s` (in `Y_n`), because `Fsk n` is closed in `Fsk (n+1)` and `closure(s) ⊆ Fsk n` for cells of dimension ≤ n.
+
+**Our assumption**: For every `b ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}`, `(↑)⁻¹' B` is closed in `b`.
+
+**For cells in Y_n**: When `b = closure s` with `s` a cell in `Y_n`, we have `(↑)⁻¹' B = B ∩ b` closed in `b`. So `B ∩ closure(s)` is closed in `closure(s)` for every cell `s` of `Y_n`.
+
+**By coeherent of Y_n**: The family `{closure t | t ∈ sub_cell_complex_sets Y_n}` satisfies the closed criterion. The set `B ∩ Fsk n` (as a subset of `Y_n`) satisfies: for every `b` in that family, `(↑)⁻¹' (B ∩ Fsk n) = (B ∩ Fsk n) ∩ b = B ∩ b` is closed in `b` (since `b ⊆ Fsk n` and we assume `B ∩ b` closed in `b`). Hence `B ∩ Fsk n` is closed in `Fsk n`. ✓
+
+---
+
+### Step 2.3: Right Part — Preimage Under Each (n+1)-Cell's Characteristic Map is Closed
+
+**Claim**: For each `i : Fι n`, the preimage of `B` under the characteristic map of the `(n+1)`-cell indexed by `i` is closed in `cb (n+1)`.
+
+**Setup**:
+- The `(n+1)`-cell is `e_i := Set.range (cell_define_map n i)`
+- Its closure in `X` (and in `Y_n1`) is `closure e_i`
+- The characteristic map `φ_i : cb (n+1) → X` (or `→ closure e_i`) sends the closed ball onto `closure e_i`
+- `φ_i` factors through `right_adj_proj` and `Fφ n`
+
+**Our assumption**: For `b = closure e_i` (which is in `{closure s | s ∈ sub_cell_complex_sets Y_n1}`), we have `(↑)⁻¹' B` is closed in `b`, i.e. `B ∩ closure e_i` is closed in `closure e_i` (with subspace topology).
+
+**Key**: The characteristic map `φ_i : cb (n+1) → closure e_i` is continuous and surjective onto `closure e_i`. So:
+- `φ_i ⁻¹' (B ∩ closure e_i) = φ_i ⁻¹' B` (since `φ_i` maps into `closure e_i`)
+- `B ∩ closure e_i` is closed in `closure e_i` by assumption
+- Continuous preimage of closed is closed ⇒ `φ_i ⁻¹' B` is closed in `cb (n+1)` ✓
+
+**Note**: The `right_adj_proj` part of the quotient corresponds exactly to these characteristic maps (one for each `i`). The preimage we need is the union over `i` of `φ_i ⁻¹' B`, and each is closed. The topology on the sum is such that a set is closed iff its intersection with each summand is closed. So the right part is closed. ✓
+
+---
+
+### Step 2.4: Gluing the Two Parts
+
+**Summary**:
+1. `B` is closed in `Y_n1` iff its preimage under the quotient map (from `(Fsk n) ⊕ Σ(...)` through `adj_proj` and `Fφ n`) is closed.
+2. That preimage splits into:
+   - **Left**: `B ∩ Fsk n`, which is closed in `Fsk n` by the inductive hypothesis (coeherent of `Y_n`) and the assumption on `B`.
+   - **Right**: For each `i`, `φ_i ⁻¹' B` is closed in `cb (n+1)` by the assumption on `B` and continuity of `φ_i`.
+3. By the `isClosed_sum_iff` characterization, the full preimage is closed.
+4. Therefore `B` is closed in `Y_n1`. ✓
+
+---
+
+## Part 3: Technical Checklist for the Lean Implementation
+
+### Definitions and Facts to Use
+- `Fφ n : AdjointSpace (Fsk n) (Ff n) → Fsk (n+1)` is a homeomorphism (`Fφ_heomorph`)
+- `Fφ_fix`: `(Fφ n) ∘ left_adj_proj = inclusion of Fsk n into Fsk (n+1)`
+- `left_adj_proj`, `right_adj_proj` decompose the adjoint space
+- `cell_define_map n i` and `pre_characteristic_map n` for characteristic maps of `(n+1)`-cells
+- `sub_cell_complex_sets Y_n1` and its relation to `cell_sets` of the ambient `instCWConstructorCellComplexClass`
+- `closed_in_cwc_iff` for the topology on `Fsk n` as subspace of `X`
+
+### Lemmas That May Be Needed
+- Relate `closure s` for `s ∈ sub_cell_complex_sets Y_n1` to cell closures in `X`
+- For cells of dimension ≤ n: closure in `Y_n1` = closure in `Y_n` (both equal closure in `X`)
+- `isClosed_sum_iff` for the disjoint union
+- Quotient topology: closed iff preimage closed (for `adj_proj` and/or `Fφ n`)
+
+### Potential Subtleties
+1. **Type equality**: `Y_n1` is `CWConstructorSkeleton (n+1)` which is a `Subtype`; `Fsk (n+1)` is also a subtype of `X`. The coercion `(↑) : Y_n1 → X` and the inclusion `Fsk (n+1) → X` need to be carefully aligned.
+2. **Closure in which space**: Closures of cells in `sub_cell_complex_sets Y_n1` are taken in the topology of `Y_n1` (subspace of `X`). For cells in `Fsk n`, this equals closure in `X` (and in `Y_n`) because `Fsk n` is closed.
+3. **Coeherent on Y_n**: The inductive hypothesis gives `ih : CWComplexClass (CWConstructorSkeleton n)`. So `ih.coeherent` is `IsCoeherent {closure s | s ∈ sub_cell_complex_sets Y_n}`. We apply `closed_crit_of_coeherent` in the direction: if preimages are closed for all `b`, then the set is closed.
+4. **Cover**: The cover `⋃₀ {closure s | s ∈ sub_cell_complex_sets Y_n1} = Set.univ` may need a small proof; it likely follows from `sub_cell_complex_set_cover` and `s ⊆ closure s`.
+
+---
+
+## Summary of Proof Structure
+
+```
+coeherent proof for Y_n1:
+  apply coeherent_of_closed_crit_and_cover' _ cover
+  intro B hB
+  -- hB : ∀ b ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}, IsClosed ((↑)⁻¹' B)
+
+  -- Step 1: B is closed iff its preimage under the quotient map is closed
+  rw [closed_iff_preimage_closed_under_quotient]  -- or similar
+
+  -- Step 2: Preimage = left part ∪ right part
+  rw [preimage_decomposition]
+
+  -- Step 3: Left part closed (use ih.coeherent)
+  apply And.intro
+  · exact left_part_closed n ih B hB
+
+  -- Step 4: Right part closed (direct from hB)
+  · exact right_part_closed n B hB
+```
+
+---
+
+## References
+
+- `Basic.lean:1167`: `coeherent_of_closed_crit_and_cover'`
+- `Basic.lean:1145-1148`: `IsCoeherent` structure (`open_crit`, `cover`)
+- `Basic.lean:1177`: `closed_crit_of_coeherent`
+- `CellComplex.lean:707`: `aux_closed_in_subspace_of_sub_complex_coeherent`
+- `CellComplex.lean:787`: `aux_closed_of_sub_complex_coeherent` (uses ambient X's coherent; not directly applicable here)
+- `Construction.lean:494`: `Fφ`, `Fφ_fix`, `Fφ_heomorph`
+- `Construction.lean:744`: `pre_characteristic_map`, `cell_define_map`
+- `Construction.lean:772`: `Fsk n` as image of `left_adj_proj` under `Fφ n`

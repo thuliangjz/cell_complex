@@ -2505,7 +2505,8 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
       by_cases h_dim : dim_map ⟨s', hs'⟩ ≤ n
       · exact closure_finite_case_cell_in_Fsk_n n ih s hs h_dim
       · exact closure_finite_case_cell_in_Fsk_n1 n ih s hs h_dim
-    . sorry
+    . refine coeherent_of_closed_crit_and_cover' ?_ (sub_cell_complex_closure_cover (CWConstructorSkeleton (CWC := CWC) (n + 1)))
+      sorry  -- closed criterion
 
 end CWComplexConstructor
 end
