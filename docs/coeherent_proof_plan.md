@@ -141,6 +141,76 @@ The disjoint union is closed iff both `L` and `R` are closed (by `isClosed_sum_i
 
 ---
 
+### Step 2.2 — Detailed Decomposed Proof Plan (for Lean)
+
+Each sub-step is designed to be ~10 lines or less.
+
+**Goal**: Prove `IsClosed (Sum.inl ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B)))` in the sum topology on `(CWC.Fsk n) ⊕ Σ (CWC.Fι n) (cb (n+1))`.
+
+**Step 2.2.1 — Relate left preimage to left_adj_proj** (~5 lines)
+- **Goal type**: `IsClosed (Sum.inl ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B)))`
+- **After step**: `IsClosed ((left_adj_proj A (CWC.Ff n)) ⁻¹' ((CWC.Fφ n) ⁻¹' B))` (same Prop, rewritten)
+- Use `left_adj_proj = (adj_proj A (CWC.Ff n)) ∘ Sum.inl`
+- Rewrite: `Sum.inl ⁻¹' (adj_proj ⁻¹' ((Fφ n) ⁻¹' B)) = (left_adj_proj A (CWC.Ff n)) ⁻¹' ((CWC.Fφ n) ⁻¹' B)`
+- By `Set.preimage_comp`: `(f ∘ g) ⁻¹' S = g ⁻¹' (f ⁻¹' S)`, so this is `(Fφ n ∘ left_adj_proj) ⁻¹' B`
+
+**Step 2.2.2 — Apply Fφ_fix to identify the map** (~8 lines)
+- **Goal type**: `IsClosed ((left_adj_proj A (CWC.Ff n)) ⁻¹' ((CWC.Fφ n) ⁻¹' B))`
+- **After step**: `IsClosed (incl ⁻¹' B)` where `incl : Y_n → Y_n1` (set type: `Set (CWC.Fsk n)`)
+- `CWC.Fφ_fix n`: `(CWC.Fφ n) ∘ (left_adj_proj A (CWC.Ff n)) = fun x => ⟨x.1, (CWC.Fsk_chain n) x.2⟩`
+- So the preimage equals `{x : CWC.Fsk n | ⟨x.1, Fsk_chain n x.2⟩ ∈ B}`
+- Define `incl : Y_n → Y_n1 := fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩`
+- Show the preimage equals `incl ⁻¹' B` as a subset of `CWC.Fsk n`
+- Note: `Y_n` and `CWC.Fsk n` are the same underlying type (carrier); `incl` is the inclusion into `Y_n1`
+
+**Step 2.2.3 — Translate to closure-in-Fsk-n** (~10 lines)
+- **Goal type**: `IsClosed (incl ⁻¹' B)` (in the topology of `CWC.Fsk n` as the left summand)
+- **After step**: New goal `∀ b ∈ {closure t | t ∈ sub_cell_complex_sets Y_n}, IsClosed (((↑) : b → Y_n) ⁻¹' (incl ⁻¹' B))`
+- Use `apply closed_crit_of_coeherent ih.coeherent` (or `suffices` with this forall)
+- `closed_crit_of_coeherent` has type: `∀ s : Set Y_n, (∀ b ∈ B, IsClosed (((↑) : b → Y_n) ⁻¹' s)) → IsClosed s`
+- Here `B` in the lemma = `{closure t | t ∈ sub_cell_complex_sets Y_n}` (the coherent family)
+- We need `IsClosed (incl ⁻¹' B)` in `Y_n`; `Y_n` has the same topology as `CWC.Fsk n` (both subspace from X)
+
+**Step 2.2.4 — Relate Y_n cell closures to Y_n1** (~10 lines)
+- **Goal type** (as a `have`): For `t ∈ sub_cell_complex_sets Y_n`, show `incl '' t ∈ sub_cell_complex_sets Y_n1` and that `closure (incl '' t)` (in Y_n1) equals `closure t` (in Y_n) as sets
+- Type: `t ∈ sub_cell_complex_sets Y_n → incl '' t ∈ sub_cell_complex_sets Y_n1 ∧ closure (incl '' t) = closure t`
+- For each `b = closure t` with `t ∈ sub_cell_complex_sets Y_n`, we get `b ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}` (via `incl '' t ∈ sub_cell_complex_sets Y_n1`)
+- Prove: `g_n1 '' (incl '' t) = g_n '' t` so `(↑) '' (incl '' t) ∈ instCWConstructorCellComplexClass.sets`
+
+**Step 2.2.5 — Apply hB to get closedness in each b** (~8 lines)
+- **Goal type**: `∀ b ∈ {closure t | t ∈ sub_cell_complex_sets Y_n}, IsClosed (((↑) : b → Y_n) ⁻¹' (incl ⁻¹' B))`
+- **For each** `b` (with `b = closure t` for some `t`): Goal `IsClosed (((↑) : b → Y_n) ⁻¹' (incl ⁻¹' B))`
+- From hB: for `b' = closure (incl '' t) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}`, we have `IsClosed (((↑) : b' → Y_n1) ⁻¹' B)`
+- Show `((↑) : b → Y_n) ⁻¹' (incl ⁻¹' B) = ((↑) : b → Y_n1) ⁻¹' B` (when `b = closure t = closure (incl '' t)`)
+- Then `rw [this]` and exact `hB b' hb'`
+
+**Step 2.2.6 — Apply closed_crit_of_coeherent** (~5 lines)
+- **Goal type**: `IsClosed (incl ⁻¹' B)` (back to the reduced goal from 2.2.2)
+- We have shown the antecedent of `closed_crit_of_coeherent ih.coeherent (incl ⁻¹' B)`
+- Apply `closed_crit_of_coeherent ih.coeherent (incl ⁻¹' B)` to get `IsClosed (incl ⁻¹' B)` in `Y_n`
+- This equals `IsClosed (incl ⁻¹' B)` in `CWC.Fsk n` (same space, same topology via `Tsk_eq_subspace`)
+
+**Step 2.2.7 — Handle type equality (Tsk = subspace)** (~5 lines)
+- **Goal type**: Still `IsClosed (incl ⁻¹' B)` but we must ensure the topology used is the one expected by `isClosed_sum_iff`
+- `isClosed_sum_iff` expects: for the left summand, `IsClosed (Sum.inl ⁻¹' S)` where the closedness is in the topology of `CWC.Fsk n`
+- After 2.2.1 rewrite, the set equals `incl ⁻¹' B`; after 2.2.6 we have it closed in `Y_n` = `CWC.Fsk n` (with `Tsk n = subspace`)
+- Use `Tsk_eq_subspace n` if needed to align `instTopologicalSpaceSubtype` (on the subtype `Fsk n`) with `CWC.Tsk n`
+
+**Suggested lemma to extract** (optional, for clarity):
+```lean
+lemma left_preimage_eq_incl_preimage (n : ℕ) (B : Set (CWConstructorSkeleton (n+1))) :
+  Sum.inl ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B)) =
+  (fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩) ⁻¹' B := ...
+```
+
+**Lean context reminder** (at line 2529):
+- `Y_n`, `Y_n1`, `A`, `B`, `hB` are in scope
+- `ih : CWComplexClass (CWConstructorSkeleton n)`
+- Goal: `IsClosed (Sum.inl ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B)))`
+- Key: The LHS lives in `CWC.Fsk n`; `Sum.inl` embeds `Fsk n` into the disjoint union
+
+---
+
 ### Step 2.3: Right Part — Preimage Under Each (n+1)-Cell's Characteristic Map is Closed
 
 **Claim**: For each `i : Fι n`, the preimage of `B` under the characteristic map of the `(n+1)`-cell indexed by `i` is closed in `cb (n+1)`.

@@ -2506,7 +2506,40 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
       · exact closure_finite_case_cell_in_Fsk_n n ih s hs h_dim
       · exact closure_finite_case_cell_in_Fsk_n1 n ih s hs h_dim
     . refine coeherent_of_closed_crit_and_cover' ?_ (sub_cell_complex_closure_cover (CWConstructorSkeleton (CWC := CWC) (n + 1)))
-      sorry  -- closed criterion
+      -- Closed criterion: for B : Set Y_n1, if B is closed in every cell closure, then B is closed in Y_n1
+      intro B hB
+      -- Setup
+      let Y_n := CWConstructorSkeleton (CWC := CWC) n
+      let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+      let A : Set (Σ (i : CWC.Fι n), cb (n+1)) := {x | x.2 ∈ cb_boundary}
+      suffices IsClosed ((adj_proj _ (CWC.Ff n)) ⁻¹' ((CWC.Fφ n) ⁻¹' B)) by
+        rw [←Set.preimage_comp] at this
+        have hquot: Topology.IsQuotientMap ((CWC.Fφ n) ∘ (adj_proj A (CWC.Ff n))) := by
+          apply Topology.IsQuotientMap.comp
+          . exact Chp5.quotient_of_saturate_closed_image_closed (CWC.Fφ_heomorph n).continuous (CWC.Fφ_heomorph n).surjective (fun s _ sClosed => (CWC.Fφ_heomorph n).isClosedMap s sClosed)
+          . exact adj_proj_quotient A (CWC.Ff n)
+        rw [hquot.isClosed_preimage] at this
+        convert this
+        change instTopologicalSpaceSubtype = CWC.Tsk (n + 1)
+        rw [Tsk_eq_subspace]
+      -- Step 2.1: Decompose the preimage into left and right parts via isClosed_sum_iff
+      rw [isClosed_sum_iff]
+      constructor
+      · -- Step 2.2: Left part — Sum.inl ⁻¹' (adj_proj ⁻¹' (Fφ ⁻¹' B)) closed, i.e. B ∩ Fsk n closed in Fsk n
+        -- Step 2.2.1: Rewrite to (left_adj_proj) ⁻¹' ((Fφ n) ⁻¹' B) via preimage_comp and left_adj_proj def
+        rw [← Set.preimage_comp, ← left_adj_proj]
+        -- Step 2.2.2: Apply Fφ_fix; the map equals incl : Y_n → Y_n1
+        rw [← Set.preimage_comp, CWC.Fφ_fix n]
+        let incl : Y_n → Y_n1 := fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩
+        have preimage_eq : (fun x => ⟨x.1, CWC.Fsk_chain n x.2⟩) ⁻¹' B = incl ⁻¹' B := by
+          ext x
+          simp only [Set.mem_preimage]
+          have h : (fun x => ⟨x.1, CWC.Fsk_chain n x.2⟩) x = incl x := Subtype.ext rfl
+          simp only [h]
+        erw [preimage_eq]
+        sorry  -- Steps 2.2.3–2.2.7: use closed_crit_of_coeherent
+      · -- Step 2.3: Right part — Sum.inr ⁻¹' (adj_proj ⁻¹' (Fφ ⁻¹' B)) closed
+        sorry
 
 end CWComplexConstructor
 end
