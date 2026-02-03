@@ -213,6 +213,9 @@ lemma left_preimage_eq_incl_preimage (n : ℕ) (B : Set (CWConstructorSkeleton (
 
 ### Step 2.3: Right Part — Preimage Under Each (n+1)-Cell's Characteristic Map is Closed
 
+**Overall goal**: `IsClosed (Sum.inr ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B)))`  
+(LHS lives in `Σ (i : CWC.Fι n), cb (n+1)` with the sigma topology.)
+
 **Claim**: For each `i : Fι n`, the preimage of `B` under the characteristic map of the `(n+1)`-cell indexed by `i` is closed in `cb (n+1)`.
 
 **Setup**:
@@ -228,7 +231,94 @@ lemma left_preimage_eq_incl_preimage (n : ℕ) (B : Set (CWConstructorSkeleton (
 - `B ∩ closure e_i` is closed in `closure e_i` by assumption
 - Continuous preimage of closed is closed ⇒ `φ_i ⁻¹' B` is closed in `cb (n+1)` ✓
 
-**Note**: The `right_adj_proj` part of the quotient corresponds exactly to these characteristic maps (one for each `i`). The preimage we need is the union over `i` of `φ_i ⁻¹' B`, and each is closed. The topology on the sum is such that a set is closed iff its intersection with each summand is closed. So the right part is closed. ✓
+---
+
+#### Detailed Sub-Steps for Step 2.3 (each ~15 lines)
+
+**Step 2.3.1 — Reduce to sigma topology via `isClosed_sigma_iff`** (~10 lines)
+
+- **Action**: `rw [isClosed_sigma_iff]` and `intro i`.
+- **Target type after**: `∀ i : CWC.Fι n, IsClosed ((Sigma.mk i) ⁻¹' (Sum.inr ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B))))`
+- **Rationale**: The domain of `Sum.inr` is `Σ (i : CWC.Fι n), cb (n+1)`. In the sigma topology, a set is closed iff its intersection with each fiber (preimage under `Sigma.mk i`) is closed in `cb (n+1)`.
+
+---
+
+**Step 2.3.2 — Rewrite i-th preimage to characteristic-map preimage** (~15 lines)
+
+- **Action**: Show that  
+  `(Sigma.mk i) ⁻¹' (Sum.inr ⁻¹' (adj_proj ⁻¹' (Fφ ⁻¹' B))) = (fun x : cb (n+1) => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) ⁻¹' B`.
+- **Target type**: After `ext x; simp` (or equivalent), the goal becomes an equality of sets. After `rw [this]`, the goal is  
+  `IsClosed ((fun x => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) ⁻¹' B)`.
+- **Key lemma**: `pre_characteristic_map n ⟨i, x⟩ = Subtype.val ((CWC.Fφ n) (adj_proj (Sum.inr ⟨i, x⟩)))`, and `(CWC.Fφ n) (adj_proj …)` has type `Fsk (n+1)` so lies in `B : Set Y_n1` when considered as subtype.
+- **Note**: The RHS is exactly `φ_i ⁻¹' B` where `φ_i` is the characteristic map into `Fsk (n+1)`.
+
+---
+
+**Step 2.3.3 — Show closure(e_i) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1} and get hB** (~15 lines)
+
+- **Action**: Prove  
+  `closure (Set.range (cell_define_map n i)) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}`.
+- **Target type**: `closure (g_n1 ⁻¹' (Set.range (cell_define_map n i))) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}`  
+  or equivalently: `∃ t, t ∈ sub_cell_complex_sets Y_n1 ∧ closure t = closure (Set.range (cell_define_map n i))`.
+- **Steps**:  
+  1. `Set.range (cell_define_map n i) ∈ cell_sets` via `cell_define_map_range_in_sets`.  
+  2. Define `t := g_n1 ⁻¹' (Set.range (cell_define_map n i))` so that `g_n1 '' t = Set.range (cell_define_map n i)`.  
+  3. Then `t ∈ sub_cell_complex_sets Y_n1` (from `sub_cell_complex_sets` def: `(↑) '' t ∈ C.sets`).  
+  4. Show `closure t = closure (Set.range (cell_define_map n i))` (as subsets of `Y_n1`/`X`).
+- **Then**: `have hB_i := hB (closure t) ⟨t, ht, rfl⟩` to get  
+  `IsClosed (((↑) : closure t → Y_n1) ⁻¹' B)`.
+
+---
+
+**Step 2.3.4 — Define φ_i' : cb (n+1) → closure(e_i) and factor φ_i** (~15 lines)
+
+- **Action**: Define `φ_i' : cb (n+1) → closure (Set.range (cell_define_map n i))` by  
+  `φ_i' x := ⟨(CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩)), proof_that_image_in_closure⟩`.
+- **Target type**: `∀ x : cb (n+1), (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩)) ∈ closure (Set.range (cell_define_map n i))`.
+- **Use**: `cell_n_in_Fsk_np1`, `cell_define_map`, `pre_characteristic_map`, and that the characteristic map sends `cb` onto the closure of the cell.
+- **Show**: `φ_i = (↑) ∘ φ_i'` where `(↑) : closure(e_i) → Y_n1`, so  
+  `φ_i ⁻¹' B = φ_i' ⁻¹' (((↑) : closure(e_i) → Y_n1) ⁻¹' B)`.
+
+---
+
+**Step 2.3.5 — Prove continuity of φ_i'** (~12 lines)
+
+- **Target type**: `Continuous φ_i'`.
+- **Method**: `φ_i'` is `Subtype.val ∘ (CWC.Fφ n) ∘ adj_proj ∘ Sum.inr ∘ (fun x => ⟨i, x⟩)`. Each factor is continuous: `continuous_subtype_mk`, `(CWC.Fφ_heomorph n).continuous`, `adj_proj` (quotient), `continuous_inr`, `continuous_id`.
+- **Alternative**: Use `Continuous.subtype_mk` on the composition into `Fsk (n+1)` with proof that the image lies in `closure (Set.range (cell_define_map n i))`.
+
+---
+
+**Step 2.3.6 — Apply IsClosed.preimage** (~8 lines)
+
+- **Action**: `rw [preimage_comp]` or the equality from 2.3.4, then `exact IsClosed.preimage φ_i'_continuous hB_closed`.
+- **Target type**: `IsClosed (φ_i' ⁻¹' (((↑) : closure (Set.range (cell_define_map n i)) → Y_n1) ⁻¹' B))`.
+- **From 2.3.3**: `hB_closed : IsClosed (((↑) : closure t → Y_n1) ⁻¹' B)`, and `closure t = closure (Set.range (cell_define_map n i))` so the types match after suitable `convert` or `congr`.
+- **Conclusion**: `φ_i ⁻¹' B` is closed in `cb (n+1)`, which is the desired closedness for the i-th summand.
+
+---
+
+**Step 2.3.7 — Handle closure equality (if closure t ≠ closure e_i as types)** (~10 lines, if needed)
+
+- **Issue**: `closure t` (closure in `Y_n1`) vs `closure (Set.range (cell_define_map n i))` (in `X`) may differ as types.
+- **Target type**: Align so that `((↑) : closure (Set.range (cell_define_map n i)) → Y_n1) ⁻¹' B` is identified with the set from `hB` (possibly via `closure t` where `t = g_n1 ⁻¹' (Set.range (cell_define_map n i))`).
+- **Key**: In `Y_n1`, closure of the cell as a subset of `Y_n1` equals the closure in `X` intersected with `Y_n1`. Since the cell lies in `Fsk (n+1)`, the closures coincide. Use `closure_eq_closure` or similar if available, or prove the equality explicitly.
+
+---
+
+**Summary for Step 2.3**
+
+| Sub-step | Target type / result |
+|----------|----------------------|
+| 2.3.1 | `∀ i, IsClosed ((Sigma.mk i) ⁻¹' (Sum.inr ⁻¹' …))` |
+| 2.3.2 | Preimage equals `(fun x => (CWC.Fφ n) (adj_proj (Sum.inr ⟨i, x⟩))) ⁻¹' B` |
+| 2.3.3 | `closure(e_i) ∈ {closure s \| …}` and `hB` gives closedness in `closure(e_i)` |
+| 2.3.4 | `φ_i = (↑) ∘ φ_i'` and preimage factorization |
+| 2.3.5 | `Continuous φ_i'` |
+| 2.3.6 | `IsClosed.preimage` completes the proof |
+| 2.3.7 | Resolve type/closure equalities if needed |
+
+**Note**: The `right_adj_proj` part of the quotient corresponds exactly to these characteristic maps (one for each `i`). The preimage we need is the union over `i` of `φ_i ⁻¹' B`, and each is closed. The sigma topology requires closedness in each fiber, which is what we prove. ✓
 
 ---
 
