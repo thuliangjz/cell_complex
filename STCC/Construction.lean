@@ -2537,7 +2537,51 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
           have h : (fun x => ⟨x.1, CWC.Fsk_chain n x.2⟩) x = incl x := Subtype.ext rfl
           simp only [h]
         erw [preimage_eq]
-        sorry  -- Steps 2.2.3–2.2.7: use closed_crit_of_coeherent
+        -- Step 2.2.3: Use closed_crit_of_coeherent; goal becomes ∀ b ∈ {closure t | t ∈ sub_cell_complex_sets Y_n}, IsClosed (((↑) : b → Y_n) ⁻¹' (incl ⁻¹' B))
+        convert closed_crit_of_coeherent ih.coeherent (incl ⁻¹' B) ?_
+        . change CWC.Tsk n = instTopologicalSpaceSubtype
+          rw [Tsk_eq_subspace]
+        intro b hb
+        rcases hb with ⟨t, ht, rfl⟩
+        -- Step 2.2.4: incl '' t ∈ sub_cell_complex_sets Y_n1 (same underlying cell in X)
+        let g_n : Y_n → X := (↑)
+        let g_n1 : Y_n1 → X := (↑)
+        have coe_eq : g_n1 '' (incl '' t) = g_n '' t := by
+          ext x
+          constructor
+          · rintro ⟨y, ⟨z, z_in_t, rfl⟩, rfl⟩; exact ⟨z, z_in_t, rfl⟩
+          · rintro ⟨z, z_in_t, rfl⟩; exact ⟨⟨z, Fsk_incl (Nat.le_succ n) z.2⟩, ⟨z, z_in_t, rfl⟩, rfl⟩
+        have incl_t_in_Y_n1 : incl '' t ∈ sub_cell_complex_sets Y_n1 := by
+          simp only [sub_cell_complex_sets, Set.mem_setOf_eq]
+          rw [coe_eq]
+          simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using ht
+        -- Step 2.2.5: Use hB; closure (incl '' t) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}
+        have hb' : closure (incl '' t) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1} := ⟨incl '' t, incl_t_in_Y_n1, rfl⟩
+        have hB_closed : IsClosed (((↑) : closure (incl '' t) → Y_n1) ⁻¹' B) := hB (closure (incl '' t)) hb'
+        -- Preimage equality: ((↑) : closure t → Y_n) ⁻¹' (incl ⁻¹' B) = incl ⁻¹' (((↑) : closure (incl '' t) → Y_n1) ⁻¹' B) where incl maps closure t → closure (incl '' t)
+        have closure_t_sub : ∀ x : closure t, incl x ∈ closure (incl '' t) := by
+          intro x
+          have h1 : incl x ∈ incl '' closure t := ⟨x, x.2, rfl⟩
+          have h2 : incl '' closure t ⊆ closure (incl '' t) := by
+            have incl_cont : Continuous incl := by
+              convert Fsk_incl_continuous (Nat.le_succ n)
+              · exact (Tsk_eq_subspace n).symm
+              · exact (Tsk_eq_subspace (n + 1)).symm
+            exact image_closure_subset_closure_image incl_cont
+          exact h2 h1
+        let incl' : closure t → closure (incl '' t) := fun x => ⟨incl x, closure_t_sub x⟩
+        have preimage_eq : ((↑) : closure t → Y_n) ⁻¹' (incl ⁻¹' B) = incl' ⁻¹' (((↑) : closure (incl '' t) → Y_n1) ⁻¹' B) := by
+          ext x
+          simp only [Set.mem_preimage]
+          exact ⟨id, id⟩
+        rw [preimage_eq]
+        have incl'_cont : Continuous incl' := by
+          have incl_cont : Continuous incl := by
+            convert Fsk_incl_continuous (Nat.le_succ n)
+            · exact (Tsk_eq_subspace n).symm
+            · exact (Tsk_eq_subspace (n + 1)).symm
+          exact Continuous.subtype_mk (Continuous.comp incl_cont continuous_subtype_val) closure_t_sub
+        exact IsClosed.preimage incl'_cont hB_closed
       · -- Step 2.3: Right part — Sum.inr ⁻¹' (adj_proj ⁻¹' (Fφ ⁻¹' B)) closed
         sorry
 
