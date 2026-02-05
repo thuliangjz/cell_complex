@@ -2598,11 +2598,35 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
           (closure_mono (cell_n_in_Fsk_np1 n i)).trans ((Fsk_closed (n + 1)).closure_eq).le
         have img_in_closure : ∀ x : cb (n + 1), ((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1 ∈ closure e_i := by
           intro x
-          rw [← characteristic_map_range' e_i (cell_define_map_range_in_sets n i), Set.mem_range]
-          let e : instCWConstructorCellComplexClass.sets := ⟨e_i, cell_define_map_range_in_sets n i⟩
-          use (congrArg (fun k => (cb k : Type)) (dim_map_cell_n_is_np1 n i)).symm.mp x
-          -- characteristic_map e sends cb(dim_map e) to X; indices_to_cb_to_X (Sum.inr ⟨n,i⟩) sends cb(n+1) to X; they agree
-          sorry
+          let f : cb (n + 1) → X :=
+            fun x => ((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1
+          have f_cont : Continuous f := by
+            have cont0 : Continuous (@Sigma.mk (CWC.Fι n) (fun _ => cb (n + 1)) i) := continuous_sigmaMk
+            have cont1 : Continuous (@Sum.inr (CWC.Fsk n) ((_ : CWC.Fι n) × cb (n + 1))) := continuous_inr
+            have cont2 : Continuous (adj_proj A (CWC.Ff n)) := by exact { isOpen_preimage := fun s a => a }
+            have cont3 : Continuous (CWC.Fφ n) := (CWC.Fφ_heomorph n).continuous
+            have cont4 : Continuous (Subtype.val : CWC.Fsk (n + 1) → X) := { isOpen_preimage := fun s a => a (n + 1)}
+            exact (((cont4.comp cont3).comp cont2).comp cont1).comp cont0
+          have x_in_closure : x ∈ closure (cb_inner : Set (cb (n + 1))) := by
+            have h : closure (cb_inner : Set (cb (n + 1))) = Set.univ := by
+              simpa using (cb_inner_closure (n := n + 1))
+            rw [h]
+            simp
+          have hx : f x ∈ closure (f '' (cb_inner : Set (cb (n + 1)))) := by
+            have hclosure : f '' closure (cb_inner : Set (cb (n + 1))) ⊆ closure (f '' (cb_inner : Set (cb (n + 1)))) :=
+              image_closure_subset_closure_image f_cont
+            exact hclosure ⟨x, x_in_closure, rfl⟩
+          have e_i_eq : e_i = f '' (cb_inner : Set (cb (n + 1))) := by
+            ext y
+            constructor
+            · rintro ⟨u, rfl⟩
+              refine ⟨b_to_cb u, ?_, ?_⟩
+              · exact ⟨u, rfl⟩
+              · simp [f, cell_define_map, pre_characteristic_map, b_to_cb, A]
+            · rintro ⟨y, ⟨u, rfl⟩, rfl⟩
+              exact ⟨u, rfl⟩
+          rw [e_i_eq]
+          exact hx
         let incl_ce : closure e_i → Y_n1 := fun z => ⟨z.1, closure_e_i_sub z.2⟩
         let φ_i' : cb (n + 1) → closure e_i := fun x => ⟨((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1, img_in_closure x⟩
         have φ_i_eq : (fun x => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) = incl_ce ∘ φ_i' := by
@@ -2612,8 +2636,80 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
             φ_i' ⁻¹' (incl_ce ⁻¹' B) := by
           rw [φ_i_eq, Set.preimage_comp]
         rw [preimage_eq']
-        -- Step 2.3.4 done. Step 2.3.5 (continuity of φ_i') and 2.3.6 (IsClosed.preimage) remain.
-        sorry
+        -- Step 2.3.4 done. Step 2.3.5: continuity of φ_i'
+        have φ_i'_cont : Continuous φ_i' := by
+          refine Continuous.subtype_mk ?_ (fun x => img_in_closure x)
+          have cont0 : Continuous (@Sigma.mk (CWC.Fι n) (fun _ => cb (n + 1)) i) := continuous_sigmaMk
+          have cont1 : Continuous (@Sum.inr (CWC.Fsk n) ((_ : CWC.Fι n) × cb (n + 1))) := continuous_inr
+          have cont2 : Continuous (adj_proj A (CWC.Ff n)) := by exact { isOpen_preimage := fun s a => a }
+          have cont3 : Continuous (CWC.Fφ n) := (CWC.Fφ_heomorph n).continuous
+          have cont4 : Continuous (Subtype.val : CWC.Fsk (n + 1) → X) := { isOpen_preimage := fun s a => a (n + 1)}
+          simpa [φ_i'] using (((cont4.comp cont3).comp cont2).comp cont1).comp cont0
+        -- Step 2.3.6: IsClosed.preimage
+        let s : Set Y_n1 := {y | y.1 ∈ e_i}
+        have s_in_sets : s ∈ sub_cell_complex_sets Y_n1 := by
+          have hs : ((↑) : Y_n1 → X) '' s = e_i := by
+            ext x
+            constructor
+            · rintro ⟨y, hy, rfl⟩; exact hy
+            · intro hx
+              refine ⟨⟨x, closure_e_i_sub (subset_closure hx)⟩, hx, rfl⟩
+          change ((↑) : Y_n1 → X) '' s ∈ cell_sets
+          simpa [hs, e_i] using (cell_define_map_range_in_sets n i)
+        have hb' : closure s ∈ {closure t | t ∈ sub_cell_complex_sets Y_n1} := ⟨s, s_in_sets, rfl⟩
+        have hB_closed : IsClosed (((↑) : closure s → Y_n1) ⁻¹' B) := hB (closure s) hb'
+        let s_dom : Set (closure e_i) := {z | z.1 ∈ e_i}
+        have s_dom_image : incl_ce '' s_dom = s := by
+          ext y
+          constructor
+          · rintro ⟨z, hz, rfl⟩; exact hz
+          · intro hy
+            refine ⟨⟨y.1, subset_closure hy⟩, hy, ?_⟩
+            apply Subtype.ext rfl
+        have incl_ce_cont : Continuous incl_ce := by
+          exact Continuous.subtype_mk continuous_subtype_val (fun x => closure_e_i_sub x.2)
+        have z_in_closure_s_dom : ∀ z : closure e_i, z ∈ closure s_dom := by
+          intro z
+          let g : closure e_i → X := fun z => z.1
+          have ce : Topology.IsClosedEmbedding g := by
+            have : IsClosed (closure e_i) := isClosed_closure
+            simpa using (Topology.IsClosedEmbedding.subtypeVal this : Topology.IsClosedEmbedding (Subtype.val : closure e_i → X))
+          have g_image : g '' s_dom = e_i := by
+            ext x
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact hw
+            · intro hx
+              refine ⟨⟨x, subset_closure hx⟩, hx, rfl⟩
+          have hz' : g z ∈ closure (g '' s_dom) := by
+            change z.1 ∈ closure (g '' s_dom)
+            rw [g_image]
+            exact z.2
+          have hz'' : g z ∈ g '' closure s_dom := by
+            have hclosure := Topology.IsClosedEmbedding.closure_image_eq ce s_dom
+            simpa [hclosure] using hz'
+          rcases hz'' with ⟨w, hw, hw_eq⟩
+          have : w = z := by
+            apply Subtype.ext
+            simpa [g] using hw_eq
+          simpa [this] using hw
+        have incl_ce_in_closure : ∀ z : closure e_i, incl_ce z ∈ closure s := by
+          intro z
+          have hz : z ∈ closure s_dom := z_in_closure_s_dom z
+          have hclosure : incl_ce '' closure s_dom ⊆ closure (incl_ce '' s_dom) :=
+            image_closure_subset_closure_image incl_ce_cont
+          have : incl_ce z ∈ incl_ce '' closure s_dom := ⟨z, hz, rfl⟩
+          have : incl_ce z ∈ closure (incl_ce '' s_dom) := hclosure this
+          simpa [s_dom_image] using this
+        let incl_ce' : closure e_i → closure s := fun z => ⟨incl_ce z, incl_ce_in_closure z⟩
+        have incl_ce'_cont : Continuous incl_ce' := by
+          exact Continuous.subtype_mk incl_ce_cont (fun z => incl_ce_in_closure z)
+        have preimage_eq'' : incl_ce ⁻¹' B = incl_ce' ⁻¹' (((↑) : closure s → Y_n1) ⁻¹' B) := by
+          ext z
+          simp [incl_ce', Set.mem_preimage]
+        have incl_ce_closed : IsClosed (incl_ce ⁻¹' B) := by
+          rw [preimage_eq'']
+          exact IsClosed.preimage incl_ce'_cont hB_closed
+        exact IsClosed.preimage φ_i'_cont incl_ce_closed
 
 end CWComplexConstructor
 end
