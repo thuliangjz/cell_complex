@@ -2583,6 +2583,36 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
           exact Continuous.subtype_mk (Continuous.comp incl_cont continuous_subtype_val) closure_t_sub
         exact IsClosed.preimage incl'_cont hB_closed
       · -- Step 2.3: Right part — Sum.inr ⁻¹' (adj_proj ⁻¹' (Fφ ⁻¹' B)) closed
+        -- Step 2.3.1: Reduce to sigma topology via isClosed_sigma_iff
+        rw [isClosed_sigma_iff]
+        intro i
+        -- Step 2.3.2: Rewrite i-th preimage to characteristic-map preimage
+        have preimage_eq : (Sigma.mk i) ⁻¹' (Sum.inr ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B))) =
+            (fun x : cb (n + 1) => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) ⁻¹' B := by
+          ext x
+          simp only [Set.mem_preimage]
+        rw [preimage_eq]
+        -- Step 2.3.4: Define φ_i' : cb (n+1) → closure(e_i) and factor φ_i
+        let e_i := Set.range (cell_define_map n i)
+        have closure_e_i_sub : closure e_i ⊆ Y_n1 :=
+          (closure_mono (cell_n_in_Fsk_np1 n i)).trans ((Fsk_closed (n + 1)).closure_eq).le
+        have img_in_closure : ∀ x : cb (n + 1), ((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1 ∈ closure e_i := by
+          intro x
+          rw [← characteristic_map_range' e_i (cell_define_map_range_in_sets n i), Set.mem_range]
+          let e : instCWConstructorCellComplexClass.sets := ⟨e_i, cell_define_map_range_in_sets n i⟩
+          use (congrArg (fun k => (cb k : Type)) (dim_map_cell_n_is_np1 n i)).symm.mp x
+          -- characteristic_map e sends cb(dim_map e) to X; indices_to_cb_to_X (Sum.inr ⟨n,i⟩) sends cb(n+1) to X; they agree
+          sorry
+        let incl_ce : closure e_i → Y_n1 := fun z => ⟨z.1, closure_e_i_sub z.2⟩
+        let φ_i' : cb (n + 1) → closure e_i := fun x => ⟨((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1, img_in_closure x⟩
+        have φ_i_eq : (fun x => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) = incl_ce ∘ φ_i' := by
+          ext x
+          simp only [φ_i', incl_ce, Function.comp_apply]
+        have preimage_eq' : (fun x => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) ⁻¹' B =
+            φ_i' ⁻¹' (incl_ce ⁻¹' B) := by
+          rw [φ_i_eq, Set.preimage_comp]
+        rw [preimage_eq']
+        -- Step 2.3.4 done. Step 2.3.5 (continuity of φ_i') and 2.3.6 (IsClosed.preimage) remain.
         sorry
 
 end CWComplexConstructor
