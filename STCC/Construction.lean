@@ -2711,6 +2711,128 @@ instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkele
           exact IsClosed.preimage incl_ce'_cont hB_closed
         exact IsClosed.preimage φ_i'_cont incl_ce_closed
 
+noncomputable instance instCWConstructorCWComplexClass: CWComplexClass X := by
+  refine {
+    closure_finite := ?cf
+    coeherent := ?ch
+  }
+  case cf =>
+    intro s hs
+    rcases exists_skn_contain_cell (CWC := CWC) s hs with ⟨n, hs_sub⟩
+    -- Step 1 done: s ⊆ Fsk n
+    -- Step 2: move to skeleton Y_n and apply closure_finite there
+    let Y_n := CWConstructorSkeleton (CWC := CWC) n
+    let g_n : Y_n → X := (↑)
+    let s_n : Set Y_n := g_n ⁻¹' s
+    have s_n_in_sets : s_n ∈ sub_cell_complex_sets Y_n := by
+      simp [sub_cell_complex_sets, s_n]
+      rw [Set.image_preimage_eq_of_subset]
+      · exact hs
+      · rw [Subtype.range_coe]
+        exact hs_sub
+    rcases (instCWConstructorSkeletonCW (CWC := CWC) n).closure_finite s_n s_n_in_sets with
+      ⟨ss_n, ss_n_sub, ss_n_fin, ss_n_cover⟩
+    -- Step 2 done
+    -- Step 3: push the finite family back to X
+    let ss : Set (Set X) := (fun t : Set Y_n => (Subtype.val : Y_n → X) '' t) '' ss_n
+    use ss
+    constructor
+    · intro t ht
+      rcases (Set.mem_image _ _ _).mp ht with ⟨t', ht', rfl⟩
+      exact ss_n_sub ht'
+    constructor
+    · apply Set.Finite.image
+      exact ss_n_fin
+    -- Step 4: show closure s ⊆ ⋃₀ ss
+    intro x hx
+    have hsub : s ⊆ Set.range g_n := by
+      intro x hx
+      exact ⟨⟨x, hs_sub hx⟩, rfl⟩
+    have s_eq : g_n '' s_n = s := by
+      simpa [s_n] using (Set.image_preimage_eq_of_subset (s:=s) (f:=g_n) hsub)
+    have g_n_closed : Topology.IsClosedEmbedding g_n := by
+      have : IsClosed (CWC.Fsk n) := Fsk_closed n
+      simpa [g_n] using (Topology.IsClosedEmbedding.subtypeVal this :
+        Topology.IsClosedEmbedding (Subtype.val : Y_n → X))
+    have hclosure : closure (g_n '' s_n) = g_n '' closure s_n := by
+      simpa using (Topology.IsClosedEmbedding.closure_image_eq g_n_closed s_n)
+    have hx' : x ∈ closure (g_n '' s_n) := by simpa [s_eq] using hx
+    have hx'' : x ∈ g_n '' closure s_n := by simpa [hclosure] using hx'
+    rcases hx'' with ⟨y, hy, rfl⟩
+    have hy_union : y ∈ ⋃₀ ss_n := ss_n_cover hy
+    rcases Set.mem_sUnion.mp hy_union with ⟨t, ht, hy_t⟩
+    refine Set.mem_sUnion.mpr ?_
+    refine ⟨g_n '' t, ?_, ?_⟩
+    · exact Set.mem_image_of_mem (fun t => (Subtype.val : Y_n → X) '' t) ht
+    · exact ⟨y, hy_t, rfl⟩
+  case ch =>
+    refine coeherent_of_closed_crit_and_cover' ?_ ?_
+    · intro B hB
+      -- Step 1 setup: show IsClosed B from the closed-criterion hypothesis
+      -- Step 2: show B is closed in each skeleton
+      have hsk : ∀ n : ℕ, IsClosed ((Subtype.val : CWC.Fsk n → X) ⁻¹' B) := by
+        intro n
+        let Y_n := CWConstructorSkeleton (CWC := CWC) n
+        -- Use coeherence of the skeleton
+        convert
+          closed_crit_of_coeherent (instCWConstructorSkeletonCW (CWC := CWC) n).coeherent
+            ((Subtype.val : Y_n → X) ⁻¹' B) ?_ using 1
+        · change CWC.Tsk n = instTopologicalSpaceSubtype
+          rw [Tsk_eq_subspace]
+        intro b hb
+        rcases hb with ⟨s, hs, rfl⟩
+        let sX : Set X := (Subtype.val : Y_n → X) '' s
+        have hsX : sX ∈ instCWConstructorCellComplexClass.sets := by
+          simpa [sX, sub_cell_complex_sets] using hs
+        have hB_closed : IsClosed (((↑) : closure sX → X) ⁻¹' B) :=
+          hB (closure sX) ⟨sX, hsX, rfl⟩
+        -- Relate closure s (in Y_n) to closure sX (in X)
+        have g_closed : Topology.IsClosedEmbedding (Subtype.val : Y_n → X) := by
+          have : IsClosed (CWC.Fsk n) := Fsk_closed n
+          simpa using (Topology.IsClosedEmbedding.subtypeVal this :
+            Topology.IsClosedEmbedding (Subtype.val : Y_n → X))
+        have hclosure : closure sX = (Subtype.val : Y_n → X) '' (closure s) := by
+          simpa [sX] using (Topology.IsClosedEmbedding.closure_image_eq g_closed s)
+        have img_in_closure : ∀ z : closure s, (Subtype.val : Y_n → X) z ∈ closure sX := by
+          intro z
+          have : (Subtype.val : Y_n → X) z ∈ (Subtype.val : Y_n → X) '' closure s := ⟨z, z.2, rfl⟩
+          simp [hclosure]
+        let incl' : closure s → closure sX := fun z => ⟨(Subtype.val : Y_n → X) z, img_in_closure z⟩
+        have incl'_cont : Continuous incl' := by
+          have cont1 : Continuous (Subtype.val : closure s → Y_n) := continuous_subtype_val
+          have cont2 : Continuous (Subtype.val : Y_n → X) := continuous_subtype_val
+          exact Continuous.subtype_mk (cont2.comp cont1) (fun z => img_in_closure z)
+        have preimage_eq : ((↑) : closure s → Y_n) ⁻¹' ((Subtype.val : Y_n → X) ⁻¹' B)
+            = incl' ⁻¹' (((↑) : closure sX → X) ⁻¹' B) := by
+          ext z
+          simp [incl', Set.mem_preimage]
+        rw [preimage_eq]
+        exact IsClosed.preimage incl'_cont hB_closed
+      -- Step 3: use skeleton coherence to get IsClosed B
+      have hB_closed : IsClosed B := by
+        apply closed_crit_of_coeherent (Fsk_coeherent (CWC := CWC))
+        intro b hb
+        rcases hb with ⟨n, rfl⟩
+        have hsk' :
+            @IsClosed (CWC.Fsk n) instTopologicalSpaceSubtype
+              ((Subtype.val : CWC.Fsk n → X) ⁻¹' B) := by
+          have : @IsClosed (CWC.Fsk n) (CWC.Tsk n)
+              ((Subtype.val : CWC.Fsk n → X) ⁻¹' B) := by
+            simpa using hsk n
+          simpa [Tsk_eq_subspace n] using this
+        exact hsk'
+      exact hB_closed
+    · -- Cover of closures of cells
+      have cover : ⋃₀ {closure s | s ∈ cell_sets (CWC := CWC)} = Set.univ := by
+        have : ∀ x, ∃ s ∈ cell_sets (CWC := CWC), x ∈ s := by
+          simp [← Set.mem_sUnion, cell_sets_cover (CWC := CWC)]
+        rw [Set.sUnion_eq_univ_iff]
+        intro x
+        rcases this x with ⟨s, hs, hxs⟩
+        refine ⟨closure s, ?_, ?_⟩
+        · exact ⟨s, hs, rfl⟩
+        · exact subset_closure hxs
+      simpa [instCWConstructorCellComplexClass] using cover
 end CWComplexConstructor
 end
 
