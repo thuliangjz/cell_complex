@@ -969,6 +969,173 @@ theorem sep_fun_eq_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
     . rwa [sep_fun_lt_1_iff h_A_compact h_A_convex hp] at ssup_lt_1
     . simp [sep_fun_gt_1_iff h_A_compact h_A_convex hp] at ssup_gt_1
       contradiction
+
+theorem sep_fun_cb_eq_1_iff {p: cb n} (hp: p ∈ cb_inner): ∀ x, sep_fun p (cb n) x = 1 ↔ x ∈ sph n := by
+  have cb_compact: IsCompact (cb n) := by rw[isCompact_iff_compactSpace]; infer_instance
+  have cb_convex: Convex ℝ (cb n) := convex_closedBall 0 1
+  have hp_interior: p.1 ∈ interior (cb n) := by
+    unfold cb
+    rw [interior_closedBall _ (by norm_num)]
+    rcases hp with ⟨p', rfl⟩
+    simp [b_to_cb]
+  intro x
+  rw [sep_fun_eq_1_iff cb_compact cb_convex hp_interior]
+  suffices frontier (cb n) = sph n by
+    rw [this]
+  unfold cb sph
+  rw [frontier_closedBall _ (by norm_num)]
+end
+
+section
+open Topology
+instance instSphNonempty {n: ℕ} (hn: 1 ≤ n): Nonempty (sph n) := Set.Nonempty.to_subtype (sph_nonempty hn)
+
+noncomputable def pre_proj_to_sph {n: ℕ} (hn: 1 ≤ n): (EuclideanSpace ℝ (Fin n)) → (EuclideanSpace ℝ (Fin n)) := fun x ↦ if x = 0 then (Classical.choice (instSphNonempty hn)).1 else (1 / ‖x‖) • x
+
+lemma pre_proj_to_sph_cont_at_nonzero {n: ℕ} (hn: 1 ≤ n) (x: EuclideanSpace ℝ (Fin n)) (hx: x ≠ 0) : ContinuousAt (pre_proj_to_sph hn) x := by
+  rw [Metric.continuousAt_iff]
+  intro ε εpos
+  let δ := min (‖x‖ * ε / 2) (‖x‖ / 2)
+  have x_norm_pos: ‖x‖ > 0 := norm_pos_iff.mpr hx
+  have δpos : δ > 0 := lt_min (half_pos (mul_pos x_norm_pos εpos)) (half_pos x_norm_pos)
+  use δ, δpos
+  intro y hy
+  have y_norm_pos: ‖y‖ > 0 := by
+    calc
+      ‖y‖ = ‖x - (x - y)‖ := by congr!; module
+      _ ≥ |‖x‖ - ‖x - y‖| := by apply abs_norm_sub_norm_le
+      _ ≥ ‖x‖ - ‖x - y‖ := by apply le_abs_self
+      _ ≥ ‖x‖ - δ := by refine tsub_le_tsub_left (le_of_lt ?_) ‖x‖ ;simpa [dist_comm] using hy
+      _ ≥ ‖x‖ - ‖x‖ / 2 := by refine sub_le_sub_left ?_ ‖x‖; apply min_le_right
+      _ = ‖x‖ / 2 := by exact sub_half ‖x‖
+      _ > 0 :=  by exact half_pos x_norm_pos
+  have y_ne_0: y ≠ 0 := norm_pos_iff.mp y_norm_pos
+  simp [pre_proj_to_sph, hx, y_ne_0]
+  show ‖(‖y‖⁻¹ • y) - (‖x‖⁻¹ • x)‖ < ε
+  calc
+    ‖(‖y‖⁻¹ • y) - (‖x‖⁻¹ • x)‖ = ‖(‖y‖⁻¹ - ‖x‖⁻¹) • y + ‖x‖⁻¹ • (y - x)‖ := by congr! 1; module
+    _ ≤ ‖(‖y‖⁻¹ - ‖x‖⁻¹) • y‖ + ‖‖x‖⁻¹ • (y - x)‖ := by apply norm_add_le
+    _ ≤ |‖y‖⁻¹ - ‖x‖⁻¹| * ‖y‖ + ‖x‖⁻¹ * ‖y - x‖ := by simp [norm_smul]
+    _ = |(‖x‖ - ‖y‖) / (‖x‖)| + ‖x‖⁻¹ * ‖y - x‖ := by congr; rw [←abs_of_pos y_norm_pos, ←abs_mul]; congr! 1; field_simp; ring;
+    _ = |‖x‖ - ‖y‖| / ‖x‖ + ‖x‖⁻¹ * ‖y - x‖ := by congr; rw [abs_div];congr; exact abs_norm x
+    _ ≤ ‖x - y‖ / ‖x‖ + ‖x‖⁻¹ * ‖y - x‖ := by suffices |‖x‖ - ‖y‖| / ‖x‖ ≤ ‖x - y‖ / ‖x‖ by linarith;;rw [div_le_div_iff_of_pos_right x_norm_pos]; exact abs_norm_sub_norm_le x y
+    _ = 2 * ‖y - x‖ / ‖x‖ := by rw [norm_sub_rev x y]; field_simp; ring
+    _ < 2 * δ / ‖x‖ := by refine div_lt_div_of_pos_right ?_ x_norm_pos; refine (mul_lt_mul_left (by norm_num)).mpr hy
+    _ ≤ 2 * (‖x‖ * ε / 2) / ‖x‖ := by refine (div_le_div_iff_of_pos_right x_norm_pos).mpr ?_; refine (mul_le_mul_iff_of_pos_left (by norm_num)).mpr (by apply min_le_left)
+    _ = ε := by field_simp
+
+theorem pre_proj_to_sph_in_sph {n: ℕ} (hn: 1 ≤ n): ∀ x, pre_proj_to_sph hn x ∈ sph n := by
+  intro x
+  rcases eq_or_ne x 0 with x_eq_0 | x_ne_0
+  . simp [pre_proj_to_sph, x_eq_0]
+  . simp [pre_proj_to_sph, x_ne_0, sph, norm_smul]
+
+noncomputable def cb_extension_global {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) : (EuclideanSpace ℝ (Fin n)) → ℝ :=fun x ↦ ‖x‖ * f ⟨pre_proj_to_sph hn x, pre_proj_to_sph_in_sph hn x⟩ + (1 - ‖x‖)
+
+theorem cb_extension_global_continuous {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) (hf: Continuous f): Continuous (cb_extension_global hn f) := by
+  unfold cb_extension_global
+  apply Continuous.add
+  . rw [continuous_iff_continuousAt]
+    intro x
+    rcases eq_or_ne x 0 with x_eq_0 | x_ne_0
+    . rw [x_eq_0, Metric.continuousAt_iff]
+      intro ε εpos
+      let f_abs: sph n → ℝ := fun x ↦ |f x|
+      have f_abs_cont: Continuous f_abs := by continuity
+      rcases (isCompact_iff_isCompact_univ.mp (isCompact_sphere 0 1)).bddAbove_image (continuous_iff_continuousOn_univ.mp f_abs_cont) with ⟨s₀, hs₀⟩
+      let s := max s₀ 1
+      have spos: s > 0 := by apply lt_max_of_lt_right; norm_num
+      have hs: ∀ y, |f y| ≤ s := by
+        intro y
+        trans s₀
+        . have : |f y| ∈ f_abs '' Set.univ := by use y, (by trivial)
+          exact hs₀ this
+        . exact le_max_left s₀ 1
+      let δ := ε / s
+      have δpos: δ > 0 := div_pos εpos spos
+      use δ, δpos
+      intro z hz
+      have z_norm_lt: ‖z‖ < δ := by simpa using hz
+      simp
+      calc
+        ‖z‖ * |f ⟨pre_proj_to_sph hn z, pre_proj_to_sph_in_sph hn z⟩| = |f ⟨pre_proj_to_sph hn z, pre_proj_to_sph_in_sph hn z⟩| * ‖z‖ := by rw [mul_comm]
+        _ < s * δ := mul_lt_mul' (hs _) (z_norm_lt) (norm_nonneg z) spos
+        _ = ε := by unfold δ; field_simp
+    . apply ContinuousAt.mul
+      . suffices Continuous (norm) by exact Continuous.continuousAt this
+        exact continuous_norm
+      . apply ContinuousAt.comp
+        . exact Continuous.continuousAt hf
+        . let h: EuclideanSpace ℝ (Fin n) → sph n := fun x ↦ ⟨pre_proj_to_sph hn x, pre_proj_to_sph_in_sph hn x⟩
+          let s := h x
+          show (𝓝 x).map h ≤ 𝓝 s
+          have: (𝓝 x).map (Subtype.val ∘ h) ≤ (𝓝 s.1) := pre_proj_to_sph_cont_at_nonzero hn _ x_ne_0
+          rwa [←Filter.map_map, Filter.map_le_iff_le_comap, ←nhds_subtype] at this
+  . continuity
+
+theorem cb_extension_global_eq_on_sph {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ): ∀ x, (hx: x ∈ sph n) → cb_extension_global hn f x = f ⟨x, hx⟩ := by
+  intro x hx
+  have x_norm_eq_1: ‖x‖ = 1 := by rw [←dist_zero, ←Metric.mem_sphere']; exact hx
+  have x_ne_0 : x ≠ 0 := by simp [←norm_ne_zero_iff, x_norm_eq_1]
+  unfold cb_extension_global
+  simp [x_norm_eq_1]
+  congr!
+  simp [pre_proj_to_sph, x_ne_0, x_norm_eq_1]
+
+theorem cb_extension_global_pos_in_b {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) (hf: ∀ x, 0 ≤ f x): ∀ x ∈ b n, 0 < cb_extension_global hn f x := by
+  intro x hx
+  have x_norm_lt_1: ‖x‖ < 1 := by rwa [b, Metric.mem_ball', dist_zero] at hx
+  unfold cb_extension_global
+  have term1_nonneg: 0 ≤ ‖x‖ * f ⟨pre_proj_to_sph hn x, pre_proj_to_sph_in_sph hn x⟩ := mul_nonneg (norm_nonneg x) (hf _)
+  have term2_pos: 0 < (1 - ‖x‖) := by linarith
+  linarith
+
+theorem cb_extension_global_nonneg_in_cb {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ) (hf: ∀ x, 0 ≤ f x): ∀ x ∈ cb n, 0 ≤ cb_extension_global hn f x := by
+  intro x hx
+  have x_norm_le_1: ‖x‖ ≤ 1 := by rwa [cb, Metric.mem_closedBall', dist_zero] at hx
+  rcases eq_or_lt_of_le x_norm_le_1 with x_norm_eq_1 | x_norm_lt_1
+  . have x_in_sph: x ∈ sph n := by rwa [sph, Metric.mem_sphere', dist_zero]
+    rw [cb_extension_global_eq_on_sph hn f x x_in_sph]
+    apply hf
+  . have x_in_b: x ∈ b n := by rwa [b, Metric.mem_ball', dist_zero]
+    apply le_of_lt
+    apply cb_extension_global_pos_in_b hn f hf x x_in_b
+
+noncomputable def cb_extension {n: ℕ} (hn: 1 ≤ n) (f: @cb_boundary n → ℝ): cb n → ℝ := (cb_extension_global hn (f ∘ fun x:(sph n) ↦ ⟨sph_to_cb x, (by use x)⟩)) ∘ Subtype.val
+
+theorem cb_extension_continuous {n: ℕ} (hn: 1 ≤ n) {f: @cb_boundary n → ℝ} (hf: Continuous f): Continuous (cb_extension hn f) := by
+  unfold cb_extension
+  apply Continuous.comp
+  . apply cb_extension_global_continuous
+    apply Continuous.comp hf
+    . continuity
+  . exact continuous_subtype_val
+
+theorem cb_extension_eq_on_boundary {n: ℕ} (hn: 1 ≤ n) (f: @cb_boundary n → ℝ): ∀ x, (hx: x ∈ cb_boundary) → cb_extension hn f x = f ⟨x, hx⟩ := by
+  intro x hx
+  unfold cb_extension
+  have x_val_in_sph: x.1 ∈ sph n := by rcases hx with ⟨y, rfl⟩; simp
+  rw [Function.comp, cb_extension_global_eq_on_sph hn (f ∘ fun z:(sph n) ↦ ⟨sph_to_cb z, (by use z)⟩) _ x_val_in_sph, Function.comp]
+  congr
+
+theorem cb_extension_pos_in_inner {n: ℕ} (hn: 1 ≤ n) {f: @cb_boundary n → ℝ} (hf: ∀ x, 0 ≤ f x): ∀ x ∈ cb_inner, 0 < cb_extension hn f x := by
+  intro x hx
+  rw [cb_extension, Function.comp]
+  apply cb_extension_global_pos_in_b
+  . intro y
+    rw [Function.comp]
+    apply hf
+  . rcases hx with ⟨y, rfl⟩
+    simp
+
+theorem cb_extension_nonneg {n: ℕ} (hn: 1 ≤ n) {f: @cb_boundary n → ℝ} (hf: ∀ x, 0 ≤ f x): ∀ x, 0 ≤ cb_extension hn f x := by
+  intro x
+  rcases @cb_decomp n x with x_in_inner | x_in_boundary
+  . apply le_of_lt
+    exact cb_extension_pos_in_inner hn hf _ x_in_inner
+  . rw [cb_extension_eq_on_boundary hn f x x_in_boundary]
+    apply hf
+
 end
 end Chp5
 
@@ -1596,6 +1763,10 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_cover_glue_
   simp [left_adj_proj, adj_proj, glue_setoid]
   apply Relation.EqvGen.rel
   use ⟨y, y_in_A⟩
+
+instance instNonemptyAdjointSpaceOfNonemptyLeft [Nx: Nonempty X]: Nonempty (AdjointSpace A f) := by
+  rcases Nx with ⟨x⟩
+  use left_adj_proj _ _ x
 end
 
 section

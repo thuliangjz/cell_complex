@@ -1388,6 +1388,17 @@ theorem compact_iff_closed_and_subset_finite_sub_complex {X: Type*} [Topological
     . exact SE_iunion_cover
     exact SC_cover
 
+lemma compact_exists_finite_cells_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] {S: Set X} (hS : IsCompact S) : ∃ ss ⊆ C.sets, ss.Finite ∧ S ⊆ ⋃₀ ss := by
+  obtain ⟨_, SC, SC_finite, S_sub_SC⟩ := compact_iff_closed_and_subset_finite_sub_complex.mp hS
+  let ss := {e : Set X | e ∈ C.sets ∧ e ⊆ SC}
+  have ss_finite : ss.Finite := (finite_sub_cell_complex_iff SC).mp SC_finite
+  have SC_sub_sUnion_ss : (SC : Set X) ⊆ ⋃₀ ss := by
+    intro x hx
+    rcases mem_sub_complex_iff.mp hx with ⟨e, e_in_sets, x_in_e, e_sub_SC⟩
+    exact Set.mem_sUnion.mpr ⟨e, ⟨e_in_sets, e_sub_SC⟩, x_in_e⟩
+  have S_sub_sUnion_ss : S ⊆ ⋃₀ ss := S_sub_SC.trans SC_sub_sUnion_ss
+  exact ⟨ss, fun _ h => h.1, ss_finite, S_sub_sUnion_ss⟩
+
 theorem compact_space_iff_finite {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X] : CompactSpace X ↔ FiniteCellComplex X := by
   rw [←isCompact_univ_iff, compact_iff_closed_and_subset_finite_sub_complex]
   simp

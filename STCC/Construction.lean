@@ -495,7 +495,7 @@ class CWComplexConstructor (X: Type*) where
   Fφ_heomorph: ∀ n:ℕ, IsHomeomorph (Fφ n)
   Fφ_fix: ∀ n:ℕ, (Fφ n) ∘ (left_adj_proj _ (Ff n)) = fun x ↦ ⟨x.1,  (Fsk_chain n) x.2⟩
 
-variable {X: Type*}
+variable {X: Type u₁}
 variable [CWC: CWComplexConstructor X]
 instance {n:ℕ}: TopologicalSpace (CWC.Fsk n) := CWC.Tsk n
 
@@ -529,6 +529,28 @@ theorem Fsk_incl {m n: ℕ} (hmn: m ≤ n) : CWC.Fsk m ⊆ CWC.Fsk n := by
   rw [←add_assoc]
   apply CWC.Fsk_chain
 
+instance instNonemptyConstructorFsk {n: ℕ}: Nonempty (CWC.Fsk n) := by
+  rcases CWC.Fsk0_nonempty with ⟨x, hx⟩
+  use x
+  exact Fsk_incl (m := 0) (by norm_num) hx
+
+lemma inv_Fφ_heomorph (n:ℕ): IsHomeomorph (Function.invFun (CWC.Fφ n)) := by
+  let Fφ_heom := CWC.Fφ_heomorph n
+  rw [isHomeomorph_iff_exists_inverse] at Fφ_heom
+  rcases Fφ_heom with ⟨Fφ_cont, g, g_left_inv, g_right_inv, g_cont⟩
+  have: g = Function.invFun (CWC.Fφ n) := by
+    ext y
+    suffices CWC.Fφ n (g y) = (CWC.Fφ n) (Function.invFun (CWC.Fφ n) y) by
+      exact g_left_inv.injective this
+    rw [g_right_inv, Function.invFun_eq ⟨g y, g_right_inv y⟩]
+  rw [isHomeomorph_iff_exists_inverse]
+  constructor
+  . rwa [←this]
+  . use (CWC.Fφ n)
+    simp [←this]
+    use g_right_inv.leftInverse, g_left_inv.rightInverse
+
+def Fsk_adj_incl_map (n: ℕ) : CWC.Fsk n → CWC.Fsk (n + 1) := fun x ↦ ⟨x.1, Fsk_incl (Nat.le_add_right n 1) x.2⟩
 lemma Fsk_chain_incl_continuous {n: ℕ}: Continuous ((fun x ↦ ⟨x.1, CWC.Fsk_chain _ x.2⟩): CWC.Fsk n → CWC.Fsk (n + 1)) := by
   rw [←CWC.Fφ_fix]
   refine Continuous.comp ?φ_cont ?left_adj_proj_cont
@@ -675,6 +697,45 @@ lemma singleton_in_sk0_closed: ∀ x:X, x ∈ CWC.Fsk 0 → IsClosed {x} := by
   rw [←closed_in_cwc_iff]
   apply @isClosed_discrete (CWC.Fsk 0) (CWC.Tsk 0) (CWC.Tsk0_discrete)
 
+lemma continuous_iff_continuous_on_Fsk {Y: Type*} [TopologicalSpace Y] (f: X → Y): Continuous f ↔ ∀ n:ℕ, Continuous ((fun x ↦ f x.1): CWC.Fsk n → Y) := by
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro f_cont n
+    show Continuous (f ∘ Subtype.val)
+    apply Continuous.comp f_cont
+    exact { isOpen_preimage := fun s a ↦ a n }
+  case mpr =>
+    intro hf
+    refine {isOpen_preimage := ?_}
+    intro s s_open_in_y n
+    rw [←Set.preimage_comp]
+    exact (hf n).isOpen_preimage s s_open_in_y
+
+lemma continuous_iff_continuous_on_Fsk' {Y: Type*} [TopologicalSpace Y] (f: X → Y): Continuous f ↔ ∃ n:ℕ, ∀ m, Continuous ((fun x ↦ f x.1): (CWC.Fsk (n + m) → Y)) := by
+  rw [continuous_iff_continuous_on_Fsk]
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hf
+    use 0
+    intro n
+    apply Eq.rec (motive := (fun m heq ↦ Continuous ((fun x ↦ f x.1): (CWC.Fsk m) → Y))) (hf n)
+    norm_num
+  case mpr =>
+    rintro ⟨n₀, hf⟩
+    intro n
+    rcases lt_or_ge n n₀ with n_lt_n₀ | n_ge_n₀
+    . let h : (CWC.Fsk n₀) → Y := fun x ↦ f x.1
+      let g : (CWC.Fsk n) → Y := fun x ↦ f x.1
+      let φ : (CWC.Fsk n) → (CWC.Fsk n₀) := fun x ↦ ⟨x.1, Fsk_incl (le_of_lt n_lt_n₀) x.2⟩
+      have g_decomp : g = h ∘ φ := by ext x; simp [g, h, φ]
+      show Continuous g
+      rw [g_decomp]
+      apply Continuous.comp
+      . exact Eq.rec (motive := (fun m heq ↦ Continuous ((fun x ↦ f x.1): (CWC.Fsk m) → Y))) (hf 0) (rfl: n₀ + 0 = n₀)
+      . exact Fsk_incl_continuous (le_of_lt n_lt_n₀)
+    . rcases Nat.exists_eq_add_of_le n_ge_n₀ with ⟨m, rfl⟩
+      exact hf m
+
 namespace CWComplexConstructor
 def cell_of_dim0: Set (Set X) := {{x} | x ∈ CWC.Fsk 0}
 -- using haskell pipe operator to ease expression of function composition
@@ -682,6 +743,22 @@ def pre_characteristic_map: (n: ℕ) → (Σ_:(CWC.Fι n), cb (n + 1)) → X :=
   fun n x ↦ Subtype.val <| (CWC.Fφ n) <| (adj_proj _ (CWC.Ff n)) <| Sum.inr x
 
 def cell_define_map: (n:ℕ) → (CWC.Fι n) → b (n + 1) → X := fun n i x ↦ pre_characteristic_map n ⟨i, ⟨x.1, b_in_cb x.2⟩⟩
+
+lemma cell_define_map_injective {n: ℕ} (i: CWC.Fι n): Function.Injective (cell_define_map n i) := by
+  intro x₁ x₂ heq
+  simp [cell_define_map, pre_characteristic_map, Subtype.val_inj] at heq
+  let heq' := (CWC.Fφ_heomorph n).injective heq
+  have aux: ∀ x: b (n + 1), (⟨i, ⟨x.1, b_in_cb x.2⟩⟩: (Σ_:(CWC.Fι n), cb (n + 1))) ∈ {y | y.2 ∈ cb_boundary}ᶜ := by
+    intro x
+    simp
+    show ⟨x.1, b_in_cb x.2⟩ ∈ cb_boundaryᶜ
+    rw [←cb_inner_eq_boundary_compl]
+    use x
+    rfl
+  have eq_right_adj_proj: ∀ x: b (n + 1), adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, ⟨x.1, b_in_cb x.2⟩⟩) = right_adj_proj _ _ ⟨_, aux x⟩ := by intro x; rfl
+  simp [eq_right_adj_proj] at heq'
+  let heq'' := right_adj_proj_injective _ _ heq'
+  simpa [Subtype.val_inj] using heq''
 
 def cell_sets : Set (Set X) := {e | e ∈ cell_of_dim0 ∪ ⋃ n:ℕ, Set.range (fun (i: CWC.Fι n) ↦ Set.range <| cell_define_map n i) ∧ e.Nonempty}
 
@@ -1497,6 +1574,90 @@ def pid_to_pt : (point_indices (CWC := CWC)) → X := fun I ↦ match I with
 | Sum.inl ⟨x, _⟩ => x
 | Sum.inr ⟨n, i, y⟩ => cell_define_map n i y
 
+lemma pid_to_pt_inl_ne_inr {x₀: X} (hx₀: x₀ ∈ CWC.Fsk 0) {n: ℕ} (i: CWC.Fι n) (y: b (n + 1)): pid_to_pt (Sum.inl ⟨x₀, hx₀⟩) ≠ pid_to_pt (Sum.inr ⟨n, i, y⟩) := by
+  simp only [pid_to_pt]
+  let e := Set.range (cell_define_map n i)
+  have : cell_define_map n i y ∈ (Set.range (cell_define_map n i)) := by
+    exact Set.mem_range_self y
+  refine Disjoint.ne_of_mem ?_ hx₀ (Set.mem_range_self y)
+  exact Fsk_0_cell_disjoint n i
+
+lemma pid_to_pt_injective: Function.Injective (pid_to_pt (CWC := CWC)) := by
+  intro p₁ p₂ hp₁p₂
+  match p₁ with
+  | Sum.inl ⟨x₁, hx₁⟩ =>
+    match p₂ with
+    | Sum.inl ⟨x₂, hx₂⟩ =>
+      simp [pid_to_pt] at hp₁p₂
+      congr
+    | Sum.inr ⟨n₂, i₂, x₂⟩ =>
+      let hne := pid_to_pt_inl_ne_inr hx₁ i₂ x₂
+      contradiction
+  | Sum.inr ⟨n₁, i₁, x₁⟩ =>
+    match p₂ with
+    | Sum.inl ⟨x₂, hx₂⟩ =>
+      let hne := (pid_to_pt_inl_ne_inr hx₂ i₁ x₁).symm
+      contradiction
+    | Sum.inr ⟨n₂, i₂, x₂⟩ =>
+      simp [pid_to_pt] at hp₁p₂
+      rcases eq_or_ne n₁ n₂ with n₁_eq_n₂ | n₁_ne_n₂
+      . let i₁_congr := fun {t:ℕ} (ht: n₁ = t) ↦ (congrArg CWC.Fι ht).mp i₁
+        let x₁_congr := fun {t:ℕ} (ht: n₁ = t) ↦ (congrArg (fun m:ℕ ↦ (b (m + 1):Type)) ht).mp x₁
+        rw [Eq.rec (motive := fun (t:ℕ) (ht: n₁ = t) ↦ cell_define_map n₁ i₁ x₁ = cell_define_map t (i₁_congr ht) (x₁_congr ht)) rfl n₁_eq_n₂] at hp₁p₂
+        rw [Eq.rec (motive := fun (t:ℕ) (ht: n₁ = t) ↦ (Sum.inr ⟨n₁, i₁, x₁⟩:point_indices) = Sum.inr ⟨t, (i₁_congr ht), (x₁_congr ht)⟩) rfl  n₁_eq_n₂]
+        rcases eq_or_ne (i₁_congr n₁_eq_n₂) i₂ with i₁'_eq_i₂ | i₁'_ne_i₂
+        . rw [i₁'_eq_i₂] at hp₁p₂
+          suffices x₁_congr n₁_eq_n₂ = x₂ by
+            rw [i₁'_eq_i₂, this]
+          exact cell_define_map_injective i₂ hp₁p₂
+        . have: cell_define_map n₂ (i₁_congr n₁_eq_n₂) (x₁_congr n₁_eq_n₂) ≠ cell_define_map n₂ i₂ x₂ := by
+            refine Disjoint.ne_of_mem ?_ (Set.mem_range_self (x₁_congr n₁_eq_n₂)) (Set.mem_range_self x₂)
+            exact cell_of_same_n_different_i_disjoint n₂ (i₁_congr n₁_eq_n₂) i₂ i₁'_ne_i₂
+          contradiction
+      . have: cell_define_map n₁ i₁ x₁ ≠ cell_define_map n₂ i₂ x₂ := by
+          refine Disjoint.ne_of_mem ?_ (Set.mem_range_self x₁) (Set.mem_range_self x₂)
+          exact cell_of_different_n_disjoint n₁ i₁ n₂ i₂ n₁_ne_n₂
+        contradiction
+
+lemma pid_to_pt_surjective: Function.Surjective (pid_to_pt (CWC := CWC)) := by
+  intro x
+  have : x ∈ ⋃₀ cell_sets := by rw [cell_sets_cover]; trivial
+  rcases (Set.mem_sUnion.mp) this with ⟨e, e_in_sets, x_in_e⟩
+  rcases e_in_sets with ⟨e_in_sk0 | e_in_skn, e_nonempty⟩
+  . rcases e_in_sk0 with ⟨x₀, x₀_in_sk0, rfl⟩
+    use Sum.inl ⟨x₀, x₀_in_sk0⟩
+    simp [pid_to_pt]
+    rw [Set.mem_singleton_iff] at x_in_e
+    exact x_in_e.symm
+  . rw [Set.mem_iUnion] at e_in_skn
+    rcases e_in_skn with ⟨n, ⟨i, range_eq⟩⟩
+    simp at range_eq
+    rw [←range_eq] at x_in_e
+    rcases x_in_e with ⟨y, rfl ⟩
+    use Sum.inr ⟨n, i, y⟩
+    rfl
+instance pid_nonempty: Nonempty (point_indices (CWC := CWC)) := by
+  rcases CWC.Fsk0_nonempty with ⟨x, x_in_sk0⟩
+  use Sum.inl ⟨x, x_in_sk0⟩
+
+noncomputable def pt_to_pid: X → (point_indices (CWC := CWC)) := Function.invFun pid_to_pt
+
+lemma pt_to_pid_left_inv: pt_to_pid ∘ (pid_to_pt (CWC := CWC)) = id := Function.invFun_comp pid_to_pt_injective
+lemma pt_to_pid_left_inv': ∀ I, pt_to_pid (pid_to_pt (CWC := CWC) I) = I := by
+  intro I
+  show (pt_to_pid ∘ pid_to_pt) I = I
+  rw [pt_to_pid_left_inv]
+  rfl
+lemma pt_to_pid_right_inv: (pid_to_pt (CWC := CWC)) ∘ pt_to_pid = id := by
+  ext x
+  apply Function.invFun_eq
+  exact pid_to_pt_surjective x
+lemma pt_to_pid_right_inv': ∀ x, (pid_to_pt (CWC := CWC)) (pt_to_pid x) = x := by
+  intro x
+  show (pid_to_pt ∘ pt_to_pid) x = x
+  rw [pt_to_pid_right_inv]
+  rfl
+
 def pid_to_nat : (point_indices (CWC := CWC)) → ℕ := fun I ↦ match I with
 | Sum.inl _ => 0
 | Sum.inr ⟨n, _⟩ => n + 1
@@ -1510,21 +1671,458 @@ lemma pid_to_pt_in_sk: ∀ p:(point_indices (CWC := CWC)), pid_to_pt p ∈ CWC.F
     apply cell_n_in_Fsk_np1 n i
     use y
 
+open Classical
+
+noncomputable def direct_sum_to_R {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)): ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))) → ℝ := fun I ↦ match I with
+| Sum.inl _ => 1
+| Sum.inr ⟨i', x⟩ => if i' ≠ i then 1 else (sep_fun p.1 (cb (n + 1)) x.1)
+
+lemma direct_sum_to_R_on_boundary_eq_1 {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)) (hp: p ∈ cb_inner): ∀ y ∈ {x : (Σ_:(CWC.Fι n), cb (n + 1)) | x.2 ∈ cb_boundary}, direct_sum_to_R i p (Sum.inr y) = 1 := by
+  intro y hy
+  rcases eq_or_ne y.1 i with y_fst_eq_i | y_fst_ne_i
+  . simp [direct_sum_to_R, y_fst_eq_i]
+    rw [sep_fun_cb_eq_1_iff hp]
+    rcases hy with ⟨z, hz⟩
+    simp [←hz]
+  . simp [direct_sum_to_R, y_fst_ne_i]
+
+lemma direct_sum_to_R_factors {n: ℕ} (i: CWC.Fι n) (p: cb (n + 1)) (hp: p ∈ cb_inner): ∀ x₁ x₂: ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))),
+    glue_setoid _ (CWC.Ff n) x₁ x₂ → direct_sum_to_R i p x₁ = direct_sum_to_R i p x₂ := by
+  intro x₁ x₂ hx₁x₂
+  rcases glue_rel_equiv_explicit _ _ x₁ x₂ hx₁x₂ with c₀ | c₁ | c₂ | c₃ | c₄
+  . rcases c₀ with ⟨x, hx, rfl⟩; rfl
+  . rcases c₁ with ⟨x, y, y', hx, hy, hy', heq⟩
+    rw [hy, hy', direct_sum_to_R_on_boundary_eq_1 _ _ hp y'.1 y'.2, hx, direct_sum_to_R]
+  . rcases c₂ with ⟨y, x, y', hy, hx, hy', heq⟩
+    rw [hy, hy', direct_sum_to_R_on_boundary_eq_1 _ _ hp y'.1 y'.2, hx, direct_sum_to_R]
+  . rcases c₃ with ⟨y₁, y₂, y₁', y₂', hy₁, hy₂, hy₁', hy₂', hy₁'y₂', y₁_ne_y₂⟩
+    rw [hy₁, hy₂, ←hy₁', ←hy₂', direct_sum_to_R_on_boundary_eq_1 _ _ hp y₁'.1 y₁'.2, direct_sum_to_R_on_boundary_eq_1 _ _ hp y₂'.1 y₂'.2]
+  . rcases c₄ with ⟨_, _, heq⟩
+    rw [heq]
+
+instance instNonemptyConstructorAdjointSpace {n: ℕ}: Nonempty (AdjointSpace _ (CWC.Ff n)) := by
+  infer_instance
+
 noncomputable def pid_to_sk_to_R: (p: point_indices (CWC := CWC)) → CWC.Fsk (pid_to_nat p) → ℝ := fun I ↦ match I with
-| Sum.inl x => ({x}: Set (CWC.Fsk 0)).indicator (fun _ ↦ 1)
-| Sum.inr ⟨n, i, x⟩ => sorry
+| Sum.inl x => fun y ↦ if y = x then 0 else 1
+| Sum.inr ⟨n, i, x⟩ => (Quotient.lift (direct_sum_to_R i (b_to_cb x)) (direct_sum_to_R_factors i (b_to_cb x) (by use x))) ∘ (Function.invFun (CWC.Fφ n))
 
-end CWComplexConstructor
-end
+theorem pid_to_sk_to_R_continuous {p: point_indices (CWC := CWC)} : Continuous (pid_to_sk_to_R p) := by
+  match p with
+  | Sum.inl x =>
+    simp [pid_to_sk_to_R]
+    have: DiscreteTopology (CWC.Fsk (pid_to_nat (Sum.inl x))) := CWC.Tsk0_discrete
+    exact continuous_of_discreteTopology
+  | Sum.inr ⟨n, i, x⟩ =>
+    dsimp only [pid_to_sk_to_R]
+    apply Continuous.comp
+    . apply Continuous.quotient_lift
+      rw [continuous_sum_dom]
+      constructor
+      . have : (direct_sum_to_R i (b_to_cb x) ∘ Sum.inl) = fun _ ↦ 1 := by ext z; simp [direct_sum_to_R]
+        rw [this]
+        exact continuous_const
+      . rw [continuous_sigma_iff]
+        intro i₀
+        rcases eq_or_ne i₀ i with i₀_eq_i | i₀_ne_i
+        . have: (fun a ↦ (direct_sum_to_R i (b_to_cb x) ∘ Sum.inr) ⟨i₀, a⟩) = (sep_fun x.1 (cb (n + 1))) ∘ Subtype.val := by ext y; simp [direct_sum_to_R, i₀_eq_i]
+          rw [this]
+          apply Continuous.comp
+          . apply sep_fun_cont (by norm_num) (convex_closedBall 0 1) (by apply isCompact_closedBall)
+            rw [interior_closedBall' 0 1]
+            exact x.2
+          . exact continuous_subtype_val
+        . have: (fun a ↦ (direct_sum_to_R i (b_to_cb x) ∘ Sum.inr) ⟨i₀, a⟩) = fun _ ↦ 1 := by ext y; simp [direct_sum_to_R, i₀_ne_i]
+          rw [this]
+          exact continuous_const
+    . exact (inv_Fφ_heomorph n).continuous
 
+theorem pid_to_sk_to_R_eq_0_iff (p: point_indices (CWC := CWC)): ∀ x, pid_to_sk_to_R p x = 0 ↔ x = ⟨pid_to_pt p, pid_to_pt_in_sk p⟩ := by
+  intro x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    match p with
+    | Sum.inl x₀ =>
+      simp [pid_to_sk_to_R] at hx
+      simpa [pid_to_pt] using hx
+    | Sum.inr ⟨n, i, xn⟩ =>
+      simp [pid_to_sk_to_R] at hx
+      let x' := Function.invFun (CWC.Fφ n) x
+      rcases Quotient.exists_rep x' with ⟨x'_rep, rep_eq⟩
+      have hrep: direct_sum_to_R i (b_to_cb xn) x'_rep = 0 := by
+        have : Quotient.lift (direct_sum_to_R i (b_to_cb xn)) (direct_sum_to_R_factors i (b_to_cb xn) (by use xn)) x' = 0 := hx
+        rwa [←rep_eq] at this
+      match x'_rep with
+      | Sum.inl rep_left => simp [direct_sum_to_R] at hrep
+      | Sum.inr ⟨i₁, x₁⟩=>
+        rcases eq_or_ne i₁ i with i₁_eq_i | i₁_ne_i
+        . simp [direct_sum_to_R, i₁_eq_i] at hrep
+          rw [sep_fun_eq_0_iff (by apply isCompact_closedBall) (by rw [cb, interior_closedBall' 0 1]; exact xn.2)] at hrep
+          simp [pid_to_pt, cell_define_map, pre_characteristic_map, ←hrep]
+          have : adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, x₁⟩) = x' := by rw [←rep_eq, i₁_eq_i]; rfl
+          rw [this]
+          unfold x'; apply Eq.symm
+          apply Function.invFun_eq
+          apply (CWC.Fφ_heomorph n).surjective
+        . simp [direct_sum_to_R, i₁_ne_i] at hrep
+  case mpr =>
+    intro hx
+    match p with
+    | Sum.inl x₀ =>
+      simpa [pid_to_sk_to_R] using hx
+    | Sum.inr ⟨n, i, xn⟩ =>
+      simp [pid_to_sk_to_R]
+      simp [pid_to_pt, cell_define_map, pre_characteristic_map] at hx
+      rw [hx]
+      show Quotient.lift (direct_sum_to_R i ⟨xn, b_in_cb xn.2⟩) (direct_sum_to_R_factors i ⟨xn.1, b_in_cb xn.2⟩ (by use xn; rfl))
+        ((Function.invFun (CWC.Fφ n) ∘ CWC.Fφ n) ((adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, ⟨xn, b_in_cb xn.2⟩⟩)))) = 0
+      rw [Function.invFun_comp (CWC.Fφ_heomorph n).injective]
+      have: Quotient.lift (direct_sum_to_R i ⟨xn, b_in_cb xn.2⟩) (direct_sum_to_R_factors i ⟨xn.1, b_in_cb xn.2⟩ (by use xn; rfl)) ((adj_proj _ (CWC.Ff n) (Sum.inr ⟨i, ⟨xn, b_in_cb xn.2⟩⟩))) = (direct_sum_to_R i ⟨xn, b_in_cb xn.2⟩) (Sum.inr ⟨i, ⟨xn, b_in_cb xn.2⟩⟩) := by rfl
+      simp [this, direct_sum_to_R]
+      rw [sep_fun_eq_0_iff (by apply isCompact_closedBall) (by rw [cb, interior_closedBall' 0 1]; exact xn.2)]
 
-end Chp5
+noncomputable def direct_sum_to_R_extension {n: ℕ} (fn: CWC.Fsk n → ℝ): ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))) → ℝ := fun I ↦ match I with
+| Sum.inl x => fn x
+| Sum.inr ⟨i, x⟩ => cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1 ⟩, z.2⟩)) x
 
-section
-variable {X: Type*} [TopologicalSpace X]
-instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) : T2Space X := by
+lemma direct_sum_to_R_extension_continuous {n: ℕ} (fn: CWC.Fsk n → ℝ) (hfn: Continuous fn): Continuous (direct_sum_to_R_extension (CWC := CWC) (n := n) fn) := by
+  rw [continuous_sum_dom]
+  constructor
+  . have: direct_sum_to_R_extension fn ∘ Sum.inl = fn := by ext x; rfl
+    rwa [this]
+  . have: direct_sum_to_R_extension fn ∘ Sum.inr = fun ⟨i, x⟩ ↦ cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1 ⟩, z.2⟩)) x := by ext y; rfl
+    rw [this, continuous_sigma_iff]
+    intro i
+    simp
+    refine cb_extension_continuous (Nat.le_add_left 1 n) ?_
+    show Continuous (fn ∘ CWC.Ff n ∘ fun z:(@cb_boundary (n + 1)) ↦ ⟨⟨i, z⟩, z.2⟩)
+    apply Continuous.comp hfn (Continuous.comp (CWC.Ff_continuous n) ?_)
+    continuity
+
+lemma direct_sum_to_R_extension_factors {n: ℕ} (fn: CWC.Fsk n → ℝ): ∀ x₁ x₂: ((CWC.Fsk n) ⊕ (Σ_:(CWC.Fι n), cb (n + 1))),
+    glue_setoid _ (CWC.Ff n) x₁ x₂ → direct_sum_to_R_extension fn x₁ = direct_sum_to_R_extension fn x₂ := by
+  intro x₁ x₂ hx₁x₂
+  rcases glue_rel_equiv_explicit _ _ x₁ x₂ hx₁x₂ with c₀ | c₁ | c₂ | c₃ | c₄
+  . rcases c₀ with ⟨x, hx, rfl⟩; rfl
+  . rcases c₁ with ⟨x, y, y', hx, hy, hy', heq⟩
+    simp [hx, hy, direct_sum_to_R_extension, hy', cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y'.2, heq]
+  . rcases c₂ with ⟨y, x, y', hy, hx, hy', heq⟩
+    simp [hx, hy, direct_sum_to_R_extension, hy', cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y'.2, heq]
+  . rcases c₃ with ⟨y₁, y₂, y₁', y₂', hy₁, hy₂, hy₁', hy₂', hy₁'y₂', y₁_ne_y₂⟩
+    simp [hy₁, hy₂, direct_sum_to_R_extension, ←hy₁', ←hy₂']
+    simp [cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₁'.2, cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ _ y₂'.2, hy₁'y₂']
+  . rcases c₄ with ⟨y, hy, rfl⟩; rfl
+
+lemma direct_sum_to_R_extension_preimage_zero {n: ℕ} (fn: CWC.Fsk n → ℝ)
+  (hfn_boundary_nonneg: ∀ i: CWC.Fι n, ∀ z: @cb_boundary (n + 1), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)):
+  (direct_sum_to_R_extension fn) ⁻¹' {0} =
+  {x | (∃ y: CWC.Fsk n, x = Sum.inl y ∧ fn y = 0) ∨
+       (∃ i: CWC.Fι n, ∃ z: cb (n + 1), ∃ hz: z ∈ cb_boundary, x = Sum.inr ⟨i, z⟩ ∧
+        fn (CWC.Ff n ⟨⟨i, z⟩, hz⟩) = 0)} := by
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    simp at hx
+    match x with
+    | Sum.inl y =>
+      left
+      use y
+      simp [direct_sum_to_R_extension] at hx
+      exact ⟨rfl, hx⟩
+    | Sum.inr ⟨i, z⟩ =>
+      right
+      simp [direct_sum_to_R_extension] at hx
+      have hz_boundary_or_inner: z ∈ cb_boundary ∨ z ∈ cb_inner := by
+        rcases @cb_decomp (n + 1) z with h | h
+        · right; exact h
+        · left; exact h
+      cases hz_boundary_or_inner with
+      | inl hz_boundary =>
+        have h_eq: cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z =
+                (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) ⟨z, hz_boundary⟩ := by
+          apply cb_extension_eq_on_boundary (Nat.le_add_left 1 n) _ z hz_boundary
+        rw [h_eq] at hx
+        simp at hx
+        exact ⟨i, z, hz_boundary, rfl, hx⟩
+      | inr hz_inner =>
+        -- Since the boundary function is non-negative, cb_extension is positive in the inner part
+        have boundary_fn_nonneg: ∀ z: @cb_boundary (n + 1), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩) := hfn_boundary_nonneg i
+        have : 0 < cb_extension (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z := by
+          apply cb_extension_pos_in_inner (Nat.le_add_left 1 n) boundary_fn_nonneg z hz_inner
+        linarith [hx, this]
+  case mpr =>
+    intro hx
+    simp
+    rcases hx with ⟨y, rfl, hy⟩ | ⟨i, z, hz_boundary, rfl, hz⟩
+    · simp [direct_sum_to_R_extension, hy]
+    · simp [direct_sum_to_R_extension]
+      rw [cb_extension_eq_on_boundary (Nat.le_add_left 1 n) (fun z:(@cb_boundary (n + 1)) ↦ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) z hz_boundary]
+      simp
+      exact hz
+
+lemma direct_sum_to_R_extension_nonneg {n: ℕ} (fn: CWC.Fsk n → ℝ) (hfn: ∀ x, 0 ≤ fn x)
+  (hfn_boundary: ∀ i (z : @cb_boundary (n + 1)), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)) (x: (CWC.Fsk n) ⊕ (Σ_: CWC.Fι n, cb (n + 1))):
+  0 ≤ direct_sum_to_R_extension fn x := by
+  match x with
+  | Sum.inl y => simp [direct_sum_to_R_extension]; exact hfn y
+  | Sum.inr ⟨i, z_cb⟩ =>
+    simp [direct_sum_to_R_extension]
+    exact cb_extension_nonneg (Nat.le_add_left 1 n) (fun z' => hfn_boundary i z') z_cb
+
+lemma quotient_mk_direct_sum_preimage_zero_eq_left_adj_proj_preimage {n: ℕ} (fn: CWC.Fsk n → ℝ)
+  (hfn_boundary_nonneg: ∀ i (z : @cb_boundary (n + 1)), 0 ≤ fn (CWC.Ff n ⟨⟨i, z.1⟩, z.2⟩)):
+  let A := {x: Σ_:(CWC.Fι n), cb (n + 1) | x.2 ∈ cb_boundary}
+  (Quotient.mk (glue_setoid A (CWC.Ff n))) ''
+    (direct_sum_to_R_extension fn ⁻¹' {0}) =
+  (left_adj_proj A (CWC.Ff n)) '' (fn ⁻¹' {0}) := by
+  intro A
+  ext q
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hq
+    rcases hq with ⟨x, hx, rfl⟩
+    rw [direct_sum_to_R_extension_preimage_zero fn hfn_boundary_nonneg] at hx
+    rcases hx with ⟨y, rfl, hy⟩ | ⟨i, z, hz_boundary, rfl, hz⟩
+    · use y, hy
+      simp [left_adj_proj, adj_proj]
+    · use CWC.Ff n ⟨⟨i, z⟩, hz_boundary⟩, hz
+      simp [left_adj_proj, adj_proj]
+      simp [glue_setoid]
+      apply Relation.EqvGen.rel
+      exact ⟨⟨⟨i, z⟩, hz_boundary⟩, rfl, rfl⟩
+  case mpr =>
+    intro hq
+    rcases hq with ⟨y, hy, rfl⟩
+    simp [left_adj_proj, adj_proj]
+    left
+    use y.1, y.2
+    constructor
+    · simp [direct_sum_to_R_extension]
+      convert hy using 1
+    · simp [glue_setoid]
+      apply Relation.EqvGen.refl
+
+noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ) → CWC.Fsk (pid_to_nat p + n) → ℝ := fun n ↦ match n with
+| 0 => pid_to_sk_to_R p
+| Nat.succ n => Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p n)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p n)) ∘ (Function.invFun (CWC.Fφ (pid_to_nat p + n)))
+
+lemma pid_to_sk_chain_to_R_adj_coeherent (p: point_indices (CWC := CWC)): ∀ n, pid_to_sk_chain_to_R p n = pid_to_sk_chain_to_R p (n + 1) ∘ Fsk_adj_incl_map ((pid_to_nat p + n)) := by
+  intro n
+  nth_rw 1 [pid_to_sk_chain_to_R]
+  unfold Fsk_adj_incl_map
+  rw [←CWC.Fφ_fix, Function.comp_assoc, ←Function.comp_assoc (g := CWC.Fφ (pid_to_nat p + n))]
+  simp [Function.invFun_comp (CWC.Fφ_heomorph _).injective]
+  rfl
+
+lemma pid_to_sk_chain_to_R_nonneg (p: point_indices (CWC := CWC)): ∀ m x, 0 ≤ pid_to_sk_chain_to_R p m x := by
+  intro m
+  induction' m with m ih
+  · intro x
+    match p with
+    | Sum.inl x₀ =>
+      simp [pid_to_sk_chain_to_R, pid_to_sk_to_R]
+      split_ifs <;> norm_num
+    | Sum.inr ⟨n, i, xn⟩ =>
+      simp [pid_to_sk_chain_to_R, pid_to_sk_to_R]
+      let f := Quotient.lift (direct_sum_to_R i (b_to_cb xn)) (direct_sum_to_R_factors i (b_to_cb xn) (by use xn))
+      let x' := Function.invFun (CWC.Fφ n) x
+      rcases Quotient.exists_rep x' with ⟨x'_rep, rep_eq⟩
+      change 0 ≤ f x'
+      rw [←rep_eq]
+      simp only [f, Quotient.lift_mk]
+      match x'_rep with
+      | Sum.inl _ => simp [direct_sum_to_R]
+      | Sum.inr ⟨i', z⟩ =>
+        simp only [direct_sum_to_R]
+        split_ifs with h_i
+        · norm_num
+        · rcases eq_or_ne z.1 (b_to_cb xn).1 with heq | hne
+          · rw [Subtype.eq heq]; unfold sep_fun b_to_cb; simp
+          · rw [sep_fun, if_neg hne]
+            have hp : (b_to_cb xn).1 ∈ interior (cb (n + 1)) := by
+              simp only [cb]; rw [interior_closedBall' 0 1]; exact xn.2
+            have hpos : 0 < sSup (seg_inside (b_to_cb xn).1 z.1 (cb (n + 1))) :=
+              seg_inside_sup_pos_of_interior (b_to_cb xn).1 z.1 (cb (n + 1))
+                (isCompact_closedBall (α := EuclideanSpace ℝ (Fin (n + 1))) 0 1) hne hp
+            exact div_nonneg zero_le_one (le_of_lt hpos)
+  · intro x
+    unfold pid_to_sk_chain_to_R
+    simp
+    have h_boundary : ∀ i (z : @cb_boundary (pid_to_nat p + m + 1)), 0 ≤ (pid_to_sk_chain_to_R p m) (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩) := by
+      intro i z; exact ih (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩)
+    rcases Quotient.exists_rep (Function.invFun (CWC.Fφ (pid_to_nat p + m)) x) with ⟨x_rep, rep_eq⟩
+    rw [←rep_eq]
+    exact direct_sum_to_R_extension_nonneg (pid_to_sk_chain_to_R p m) (fun y => ih y) h_boundary x_rep
+
+noncomputable def pt_to_sk_dim_refined (n:ℕ) : X → ℕ := fun x ↦ max (pid_to_nat (pt_to_pid x)) n - n
+lemma pt_in_sk_pt_to_sk_dim_refined (n: ℕ) (x: X): x ∈ CWC.Fsk (n + pt_to_sk_dim_refined n x) := by
+  have : n + pt_to_sk_dim_refined n x = max (pid_to_nat (pt_to_pid x)) n := Nat.add_sub_of_le (Nat.le_max_right (pid_to_nat (pt_to_pid x)) n)
+  rw [this]
+  apply Fsk_incl (le_max_left (pid_to_nat (pt_to_pid x)) _)
+  suffices (pid_to_pt (pt_to_pid x)) ∈ CWC.Fsk (pid_to_nat (pt_to_pid x)) by
+    simpa [pt_to_pid_right_inv'] using this
+  exact pid_to_pt_in_sk (pt_to_pid x)
+
+noncomputable def skn_map_compose {n: ℕ} (fseq: (k:ℕ) → CWC.Fsk (n + k) → ℝ) : X → ℝ := fun x ↦ fseq (pt_to_sk_dim_refined n x) ⟨x, pt_in_sk_pt_to_sk_dim_refined n x⟩
+
+lemma coeherent_skn_map_compose_eq {n:ℕ} (fseq: (m:ℕ) → CWC.Fsk (n + m) → ℝ) (hfseq: ∀ m, fseq m = (fseq (m + 1)) ∘ Fsk_adj_incl_map (n + m)): ∀ m:ℕ, (fun x:(CWC.Fsk (n + m)) ↦ skn_map_compose fseq x.1) = fseq m := by
+  intro m
+  ext x
+  unfold skn_map_compose
+  have aux: ∀ m₁:ℕ, ∀ x:CWC.Fsk (n + m₁), ∀ m₂:ℕ, ∀ y:CWC.Fsk (n + m₂), x.1 = y.1 → fseq m₁ x = fseq m₂ y := by
+    intro m₁ x m₂ y hxy
+    wlog m₁_le_m₂: m₁ ≤ m₂ generalizing m₁ x m₂ y hxy
+    . have h: m₂ ≤ m₁ := by linarith
+      rw[this m₂ y m₁ x hxy.symm h]
+    rcases Nat.exists_eq_add_of_le m₁_le_m₂ with ⟨k, rfl⟩
+    induction' k with k ih
+    . simp
+      congr
+      exact SetCoe.ext hxy
+    let y': (CWC.Fsk (n + (m₁ + k))) := ⟨x.1, Fsk_incl (by linarith) x.2⟩
+    rw[ih y' (rfl) (Nat.le_add_right m₁ k)]
+    have:  Fsk_adj_incl_map (n + (m₁ + k)) y' = y := by
+      simp [Fsk_adj_incl_map]
+      exact Eq.symm (SetCoe.ext (id (Eq.symm hxy)))
+    simp [←this, hfseq (m₁ + k)]
+    congr
+  apply aux
+  rfl
+
+lemma coeherent_skn_map_compose_preimage {n: ℕ} (fseq: (m:ℕ) → CWC.Fsk (n + m) → ℝ) (hfseq: ∀ m, fseq m = (fseq (m + 1)) ∘ Fsk_adj_incl_map (n + m)) (A: Set ℝ): (skn_map_compose fseq) ⁻¹' A = ⋃ m:ℕ, Subtype.val '' (fseq m ⁻¹' A) := by
+  ext x
+  refine Iff.intro ?mp ?mpr
+  case mp =>
+    intro hx
+    have : ∃ m, x ∈ CWC.Fsk (n + m) := by
+      let h : x ∈ Set.univ := trivial
+      rw [←CWC.Fsk_cover, Set.mem_iUnion] at h
+      rcases h with ⟨n₀, hn₀⟩
+      use n₀
+      apply Fsk_incl (m := n₀) (n := n + n₀) (by linarith) hn₀
+    rcases this with ⟨m, x_in_sk_npm⟩
+    rw [Set.mem_iUnion]
+    use m
+    rw [←coeherent_skn_map_compose_eq fseq hfseq]
+    use ⟨x, x_in_sk_npm⟩
+    simpa using hx
+  case mpr =>
+    intro hx
+    rw [Set.mem_iUnion] at hx
+    rcases hx with ⟨m, hm⟩
+    simp [←coeherent_skn_map_compose_eq fseq hfseq] at hm
+    exact hm.1
+
+noncomputable def pid_to_X_to_R (p: point_indices (CWC := CWC)): X → ℝ := skn_map_compose (pid_to_sk_chain_to_R p)
+
+theorem pid_to_X_to_R_cont (p: point_indices (CWC := CWC)): Continuous (pid_to_X_to_R p) := by
+  rw [continuous_iff_continuous_on_Fsk']
+  use (pid_to_nat p)
+  unfold pid_to_X_to_R
+  simp [coeherent_skn_map_compose_eq _ (pid_to_sk_chain_to_R_adj_coeherent p)]
+  intro m
+  induction' m with m ih
+  . unfold pid_to_sk_chain_to_R
+    apply pid_to_sk_to_R_continuous
+  . unfold pid_to_sk_chain_to_R
+    apply Continuous.comp
+    . apply Continuous.quotient_lift
+      exact direct_sum_to_R_extension_continuous (pid_to_sk_chain_to_R p m) ih
+    . exact (inv_Fφ_heomorph _).continuous
+
+theorem pid_to_X_to_R_preimage_of_0 (p: point_indices (CWC := CWC)): (pid_to_X_to_R p) ⁻¹' ({0}) = {pid_to_pt p} := by
+  rw [pid_to_X_to_R, coeherent_skn_map_compose_preimage _ (pid_to_sk_chain_to_R_adj_coeherent p)]
+  suffices ∀ m, Subtype.val '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) = {pid_to_pt p} by
+    simp [this]
+  intro m
+  induction' m with m ih
+  . unfold pid_to_sk_chain_to_R
+    ext x
+    refine Iff.intro ?mp ?mpr
+    case mp =>
+      rintro ⟨x', hx', rfl⟩
+      simp at hx'
+      rw [pid_to_sk_to_R_eq_0_iff] at hx'
+      simp [hx']
+    case mpr =>
+      intro hx
+      simp at hx
+      use ⟨pid_to_pt p, pid_to_pt_in_sk p⟩
+      simp [hx, pid_to_sk_to_R_eq_0_iff]
+  . unfold pid_to_sk_chain_to_R
+    rw [Set.preimage_comp]
+    have : (Quotient.lift (direct_sum_to_R_extension (pid_to_sk_chain_to_R p m)) (direct_sum_to_R_extension_factors (pid_to_sk_chain_to_R p m))) ⁻¹' {0} = (Quotient.mk _) '' (direct_sum_to_R_extension (pid_to_sk_chain_to_R p m) ⁻¹' {0}) := by
+      ext x'
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        intro hx'
+        rcases Quotient.exists_rep x' with ⟨x, rfl⟩
+        simp at hx'
+        use x
+        simp [hx']
+      case mpr =>
+        intro hx'
+        rcases Quotient.exists_rep x' with ⟨x, rfl⟩
+        rcases hx' with ⟨x₁, hx₁, x₁_quot_eq_x⟩
+        rw [←x₁_quot_eq_x]
+        simpa using hx₁
+    rw [this]
+    have h_boundary : ∀ i (z : @cb_boundary (pid_to_nat p + m + 1)), 0 ≤ (pid_to_sk_chain_to_R p m) (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩) := by
+      intro i z; exact pid_to_sk_chain_to_R_nonneg p m (CWC.Ff (pid_to_nat p + m) ⟨⟨i, z.1⟩, z.2⟩)
+    simp [quotient_mk_direct_sum_preimage_zero_eq_left_adj_proj_preimage (pid_to_sk_chain_to_R p m) h_boundary]
+    let n := pid_to_nat p + m
+    let A := {x: Σ_:(CWC.Fι n), cb (n + 1) | x.2 ∈ cb_boundary}
+    have h_inv_preimage : Function.invFun (CWC.Fφ n) ⁻¹' (left_adj_proj A (CWC.Ff n) '' (pid_to_sk_chain_to_R p m ⁻¹' {0})) =
+      (CWC.Fφ n) '' (left_adj_proj A (CWC.Ff n) '' (pid_to_sk_chain_to_R p m ⁻¹' {0})) := by
+      ext z
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        intro hz
+        have h_mem : Function.invFun (CWC.Fφ n) z ∈ left_adj_proj A (CWC.Ff n) '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) := hz
+        use Function.invFun (CWC.Fφ n) z, h_mem
+        rcases (CWC.Fφ_heomorph n).surjective z with ⟨w, hw⟩
+        exact Function.invFun_eq ⟨w, hw⟩
+      case mpr =>
+        intro hz
+        rcases hz with ⟨y, hy, rfl⟩
+        have : Function.invFun (CWC.Fφ n) ((CWC.Fφ n) y) = y := by
+          apply (CWC.Fφ_heomorph n).injective
+          exact Function.invFun_eq ⟨y, rfl⟩
+        rw [Set.mem_preimage, this]
+        exact hy
+    rw [h_inv_preimage]
+    rw [←Set.image_comp]
+    rw [←Set.image_comp]
+    rw [Function.comp_assoc]
+    rw [CWC.Fφ_fix]
+    have h_comp : (Subtype.val : CWC.Fsk (n + 1) → X) ∘ (fun x : CWC.Fsk n ↦ ⟨x.1, CWC.Fsk_chain n x.2⟩) = fun x ↦ x.1 := by
+      ext x; simp
+    simp
+    have : (fun x : CWC.Fsk n ↦ x.1) '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) = Subtype.val '' (pid_to_sk_chain_to_R p m ⁻¹' {0}) := by
+      ext x
+      refine Iff.intro ?mp ?mpr
+      case mp =>
+        intro hx
+        rcases hx with ⟨y, hy, rfl⟩
+        exact ⟨y, hy, rfl⟩
+      case mpr =>
+        intro hx
+        rcases hx with ⟨y, hy, rfl⟩
+        exact ⟨y, hy, rfl⟩
+    rw [this, ih]
+
+instance instCWConstructorTopologyT2Space: T2Space X := by
   refine { t2 := ?_ }
   intro x y x_ne_y
+  have h : ∀ p : X, ∃ (f : X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p} := by
+    intro x₀
+    use pid_to_X_to_R (pt_to_pid x₀)
+    constructor
+    · exact pid_to_X_to_R_cont (pt_to_pid x₀)
+    · rw [pid_to_X_to_R_preimage_of_0 (pt_to_pid x₀)]
+      simp [pt_to_pid_right_inv' x₀]
   rcases h x with ⟨f, f_cont, hf⟩
   have fx_eq_0: f x = 0 := by
     have : x ∈ ({x}: Set X) := by rfl
@@ -1546,11 +2144,696 @@ instance (h: ∀p:X, ∃ (f: X → ℝ), Continuous f ∧ f ⁻¹' ({0}) = {p}) 
   have y_in_v: y ∈ v := fy_in_v'
   have uv_disj: Disjoint u v := by exact Disjoint.preimage f u'_v'_disjoint
   use u, v
-#check exists_continuous_zero_one_of_isClosed
+
+noncomputable instance instCWConstructorCellComplexClass: CellComplexClass X := {
+  sets := cell_sets
+  nonempty := cell_sets_nonempty
+  disjoint := cell_sets_disjoint
+  cover := cell_sets_cover
+  dim_map := dim_map
+  characteristic_map := characteristic_map
+  characteristic_map_continuous := characteristic_map_continuous
+  characteristic_map_inner_range := characteristic_map_inner_range
+  characteristic_map_inner_embd := characteristic_map_inner_embedding
+  characteristic_map_boundary := characteristic_map_boundary
+}
+
+def CWConstructorSkeleton (n:ℕ): SubCellComplex X where
+  carrier := CWC.Fsk n
+  cell_incl_or_disjoint := by
+    intro e he
+    rcases le_or_gt (dim_map ⟨e, he⟩) n with h_le | h_gt
+    · left
+      trans CWC.Fsk (dim_map ⟨e, he⟩)
+      · show dim_map ⟨e, he⟩ ∈ {m | e ⊆ CWC.Fsk m}
+        apply WellFounded.min_mem
+      · exact Fsk_incl h_le
+    · right
+      -- If dim_map e > n, then e is disjoint from Fsk n
+      -- Proof outline:
+      -- 1. dim_map e is the smallest m such that e ⊆ Fsk m
+      -- 2. Since n < dim_map e, we know e is NOT in Fsk n
+      -- 3. There are 2 cases for e ∈ cell_sets:
+      --    Case 1: e is in Fsk 0 (singleton) → e ⊆ Fsk n, contradiction
+      --    Case 2: e = Set.range (cell_define_map m i) → e disjoint from Fsk m, and Fsk n ⊆ Fsk m
+      rw [Set.disjoint_iff_inter_eq_empty]
+      by_contra h_not_empty
+      -- h_not_empty : e ∩ Fsk n ≠ ∅
+      have h_inter_nonempty : (e ∩ CWC.Fsk n).Nonempty := by
+        rw [Set.nonempty_iff_ne_empty]
+        exact h_not_empty
+      -- dim_map e is the smallest m such that e ⊆ Fsk m
+      let e' : cell_sets := ⟨e, he⟩
+      have dim_gt_n : dim_map e' > n := h_gt
+      -- Since dim_map e' > n and it's minimal, e is NOT contained in Fsk n
+      have e_not_in_Fsk_n : ¬(e ⊆ CWC.Fsk n) := by
+        by_contra e_sub_Fsk_n
+        have : dim_map e' ≤ n := by
+          apply WellFounded.min_le
+          exact e_sub_Fsk_n
+        linarith
+      -- Now consider the two cases for e ∈ cell_sets
+      rcases he with ⟨e_in_sk0 | e_in_skn, e_nonempty⟩
+      · -- Case 1: e is in cell_of_dim0, i.e., e = {x} for some x ∈ Fsk 0
+        rcases e_in_sk0 with ⟨x, x_in_sk0, rfl⟩
+        -- Then e = {x} ⊆ Fsk 0 ⊆ Fsk n (since n ≥ 0)
+        have e_sub_Fsk_n : {x} ⊆ CWC.Fsk n := by
+          apply Set.singleton_subset_iff.mpr
+          exact Fsk_incl (by norm_num) x_in_sk0
+        contradiction
+      · -- Case 2: e is of form Set.range (cell_define_map m i)
+        simp at e_in_skn
+        rcases e_in_skn with ⟨m, ⟨i, rfl⟩⟩
+        -- e = Set.range (cell_define_map m i)
+        have dim_eq_mp1 : dim_map e' = m + 1 := dim_map_cell_n_is_np1 m i
+        -- Since dim_map e' = m + 1 > n, we have n ≤ m
+        have n_le_m : n ≤ m := by
+          rw [dim_eq_mp1] at dim_gt_n
+          -- dim_gt_n : m + 1 > n, so n < m + 1, hence n ≤ m
+          have : n < m + 1 := dim_gt_n
+          exact Nat.le_of_lt_succ this
+        -- Fsk n ⊆ Fsk m
+        have Fsk_n_sub_Fsk_m : CWC.Fsk n ⊆ CWC.Fsk m := Fsk_incl n_le_m
+        -- e is disjoint from Fsk m (by Fsk_n_cell_np1_disjoint)
+        have e_disjoint_Fsk_m : Disjoint (Set.range (cell_define_map m i)) (CWC.Fsk m) :=
+          Disjoint.symm (Fsk_n_cell_np1_disjoint m i)
+        -- Since Fsk n ⊆ Fsk m and e is disjoint from Fsk m, e is disjoint from Fsk n
+        have e_disjoint_Fsk_n : Disjoint (Set.range (cell_define_map m i)) (CWC.Fsk n) :=
+          Disjoint.mono_right Fsk_n_sub_Fsk_m e_disjoint_Fsk_m
+        -- But we have e ∩ Fsk n ≠ ∅, contradiction
+        rw [Set.disjoint_iff_inter_eq_empty] at e_disjoint_Fsk_n
+        have : (Set.range (cell_define_map m i) ∩ CWC.Fsk n) = ∅ := e_disjoint_Fsk_n
+        rw [this] at h_inter_nonempty
+        simp at h_inter_nonempty
+  cell_closure_incl := by
+    intro e he e_sub_Fsk_n
+    -- Since Fsk n is closed, closure e ⊆ closure (Fsk n) = Fsk n
+    have Fsk_n_closed : IsClosed (CWC.Fsk n) := Fsk_closed n
+    have closure_e_sub_closure_Fsk_n : closure e ⊆ closure (CWC.Fsk n) := closure_mono e_sub_Fsk_n
+    have closure_Fsk_n_eq_Fsk_n : closure (CWC.Fsk n) = CWC.Fsk n := IsClosed.closure_eq Fsk_n_closed
+    rwa [closure_Fsk_n_eq_Fsk_n] at closure_e_sub_closure_Fsk_n
+
+lemma instCWConstructorSkeletonCW0: CWComplexClass (CWConstructorSkeleton (CWC := CWC) 0) := by
+  let Y := CWConstructorSkeleton (CWC := CWC) 0
+  have Y_discrete: DiscreteTopology Y := by
+    change DiscreteTopology (CWConstructorSkeleton (CWC := CWC) 0)
+    show @DiscreteTopology (CWConstructorSkeleton (CWC := CWC) 0) instTopologicalSpaceSubtype
+    rw [← Tsk_eq_subspace 0]
+    exact CWC.Tsk0_discrete
+  refine {
+      closure_finite := ?zero.refine_1
+      coeherent := ?zero.refine_2
+    }
+  case zero.refine_1 =>
+    intro s hs
+    have closure_s_eq_s : closure s = s := by
+      have : IsClosed s := by
+        exact @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete s
+      exact IsClosed.closure_eq this
+    let ss : Set (Set Y) := {s}
+    use ss
+    have ss_in_sets : ss ⊆ sub_cell_complex_sets Y := by
+      intro t ht
+      simp [ss] at ht
+      rw [ht]
+      exact hs
+    have ss_finite : ss.Finite := by
+      simp [ss]
+    have closure_s_in_ss : closure s ⊆ ⋃₀ ss := by
+      rw [closure_s_eq_s]
+      simp [ss]
+    tauto
+  case zero.refine_2 =>
+    let B := {closure s | s ∈ sub_cell_complex_sets Y}
+    have cover : ⋃₀ B = Set.univ := by
+      have : ⋃₀ sub_cell_complex_sets Y = Set.univ := sub_cell_complex_set_cover Y
+      have B_eq_sets : B = sub_cell_complex_sets Y := by
+        ext s
+        constructor
+        · intro hs
+          rcases hs with ⟨t, ht, rfl⟩
+          have closure_t_eq_t : closure t = t := by
+            have : IsClosed t := @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete t
+            exact IsClosed.closure_eq this
+          rw [closure_t_eq_t]
+          exact ht
+        · intro hs
+          use s, hs
+          have closure_s_eq_s : closure s = s := by
+            have : IsClosed s := @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete s
+            exact IsClosed.closure_eq this
+          exact closure_s_eq_s
+      rw [B_eq_sets]
+      exact this
+    refine coeherent_of_closed_crit_and_cover' ?_ cover
+    intro s h_close_crit
+    exact @isClosed_discrete Y instTopologicalSpaceSubtype Y_discrete s
+
+lemma closure_finite_case_cell_in_Fsk_n (n : ℕ) (ih : CWComplexClass (CWConstructorSkeleton (CWC := CWC) n))
+  (s : Set (CWConstructorSkeleton (CWC := CWC) (n + 1))) (hs : s ∈ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)))
+  (h_dim : dim_map ⟨Subtype.val '' s, by simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using hs⟩ ≤ n) :
+  ∃ ss ⊆ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)), ss.Finite ∧ closure s ⊆ ⋃₀ ss := by
+  let Y_n := CWConstructorSkeleton (CWC := CWC) n
+  let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+  let g_n1 : Y_n1 → X := (↑)
+  let g_n : Y_n → X := (↑)
+  let s' := Subtype.val '' s
+  have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using hs
+  have s'_eq : s' = Subtype.val '' s := rfl
+  -- Step 1: s' ⊆ Fsk n
+  have s'_sub_Fsk_n : s' ⊆ CWC.Fsk n := by
+    trans CWC.Fsk (dim_map ⟨s', hs'⟩)
+    · show dim_map ⟨s', hs'⟩ ∈ {m | s' ⊆ CWC.Fsk m}
+      apply WellFounded.min_mem
+    · exact Fsk_incl h_dim
+  -- Step 2: preimage g_n ⁻¹' s' is the same cell in Y_n, so lies in sub_cell_complex_sets Y_n
+  have s_in_Y_n_sets : (g_n ⁻¹' s') ∈ sub_cell_complex_sets Y_n := by
+    simp [sub_cell_complex_sets]
+    rw [Set.image_preimage_eq_of_subset]
+    · exact hs'
+    · rw [Subtype.range_coe]; exact s'_sub_Fsk_n
+  -- Step 3: use IH to get a finite set ss_n of cells of Y_n covering the closure of g_n ⁻¹' s'
+  rcases ih.closure_finite (g_n ⁻¹' s') s_in_Y_n_sets with ⟨ss_n, ss_n_sub, ss_n_fin, ss_n_cover⟩
+  -- Step 4: lift to Y_n1: define inclusion and ss = { incl '' t : t ∈ ss_n }
+  let incl : Y_n → Y_n1 := fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩
+  let ss : Set (Set Y_n1) := Set.image (fun t => incl '' t) ss_n
+  -- Step 5: check conditions (ss ⊆ sets, ss.Finite, closure s ⊆ ⋃₀ ss)
+  use ss
+  constructor
+  · intro t' ht'
+    rcases (Set.mem_image _ _ _).mp ht' with ⟨t, t_in_ss_n, rfl⟩
+    have coe_eq : g_n1 '' (incl '' t) = g_n '' t := by
+      ext x
+      constructor
+      · rintro ⟨y, ⟨z, z_in_t, rfl⟩, rfl⟩; exact ⟨z, z_in_t, rfl⟩
+      · rintro ⟨z, z_in_t, rfl⟩; exact ⟨⟨z, Fsk_incl (Nat.le_succ n) z.2⟩, ⟨z, z_in_t, rfl⟩, rfl⟩
+    show (incl '' t) ∈ sub_cell_complex_sets Y_n1
+    simp only [sub_cell_complex_sets, Set.mem_setOf_eq]
+    rw [show (Subtype.val : Y_n1 → X) '' (incl '' t) = g_n1 '' (incl '' t) from rfl, coe_eq]
+    exact ss_n_sub t_in_ss_n
+  constructor
+  · apply Set.Finite.image; exact ss_n_fin
+  · intro x hx
+    have s_eq : s = incl '' (g_n ⁻¹' s') := by
+      ext y
+      constructor
+      · intro hy
+        have y_val_in_s' : (y : X) ∈ s' := by rw [s'_eq]; exact Set.mem_image_of_mem g_n1 hy
+        let z : Y_n := ⟨y.1, s'_sub_Fsk_n y_val_in_s'⟩
+        use z
+        constructor
+        · simp [g_n]; exact y_val_in_s'
+        · exact Subtype.ext rfl
+      · rintro ⟨z, z_in_pre, rfl⟩
+        have s_eq_pre : s = g_n1 ⁻¹' s' := by
+          ext w
+          simp only [g_n1, Set.mem_preimage]
+          constructor
+          · intro h; rw [s'_eq]; exact Set.mem_image_of_mem g_n1 h
+          · intro h; rw [s'_eq] at h; rcases h with ⟨w', hw', heq⟩; rw [←Subtype.val_injective heq]; exact hw'
+        rw [s_eq_pre, Set.mem_preimage]; simp only [g_n1, incl]; exact z_in_pre
+    have closure_s_sub : closure s ⊆ incl '' (closure (g_n ⁻¹' s')) := by
+      rw [s_eq]
+      have : IsClosedMap incl := by
+        convert Fsk_incl_closed_map (Nat.le_succ n)
+        . show instTopologicalSpaceSubtype = CWC.Tsk n
+          rw [Tsk_eq_subspace]
+        . show instTopologicalSpaceSubtype = CWC.Tsk (n + 1)
+          rw [Tsk_eq_subspace]
+      apply IsClosedMap.closure_image_subset this
+    rcases closure_s_sub hx with ⟨z, z_in_closure, rfl⟩
+    have z_in_ss_n : z ∈ ⋃₀ ss_n := ss_n_cover z_in_closure
+    rcases z_in_ss_n with ⟨t, t_in_ss_n, z_in_t⟩
+    use incl '' t
+    constructor
+    · simp [ss]; exact ⟨t, t_in_ss_n, rfl⟩
+    · exact ⟨z, z_in_t, rfl⟩
+
+lemma closure_finite_case_cell_in_Fsk_n1 (n : ℕ) (ih : CWComplexClass (CWConstructorSkeleton (CWC := CWC) n))
+  (s : Set (CWConstructorSkeleton (CWC := CWC) (n + 1))) (hs : s ∈ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)))
+  (h_dim : ¬ dim_map ⟨Subtype.val '' s, by simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using hs⟩ ≤ n) :
+  ∃ ss ⊆ sub_cell_complex_sets (CWConstructorSkeleton (CWC := CWC) (n + 1)), ss.Finite ∧ closure s ⊆ ⋃₀ ss := by
+  let Y_n := CWConstructorSkeleton (CWC := CWC) n
+  let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+  let g_n1 : Y_n1 → X := (↑)
+  let g_n : Y_n → X := (↑)
+  let s' := g_n1 '' s
+  have s'_eq : s' = g_n1 '' s := rfl
+  have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa [s'] using hs
+  -- Step 1: boundary closure(s') \ s' is closed and compact in X
+  have boundary_closed : IsClosed (closure s' \ s') :=
+    cell_boundary_closed ⟨s', hs'⟩
+  have boundary_compact : IsCompact (closure s' \ s') :=
+    cell_boundary_compact ⟨s', hs'⟩
+  -- Step 2: boundary is contained in Fsk n (cell_boundary_cover + dim_map ⟨s', hs'⟩ = n+1)
+  have boundary_sub_Fsk_n : closure s' \ s' ⊆ CWC.Fsk n := by
+    have s'_sub_Fsk_n1 : s' ⊆ CWC.Fsk (n + 1) := by
+      intro x hx; obtain ⟨y, hy, rfl⟩ := hx; exact y.2
+    have dim_le_n1 : dim_map ⟨s', hs'⟩ ≤ n + 1 := by apply WellFounded.min_le; exact s'_sub_Fsk_n1
+    have dim_eq_n1 : dim_map ⟨s', hs'⟩ = n + 1 :=
+      Nat.le_antisymm dim_le_n1 (Nat.succ_le_of_lt (Nat.not_le.mp h_dim))
+    have boundary_sub_union : closure s' \ s' ⊆ ⋃ p : instCWConstructorCellComplexClass.sets, ⋃ _ : (dim_map p < dim_map ⟨s', hs'⟩), p.val :=
+      cell_boundary_cover ⟨s', hs'⟩
+    have union_sub_Fsk_n : (⋃ p : instCWConstructorCellComplexClass.sets, ⋃ _ : (dim_map p < dim_map ⟨s', hs'⟩), p.val) ⊆ CWC.Fsk n := by
+      intro x hx
+      rw [Set.mem_iUnion] at hx
+      rcases hx with ⟨p, hp⟩
+      rw [Set.mem_iUnion] at hp
+      rcases hp with ⟨dim_lt, x_in_p⟩
+      rw [dim_eq_n1] at dim_lt
+      have dim_p_le_n : dim_map p ≤ n := Nat.le_of_lt_succ dim_lt
+      have p_sub_Fsk : p.val ⊆ CWC.Fsk (dim_map p) := by
+        trans CWC.Fsk (dim_map p)
+        · show dim_map p ∈ {m | p.val ⊆ CWC.Fsk m}
+          unfold dim_map
+          exact WellFounded.min_mem wellFounded_lt _ (by rcases exists_skn_contain_cell p.1 p.2 with ⟨k, hk⟩; use k, hk)
+        · exact Fsk_incl (le_refl (dim_map p))
+      exact Fsk_incl dim_p_le_n (p_sub_Fsk x_in_p)
+    exact Set.Subset.trans boundary_sub_union union_sub_Fsk_n
+  -- Step 3: view boundary in Y_n; it is compact in Y_n
+  let boundary_Y_n : Set Y_n := g_n ⁻¹' (closure s' \ s')
+  have boundary_Y_n_compact : IsCompact boundary_Y_n := by
+    let boundary_subtype := closure s' \ s'
+    have boundary_Y_n_eq_range : boundary_Y_n = Set.range (fun x : ↥boundary_subtype => ⟨x.1, boundary_sub_Fsk_n x.2⟩) := by
+      ext y
+      constructor
+      · intro hy
+        have y_val_in : (y : X) ∈ boundary_subtype := hy
+        use ⟨(y : X), y_val_in⟩
+      · rintro ⟨x, rfl⟩
+        exact x.2
+    rw [boundary_Y_n_eq_range, ← Set.image_univ]
+    have : CompactSpace ↥boundary_subtype := isCompact_iff_compactSpace.mp boundary_compact
+    apply IsCompact.image
+    · exact isCompact_univ
+    · continuity
+  -- Step 4: apply compactness characterisation in Y_n (CW by ih) to get finite set of cells covering boundary_Y_n
+  rcases compact_exists_finite_cells_cover boundary_Y_n_compact with ⟨ss_n, ss_n_sub, ss_n_fin, ss_n_cover⟩
+  -- Step 5: build covering set in Y_n1: ss = {s} ∪ { incl '' t : t ∈ ss_n }
+  let incl : Y_n → Y_n1 := fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩
+  let ss : Set (Set Y_n1) := {s} ∪ Set.image (fun t => incl '' t) ss_n
+  -- Step 6: verify the three conditions (ss ⊆ sets, ss.Finite, closure s ⊆ ⋃₀ ss)
+  use ss
+  constructor
+  · intro t ht
+    rw [Set.mem_union, Set.mem_image] at ht
+    rcases ht with (rfl | ⟨t', t'_in_ss_n, rfl⟩)
+    · exact hs
+    · have coe_eq : g_n1 '' (incl '' t') = g_n '' t' := by
+        ext x
+        constructor
+        · rintro ⟨y, ⟨z, z_in_t', rfl⟩, rfl⟩; exact ⟨z, z_in_t', rfl⟩
+        · rintro ⟨z, z_in_t', rfl⟩; exact ⟨⟨z, Fsk_incl (Nat.le_succ n) z.2⟩, ⟨z, z_in_t', rfl⟩, rfl⟩
+      show (incl '' t') ∈ sub_cell_complex_sets Y_n1
+      simp only [sub_cell_complex_sets, Set.mem_setOf_eq]
+      rw [coe_eq]
+      exact ss_n_sub t'_in_ss_n
+  constructor
+  · apply Set.Finite.union
+    · exact Set.finite_singleton s
+    · apply Set.Finite.image; exact ss_n_fin
+  · intro x hx
+    -- closure s ⊆ g_n1 ⁻¹' closure s', so (x : X) ∈ closure s'
+    have s_eq_pre : s = g_n1 ⁻¹' s' := by
+      ext w
+      simp only [g_n1, Set.mem_preimage]
+      constructor
+      · intro h; rw [s'_eq]; exact Set.mem_image_of_mem g_n1 h
+      · intro h; rw [s'_eq] at h; rcases h with ⟨w', hw', heq⟩; rw [← Subtype.val_injective heq]; exact hw'
+    have closure_pre_closed : IsClosed (g_n1 ⁻¹' closure s') :=
+      IsClosed.preimage (continuous_subtype_val) isClosed_closure
+    have closure_s_sub : closure s ⊆ g_n1 ⁻¹' closure s' := by
+      rw [s_eq_pre]
+      exact closure_minimal (Set.preimage_mono subset_closure) closure_pre_closed
+    have x_in_closure_s' : (x : X) ∈ closure s' := by simpa only [g_n1, Set.mem_preimage] using closure_s_sub hx
+    by_cases h_in_s' : (x : X) ∈ s'
+    · rw [Set.mem_sUnion]
+      use s
+      constructor
+      · left
+        exact Set.mem_singleton s
+      · rw [s'_eq] at h_in_s'
+        rcases h_in_s' with ⟨w, hw, heq⟩
+        have w_eq_x : w = x := Subtype.ext heq
+        rw [← w_eq_x]
+        exact hw
+    · -- (x : X) ∈ closure s' \ s'
+      have x_in_boundary : (x : X) ∈ closure s' \ s' := ⟨x_in_closure_s', h_in_s'⟩
+      have x_in_Fsk_n : (x : X) ∈ CWC.Fsk n := boundary_sub_Fsk_n x_in_boundary
+      let y_n : Y_n := ⟨x, x_in_Fsk_n⟩
+      have y_n_in_boundary : y_n ∈ boundary_Y_n := by
+        simp only [boundary_Y_n, g_n, Set.mem_preimage]
+        exact x_in_boundary
+      have y_n_in_union : y_n ∈ ⋃₀ ss_n := ss_n_cover y_n_in_boundary
+      rcases y_n_in_union with ⟨t', t'_in_ss_n, y_n_in_t'⟩
+      rw [Set.mem_sUnion]
+      use incl '' t'
+      constructor
+      · right
+        exact Set.mem_image_of_mem (fun t => incl '' t) t'_in_ss_n
+      · refine ⟨y_n, y_n_in_t', Subtype.ext rfl⟩
+
+instance instCWConstructorSkeletonCW (n:ℕ): CWComplexClass (CWConstructorSkeleton (CWC := CWC) n) := by
+  induction' n with n ih
+  . exact instCWConstructorSkeletonCW0
+  . constructor
+    . intro s hs
+      let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+      let g_n1 : Y_n1 → X := (↑)
+      let s' := g_n1 '' s
+      have hs' : s' ∈ instCWConstructorCellComplexClass.sets := by simpa [s'] using hs
+      by_cases h_dim : dim_map ⟨s', hs'⟩ ≤ n
+      · exact closure_finite_case_cell_in_Fsk_n n ih s hs h_dim
+      · exact closure_finite_case_cell_in_Fsk_n1 n ih s hs h_dim
+    . refine coeherent_of_closed_crit_and_cover' ?_ (sub_cell_complex_closure_cover (CWConstructorSkeleton (CWC := CWC) (n + 1)))
+      -- Closed criterion: for B : Set Y_n1, if B is closed in every cell closure, then B is closed in Y_n1
+      intro B hB
+      -- Setup
+      let Y_n := CWConstructorSkeleton (CWC := CWC) n
+      let Y_n1 := CWConstructorSkeleton (CWC := CWC) (n + 1)
+      let A : Set (Σ (i : CWC.Fι n), cb (n+1)) := {x | x.2 ∈ cb_boundary}
+      suffices IsClosed ((adj_proj _ (CWC.Ff n)) ⁻¹' ((CWC.Fφ n) ⁻¹' B)) by
+        rw [←Set.preimage_comp] at this
+        have hquot: Topology.IsQuotientMap ((CWC.Fφ n) ∘ (adj_proj A (CWC.Ff n))) := by
+          apply Topology.IsQuotientMap.comp
+          . exact Chp5.quotient_of_saturate_closed_image_closed (CWC.Fφ_heomorph n).continuous (CWC.Fφ_heomorph n).surjective (fun s _ sClosed => (CWC.Fφ_heomorph n).isClosedMap s sClosed)
+          . exact adj_proj_quotient A (CWC.Ff n)
+        rw [hquot.isClosed_preimage] at this
+        convert this
+        change instTopologicalSpaceSubtype = CWC.Tsk (n + 1)
+        rw [Tsk_eq_subspace]
+      -- Step 2.1: Decompose the preimage into left and right parts via isClosed_sum_iff
+      rw [isClosed_sum_iff]
+      constructor
+      · -- Step 2.2: Left part — Sum.inl ⁻¹' (adj_proj ⁻¹' (Fφ ⁻¹' B)) closed, i.e. B ∩ Fsk n closed in Fsk n
+        -- Step 2.2.1: Rewrite to (left_adj_proj) ⁻¹' ((Fφ n) ⁻¹' B) via preimage_comp and left_adj_proj def
+        rw [← Set.preimage_comp, ← left_adj_proj]
+        -- Step 2.2.2: Apply Fφ_fix; the map equals incl : Y_n → Y_n1
+        rw [← Set.preimage_comp, CWC.Fφ_fix n]
+        let incl : Y_n → Y_n1 := fun y => ⟨y.1, Fsk_incl (Nat.le_succ n) y.2⟩
+        have preimage_eq : (fun x => ⟨x.1, CWC.Fsk_chain n x.2⟩) ⁻¹' B = incl ⁻¹' B := by
+          ext x
+          simp only [Set.mem_preimage]
+          have h : (fun x => ⟨x.1, CWC.Fsk_chain n x.2⟩) x = incl x := Subtype.ext rfl
+          simp only [h]
+        erw [preimage_eq]
+        -- Step 2.2.3: Use closed_crit_of_coeherent; goal becomes ∀ b ∈ {closure t | t ∈ sub_cell_complex_sets Y_n}, IsClosed (((↑) : b → Y_n) ⁻¹' (incl ⁻¹' B))
+        convert closed_crit_of_coeherent ih.coeherent (incl ⁻¹' B) ?_
+        . change CWC.Tsk n = instTopologicalSpaceSubtype
+          rw [Tsk_eq_subspace]
+        intro b hb
+        rcases hb with ⟨t, ht, rfl⟩
+        -- Step 2.2.4: incl '' t ∈ sub_cell_complex_sets Y_n1 (same underlying cell in X)
+        let g_n : Y_n → X := (↑)
+        let g_n1 : Y_n1 → X := (↑)
+        have coe_eq : g_n1 '' (incl '' t) = g_n '' t := by
+          ext x
+          constructor
+          · rintro ⟨y, ⟨z, z_in_t, rfl⟩, rfl⟩; exact ⟨z, z_in_t, rfl⟩
+          · rintro ⟨z, z_in_t, rfl⟩; exact ⟨⟨z, Fsk_incl (Nat.le_succ n) z.2⟩, ⟨z, z_in_t, rfl⟩, rfl⟩
+        have incl_t_in_Y_n1 : incl '' t ∈ sub_cell_complex_sets Y_n1 := by
+          simp only [sub_cell_complex_sets, Set.mem_setOf_eq]
+          rw [coe_eq]
+          simpa only [sub_cell_complex_sets, Set.mem_setOf_eq] using ht
+        -- Step 2.2.5: Use hB; closure (incl '' t) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1}
+        have hb' : closure (incl '' t) ∈ {closure s | s ∈ sub_cell_complex_sets Y_n1} := ⟨incl '' t, incl_t_in_Y_n1, rfl⟩
+        have hB_closed : IsClosed (((↑) : closure (incl '' t) → Y_n1) ⁻¹' B) := hB (closure (incl '' t)) hb'
+        -- Preimage equality: ((↑) : closure t → Y_n) ⁻¹' (incl ⁻¹' B) = incl ⁻¹' (((↑) : closure (incl '' t) → Y_n1) ⁻¹' B) where incl maps closure t → closure (incl '' t)
+        have closure_t_sub : ∀ x : closure t, incl x ∈ closure (incl '' t) := by
+          intro x
+          have h1 : incl x ∈ incl '' closure t := ⟨x, x.2, rfl⟩
+          have h2 : incl '' closure t ⊆ closure (incl '' t) := by
+            have incl_cont : Continuous incl := by
+              convert Fsk_incl_continuous (Nat.le_succ n)
+              · exact (Tsk_eq_subspace n).symm
+              · exact (Tsk_eq_subspace (n + 1)).symm
+            exact image_closure_subset_closure_image incl_cont
+          exact h2 h1
+        let incl' : closure t → closure (incl '' t) := fun x => ⟨incl x, closure_t_sub x⟩
+        have preimage_eq : ((↑) : closure t → Y_n) ⁻¹' (incl ⁻¹' B) = incl' ⁻¹' (((↑) : closure (incl '' t) → Y_n1) ⁻¹' B) := by
+          ext x
+          simp only [Set.mem_preimage]
+          exact ⟨id, id⟩
+        rw [preimage_eq]
+        have incl'_cont : Continuous incl' := by
+          have incl_cont : Continuous incl := by
+            convert Fsk_incl_continuous (Nat.le_succ n)
+            · exact (Tsk_eq_subspace n).symm
+            · exact (Tsk_eq_subspace (n + 1)).symm
+          exact Continuous.subtype_mk (Continuous.comp incl_cont continuous_subtype_val) closure_t_sub
+        exact IsClosed.preimage incl'_cont hB_closed
+      · -- Step 2.3: Right part — Sum.inr ⁻¹' (adj_proj ⁻¹' (Fφ ⁻¹' B)) closed
+        -- Step 2.3.1: Reduce to sigma topology via isClosed_sigma_iff
+        rw [isClosed_sigma_iff]
+        intro i
+        -- Step 2.3.2: Rewrite i-th preimage to characteristic-map preimage
+        have preimage_eq : (Sigma.mk i) ⁻¹' (Sum.inr ⁻¹' (adj_proj A (CWC.Ff n) ⁻¹' ((CWC.Fφ n) ⁻¹' B))) =
+            (fun x : cb (n + 1) => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) ⁻¹' B := by
+          ext x
+          simp only [Set.mem_preimage]
+        rw [preimage_eq]
+        -- Step 2.3.4: Define φ_i' : cb (n+1) → closure(e_i) and factor φ_i
+        let e_i := Set.range (cell_define_map n i)
+        have closure_e_i_sub : closure e_i ⊆ Y_n1 :=
+          (closure_mono (cell_n_in_Fsk_np1 n i)).trans ((Fsk_closed (n + 1)).closure_eq).le
+        have img_in_closure : ∀ x : cb (n + 1), ((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1 ∈ closure e_i := by
+          intro x
+          let f : cb (n + 1) → X :=
+            fun x => ((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1
+          have f_cont : Continuous f := by
+            have cont0 : Continuous (@Sigma.mk (CWC.Fι n) (fun _ => cb (n + 1)) i) := continuous_sigmaMk
+            have cont1 : Continuous (@Sum.inr (CWC.Fsk n) ((_ : CWC.Fι n) × cb (n + 1))) := continuous_inr
+            have cont2 : Continuous (adj_proj A (CWC.Ff n)) := by exact { isOpen_preimage := fun s a => a }
+            have cont3 : Continuous (CWC.Fφ n) := (CWC.Fφ_heomorph n).continuous
+            have cont4 : Continuous (Subtype.val : CWC.Fsk (n + 1) → X) := { isOpen_preimage := fun s a => a (n + 1)}
+            exact (((cont4.comp cont3).comp cont2).comp cont1).comp cont0
+          have x_in_closure : x ∈ closure (cb_inner : Set (cb (n + 1))) := by
+            have h : closure (cb_inner : Set (cb (n + 1))) = Set.univ := by
+              simpa using (cb_inner_closure (n := n + 1))
+            rw [h]
+            simp
+          have hx : f x ∈ closure (f '' (cb_inner : Set (cb (n + 1)))) := by
+            have hclosure : f '' closure (cb_inner : Set (cb (n + 1))) ⊆ closure (f '' (cb_inner : Set (cb (n + 1)))) :=
+              image_closure_subset_closure_image f_cont
+            exact hclosure ⟨x, x_in_closure, rfl⟩
+          have e_i_eq : e_i = f '' (cb_inner : Set (cb (n + 1))) := by
+            ext y
+            constructor
+            · rintro ⟨u, rfl⟩
+              refine ⟨b_to_cb u, ?_, ?_⟩
+              · exact ⟨u, rfl⟩
+              · simp [f, cell_define_map, pre_characteristic_map, b_to_cb, A]
+            · rintro ⟨y, ⟨u, rfl⟩, rfl⟩
+              exact ⟨u, rfl⟩
+          rw [e_i_eq]
+          exact hx
+        let incl_ce : closure e_i → Y_n1 := fun z => ⟨z.1, closure_e_i_sub z.2⟩
+        let φ_i' : cb (n + 1) → closure e_i := fun x => ⟨((CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))).1, img_in_closure x⟩
+        have φ_i_eq : (fun x => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) = incl_ce ∘ φ_i' := by
+          ext x
+          simp only [φ_i', incl_ce, Function.comp_apply]
+        have preimage_eq' : (fun x => (CWC.Fφ n) (adj_proj A (CWC.Ff n) (Sum.inr ⟨i, x⟩))) ⁻¹' B =
+            φ_i' ⁻¹' (incl_ce ⁻¹' B) := by
+          rw [φ_i_eq, Set.preimage_comp]
+        rw [preimage_eq']
+        -- Step 2.3.4 done. Step 2.3.5: continuity of φ_i'
+        have φ_i'_cont : Continuous φ_i' := by
+          refine Continuous.subtype_mk ?_ (fun x => img_in_closure x)
+          have cont0 : Continuous (@Sigma.mk (CWC.Fι n) (fun _ => cb (n + 1)) i) := continuous_sigmaMk
+          have cont1 : Continuous (@Sum.inr (CWC.Fsk n) ((_ : CWC.Fι n) × cb (n + 1))) := continuous_inr
+          have cont2 : Continuous (adj_proj A (CWC.Ff n)) := by exact { isOpen_preimage := fun s a => a }
+          have cont3 : Continuous (CWC.Fφ n) := (CWC.Fφ_heomorph n).continuous
+          have cont4 : Continuous (Subtype.val : CWC.Fsk (n + 1) → X) := { isOpen_preimage := fun s a => a (n + 1)}
+          simpa [φ_i'] using (((cont4.comp cont3).comp cont2).comp cont1).comp cont0
+        -- Step 2.3.6: IsClosed.preimage
+        let s : Set Y_n1 := {y | y.1 ∈ e_i}
+        have s_in_sets : s ∈ sub_cell_complex_sets Y_n1 := by
+          have hs : ((↑) : Y_n1 → X) '' s = e_i := by
+            ext x
+            constructor
+            · rintro ⟨y, hy, rfl⟩; exact hy
+            · intro hx
+              refine ⟨⟨x, closure_e_i_sub (subset_closure hx)⟩, hx, rfl⟩
+          change ((↑) : Y_n1 → X) '' s ∈ cell_sets
+          simpa [hs, e_i] using (cell_define_map_range_in_sets n i)
+        have hb' : closure s ∈ {closure t | t ∈ sub_cell_complex_sets Y_n1} := ⟨s, s_in_sets, rfl⟩
+        have hB_closed : IsClosed (((↑) : closure s → Y_n1) ⁻¹' B) := hB (closure s) hb'
+        let s_dom : Set (closure e_i) := {z | z.1 ∈ e_i}
+        have s_dom_image : incl_ce '' s_dom = s := by
+          ext y
+          constructor
+          · rintro ⟨z, hz, rfl⟩; exact hz
+          · intro hy
+            refine ⟨⟨y.1, subset_closure hy⟩, hy, ?_⟩
+            apply Subtype.ext rfl
+        have incl_ce_cont : Continuous incl_ce := by
+          exact Continuous.subtype_mk continuous_subtype_val (fun x => closure_e_i_sub x.2)
+        have z_in_closure_s_dom : ∀ z : closure e_i, z ∈ closure s_dom := by
+          intro z
+          let g : closure e_i → X := fun z => z.1
+          have ce : Topology.IsClosedEmbedding g := by
+            have : IsClosed (closure e_i) := isClosed_closure
+            simpa using (Topology.IsClosedEmbedding.subtypeVal this : Topology.IsClosedEmbedding (Subtype.val : closure e_i → X))
+          have g_image : g '' s_dom = e_i := by
+            ext x
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact hw
+            · intro hx
+              refine ⟨⟨x, subset_closure hx⟩, hx, rfl⟩
+          have hz' : g z ∈ closure (g '' s_dom) := by
+            change z.1 ∈ closure (g '' s_dom)
+            rw [g_image]
+            exact z.2
+          have hz'' : g z ∈ g '' closure s_dom := by
+            have hclosure := Topology.IsClosedEmbedding.closure_image_eq ce s_dom
+            simpa [hclosure] using hz'
+          rcases hz'' with ⟨w, hw, hw_eq⟩
+          have : w = z := by
+            apply Subtype.ext
+            simpa [g] using hw_eq
+          simpa [this] using hw
+        have incl_ce_in_closure : ∀ z : closure e_i, incl_ce z ∈ closure s := by
+          intro z
+          have hz : z ∈ closure s_dom := z_in_closure_s_dom z
+          have hclosure : incl_ce '' closure s_dom ⊆ closure (incl_ce '' s_dom) :=
+            image_closure_subset_closure_image incl_ce_cont
+          have : incl_ce z ∈ incl_ce '' closure s_dom := ⟨z, hz, rfl⟩
+          have : incl_ce z ∈ closure (incl_ce '' s_dom) := hclosure this
+          simpa [s_dom_image] using this
+        let incl_ce' : closure e_i → closure s := fun z => ⟨incl_ce z, incl_ce_in_closure z⟩
+        have incl_ce'_cont : Continuous incl_ce' := by
+          exact Continuous.subtype_mk incl_ce_cont (fun z => incl_ce_in_closure z)
+        have preimage_eq'' : incl_ce ⁻¹' B = incl_ce' ⁻¹' (((↑) : closure s → Y_n1) ⁻¹' B) := by
+          ext z
+          simp [incl_ce', Set.mem_preimage]
+        have incl_ce_closed : IsClosed (incl_ce ⁻¹' B) := by
+          rw [preimage_eq'']
+          exact IsClosed.preimage incl_ce'_cont hB_closed
+        exact IsClosed.preimage φ_i'_cont incl_ce_closed
+
+noncomputable instance instCWConstructorCWComplexClass: CWComplexClass X := by
+  refine {
+    closure_finite := ?cf
+    coeherent := ?ch
+  }
+  case cf =>
+    intro s hs
+    rcases exists_skn_contain_cell (CWC := CWC) s hs with ⟨n, hs_sub⟩
+    -- Step 1 done: s ⊆ Fsk n
+    -- Step 2: move to skeleton Y_n and apply closure_finite there
+    let Y_n := CWConstructorSkeleton (CWC := CWC) n
+    let g_n : Y_n → X := (↑)
+    let s_n : Set Y_n := g_n ⁻¹' s
+    have s_n_in_sets : s_n ∈ sub_cell_complex_sets Y_n := by
+      simp [sub_cell_complex_sets, s_n]
+      rw [Set.image_preimage_eq_of_subset]
+      · exact hs
+      · rw [Subtype.range_coe]
+        exact hs_sub
+    rcases (instCWConstructorSkeletonCW (CWC := CWC) n).closure_finite s_n s_n_in_sets with
+      ⟨ss_n, ss_n_sub, ss_n_fin, ss_n_cover⟩
+    -- Step 2 done
+    -- Step 3: push the finite family back to X
+    let ss : Set (Set X) := (fun t : Set Y_n => (Subtype.val : Y_n → X) '' t) '' ss_n
+    use ss
+    constructor
+    · intro t ht
+      rcases (Set.mem_image _ _ _).mp ht with ⟨t', ht', rfl⟩
+      exact ss_n_sub ht'
+    constructor
+    · apply Set.Finite.image
+      exact ss_n_fin
+    -- Step 4: show closure s ⊆ ⋃₀ ss
+    intro x hx
+    have hsub : s ⊆ Set.range g_n := by
+      intro x hx
+      exact ⟨⟨x, hs_sub hx⟩, rfl⟩
+    have s_eq : g_n '' s_n = s := by
+      simpa [s_n] using (Set.image_preimage_eq_of_subset (s:=s) (f:=g_n) hsub)
+    have g_n_closed : Topology.IsClosedEmbedding g_n := by
+      have : IsClosed (CWC.Fsk n) := Fsk_closed n
+      simpa [g_n] using (Topology.IsClosedEmbedding.subtypeVal this :
+        Topology.IsClosedEmbedding (Subtype.val : Y_n → X))
+    have hclosure : closure (g_n '' s_n) = g_n '' closure s_n := by
+      simpa using (Topology.IsClosedEmbedding.closure_image_eq g_n_closed s_n)
+    have hx' : x ∈ closure (g_n '' s_n) := by simpa [s_eq] using hx
+    have hx'' : x ∈ g_n '' closure s_n := by simpa [hclosure] using hx'
+    rcases hx'' with ⟨y, hy, rfl⟩
+    have hy_union : y ∈ ⋃₀ ss_n := ss_n_cover hy
+    rcases Set.mem_sUnion.mp hy_union with ⟨t, ht, hy_t⟩
+    refine Set.mem_sUnion.mpr ?_
+    refine ⟨g_n '' t, ?_, ?_⟩
+    · exact Set.mem_image_of_mem (fun t => (Subtype.val : Y_n → X) '' t) ht
+    · exact ⟨y, hy_t, rfl⟩
+  case ch =>
+    refine coeherent_of_closed_crit_and_cover' ?_ ?_
+    · intro B hB
+      -- Step 1 setup: show IsClosed B from the closed-criterion hypothesis
+      -- Step 2: show B is closed in each skeleton
+      have hsk : ∀ n : ℕ, IsClosed ((Subtype.val : CWC.Fsk n → X) ⁻¹' B) := by
+        intro n
+        let Y_n := CWConstructorSkeleton (CWC := CWC) n
+        -- Use coeherence of the skeleton
+        convert
+          closed_crit_of_coeherent (instCWConstructorSkeletonCW (CWC := CWC) n).coeherent
+            ((Subtype.val : Y_n → X) ⁻¹' B) ?_ using 1
+        · change CWC.Tsk n = instTopologicalSpaceSubtype
+          rw [Tsk_eq_subspace]
+        intro b hb
+        rcases hb with ⟨s, hs, rfl⟩
+        let sX : Set X := (Subtype.val : Y_n → X) '' s
+        have hsX : sX ∈ instCWConstructorCellComplexClass.sets := by
+          simpa [sX, sub_cell_complex_sets] using hs
+        have hB_closed : IsClosed (((↑) : closure sX → X) ⁻¹' B) :=
+          hB (closure sX) ⟨sX, hsX, rfl⟩
+        -- Relate closure s (in Y_n) to closure sX (in X)
+        have g_closed : Topology.IsClosedEmbedding (Subtype.val : Y_n → X) := by
+          have : IsClosed (CWC.Fsk n) := Fsk_closed n
+          simpa using (Topology.IsClosedEmbedding.subtypeVal this :
+            Topology.IsClosedEmbedding (Subtype.val : Y_n → X))
+        have hclosure : closure sX = (Subtype.val : Y_n → X) '' (closure s) := by
+          simpa [sX] using (Topology.IsClosedEmbedding.closure_image_eq g_closed s)
+        have img_in_closure : ∀ z : closure s, (Subtype.val : Y_n → X) z ∈ closure sX := by
+          intro z
+          have : (Subtype.val : Y_n → X) z ∈ (Subtype.val : Y_n → X) '' closure s := ⟨z, z.2, rfl⟩
+          simp [hclosure]
+        let incl' : closure s → closure sX := fun z => ⟨(Subtype.val : Y_n → X) z, img_in_closure z⟩
+        have incl'_cont : Continuous incl' := by
+          have cont1 : Continuous (Subtype.val : closure s → Y_n) := continuous_subtype_val
+          have cont2 : Continuous (Subtype.val : Y_n → X) := continuous_subtype_val
+          exact Continuous.subtype_mk (cont2.comp cont1) (fun z => img_in_closure z)
+        have preimage_eq : ((↑) : closure s → Y_n) ⁻¹' ((Subtype.val : Y_n → X) ⁻¹' B)
+            = incl' ⁻¹' (((↑) : closure sX → X) ⁻¹' B) := by
+          ext z
+          simp [incl', Set.mem_preimage]
+        rw [preimage_eq]
+        exact IsClosed.preimage incl'_cont hB_closed
+      -- Step 3: use skeleton coherence to get IsClosed B
+      have hB_closed : IsClosed B := by
+        apply closed_crit_of_coeherent (Fsk_coeherent (CWC := CWC))
+        intro b hb
+        rcases hb with ⟨n, rfl⟩
+        have hsk' :
+            @IsClosed (CWC.Fsk n) instTopologicalSpaceSubtype
+              ((Subtype.val : CWC.Fsk n → X) ⁻¹' B) := by
+          have : @IsClosed (CWC.Fsk n) (CWC.Tsk n)
+              ((Subtype.val : CWC.Fsk n → X) ⁻¹' B) := by
+            simpa using hsk n
+          simpa [Tsk_eq_subspace n] using this
+        exact hsk'
+      exact hB_closed
+    · -- Cover of closures of cells
+      have cover : ⋃₀ {closure s | s ∈ cell_sets (CWC := CWC)} = Set.univ := by
+        have : ∀ x, ∃ s ∈ cell_sets (CWC := CWC), x ∈ s := by
+          simp [← Set.mem_sUnion, cell_sets_cover (CWC := CWC)]
+        rw [Set.sUnion_eq_univ_iff]
+        intro x
+        rcases this x with ⟨s, hs, hxs⟩
+        refine ⟨closure s, ?_, ?_⟩
+        · exact ⟨s, hs, rfl⟩
+        · exact subset_closure hxs
+      simpa [instCWConstructorCellComplexClass] using cover
+end CWComplexConstructor
 end
 
-section
-variable {X: Type*} {s: Set X}
-#check s.indicator (fun _ ↦ (1:ℝ))
-#check s.indicator_of_mem
-end
+end Chp5

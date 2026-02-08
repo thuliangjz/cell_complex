@@ -164,6 +164,51 @@ theorem cell_boundary_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: Cell
     intro x hx
     apply C.characteristic_map_boundary s (aux hx)
 
+theorem cell_open_in_closure {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (s : C.sets) :
+    IsOpen ((Subtype.val : closure s.val → X) ⁻¹' s.val) := by
+  let f : cb (C.dim_map s) → closure s.val := fun d => ⟨C.characteristic_map s d, by
+    rw [←C.characteristic_map_range s, Set.mem_range]; use d⟩
+  have f_cont : Continuous f := Continuous.subtype_mk (C.characteristic_map_continuous s) (fun x => by
+    rw [←C.characteristic_map_range s, Set.mem_range]; use x)
+  have f_surj : Function.Surjective f := by
+    rintro ⟨x, x_in_ce⟩
+    rw [←C.characteristic_map_range s, Set.mem_range] at x_in_ce
+    rcases x_in_ce with ⟨y, hy⟩
+    use y; exact Subtype.ext hy
+  have f_quotient : Topology.IsQuotientMap f :=
+    IsQuotientMap.of_surjective_continuous f_surj f_cont
+  rw [←Topology.IsQuotientMap.isOpen_preimage f_quotient]
+  rw [Set.preimage_preimage, characteristic_map_cell_preimage s]
+  exact cb_inner_open
+
+theorem cell_boundary_closed {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (s : C.sets) :
+    IsClosed (closure s.val \ s.val) := by
+  have s_open_in_ce : IsOpen ((Subtype.val : closure s.val → X) ⁻¹' s.val) := cell_open_in_closure s
+  have ce_closed : IsClosed (closure s.val) := isClosed_closure
+  rcases isOpen_induced_iff.mp s_open_in_ce with ⟨U, hU_open, hU_eq⟩
+  have : (closure s.val \ s.val) = closure s.val ∩ Uᶜ := by
+    ext x
+    simp only [Set.mem_diff, Set.mem_inter_iff, Set.mem_compl_iff]
+    constructor
+    · intro ⟨hx_ce, hx_not_s⟩; constructor; exact hx_ce
+      intro hx_u
+      have key : ⟨x, hx_ce⟩ ∈ (Subtype.val : closure s.val → X) ⁻¹' s.val := by
+        rw [← hU_eq]; exact Set.mem_preimage.mpr hx_u
+      have h : (Subtype.val : closure s.val → X) ⟨x, hx_ce⟩ ∈ s.val := Set.mem_preimage.mp key
+      exact hx_not_s (by rwa [show (Subtype.val : closure s.val → X) ⟨x, hx_ce⟩ = x from rfl] at h)
+    · intro ⟨hx_ce, hx_u⟩; constructor; exact hx_ce
+      intro hx_s
+      have key : ⟨x, hx_ce⟩ ∈ (Subtype.val : closure s.val → X) ⁻¹' U := by
+        rw [hU_eq]; exact Set.mem_preimage.mpr hx_s
+      have h : (Subtype.val : closure s.val → X) ⟨x, hx_ce⟩ ∈ U := Set.mem_preimage.mp key
+      exact hx_u (by rwa [show (Subtype.val : closure s.val → X) ⟨x, hx_ce⟩ = x from rfl] at h)
+  rw [this]
+  exact IsClosed.inter ce_closed hU_open.isClosed_compl
+
+theorem cell_boundary_compact {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (s : C.sets) :
+    IsCompact (closure s.val \ s.val) :=
+  IsCompact.of_isClosed_subset (cell_compact s.val s.2) (cell_boundary_closed s) (@Set.diff_subset X (closure s.val) s.val)
+
 section
 variable {X: Type*} [TopologicalSpace X] [T2Space X] [C:CellComplexClass X]
 theorem exists_mem_of_cell : ∀ x: X, ∃ e ∈ C.sets, x ∈ e := by
@@ -366,33 +411,8 @@ theorem open_cell_of_finite_dim {X: Type*} [TopologicalSpace X] [T2Space X] [C: 
     rcases hce with ⟨e, he_in_sets, h₀⟩
     cases eq_or_ne e₀.val e
     case inl he_eq_e₀ =>
-        set n := C.dim_map ⟨e, he_in_sets⟩ with n_def
-        set f0 := C.characteristic_map ⟨e, he_in_sets⟩ with f0_def
-        have : ∀ y : cb n, f0 y ∈ ce := by
-            intro y
-            rw [←h₀, ←characteristic_map_range ⟨e, he_in_sets⟩, ←f0_def]
-            use y
-        let f1 : cb n → ce := fun y ↦ ⟨f0 y, this y⟩
-        let g : ce → X := Subtype.val
-        show IsOpen (g ⁻¹' e₀)
-        have gf_eq_char: g ∘ f1 = C.characteristic_map ⟨e, he_in_sets⟩ := by
-                ext x
-                simp [g, f1, f0]
-        have f1_quot: IsQuotientMap f1 := by
-            have inj_g: Function.Injective g := Subtype.val_injective
-            have embd_g: IsEmbedding g := by exact Topology.IsEmbedding.subtypeVal
-            have f1_surj: Function.Surjective f1 := by
-                apply aux_surjective_of_range_eq inj_g
-                rw [gf_eq_char, characteristic_map_range]
-                simp [g, h₀]
-            apply  IsQuotientMap.of_surjective_continuous f1_surj
-            apply (IsEmbedding.continuous_iff embd_g).mpr
-            rw [gf_eq_char]
-            apply characteristic_map_continuous
-        have : (g ∘ f1) ⁻¹' e = cb_inner := by rw [gf_eq_char]; apply characteristic_map_cell_preimage
-        rw [Set.preimage_comp, ←he_eq_e₀] at this
-        rw [←f1_quot.isOpen_preimage, this]
-        exact cb_inner_open
+        rw [←h₀, ←he_eq_e₀]
+        exact cell_open_in_closure e₀
     case inr he_ne_e₀ =>
         have e₀_inter_e_empty: e₀.val ∩ e = ∅ := by
             apply Disjoint.inter_eq
@@ -529,6 +549,14 @@ def sub_cell_complex_set_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: C
     rw [this]
     simp
     tauto
+
+theorem sub_cell_complex_closure_cover {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (Y: SubCellComplex X) :
+  ⋃₀ {closure s | s ∈ sub_cell_complex_sets Y} = Set.univ := by
+  rw [Set.sUnion_eq_univ_iff]
+  intro x
+  have : x ∈ ⋃₀ sub_cell_complex_sets Y := by rw [sub_cell_complex_set_cover Y]; exact Set.mem_univ x
+  rcases this with ⟨s, hs, hx⟩
+  exact ⟨closure s, ⟨s, hs, rfl⟩, subset_closure hx⟩
 
 def sub_cell_complex_characteristic_g {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] (Y: SubCellComplex X) (s: sub_cell_complex_sets Y): cb (sub_cell_complex_dim_map Y s) → closure (((↑): Y → X) '' s.1) := by
     set s' := ((↑): Y → X) '' s.1
