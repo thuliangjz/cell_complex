@@ -1,6 +1,7 @@
 import STCC.TopologicalProperties
 import Mathlib.Order.WellFounded
 import Mathlib.Topology.UrysohnsLemma
+import Mathlib.Tactic.Cases
 
 open BigOperators
 namespace Chp5
@@ -682,8 +683,7 @@ theorem Fsk_coeherent: IsCoeherent (Set.range CWC.Fsk) := by
     intro hs
     exact fun a ↦ IsOpen.preimage_val hs
   case mpr =>
-    intro hs
-    intro n
+    intro hs n
     have: @IsOpen _ (CWC.Tsk n) (((↑): CWC.Fsk n → X) ⁻¹' s) ↔ @IsOpen _ (instTopologicalSpaceSubtype) (((↑): CWC.Fsk n → X) ⁻¹' s) := by
       exact Eq.to_iff (congrFun (congrArg (@IsOpen (CWC.Fsk n)) (Tsk_eq_subspace n)) (((↑): CWC.Fsk n → X) ⁻¹' s))
     rw [this]
@@ -814,8 +814,7 @@ lemma cell0_sub_Fsk0: ∀ e ∈ cell_of_dim0, e ⊆ CWC.Fsk 0 := by
   exact Set.singleton_subset_iff.mpr x_in_cd0
 
 lemma cell_n_in_Fsk_np1: ∀ n:ℕ, ∀ i:(CWC.Fι n), (Set.range (cell_define_map n i)) ⊆ CWC.Fsk (n + 1) := by
-  intro n i
-  intro x hx
+  intro n i x hx
   simp [cell_define_map] at hx
   rcases hx with ⟨u, hu, u_maps_to_x⟩
   rw [pre_characteristic_map] at u_maps_to_x
@@ -1307,8 +1306,7 @@ lemma indices_to_cb_to_X_inj_on_dimn_cells {n: ℕ} {i: CWC.Fι n} {u₁ u₂: c
   simpa using heq
 
 lemma characteristic_map_inj_on_inner: ∀ e:(cell_sets (CWC := CWC)), Function.Injective (cb_inner_map (characteristic_map e)) := by
-  intro e
-  intro u₁ u₂ h_img_eq
+  intro e u₁ u₂ h_img_eq
   simp only [cb_inner_map, characteristic_map] at h_img_eq
   let f := (congrArg (fun n ↦ (cb n: Type)) (dim_map_indices_to_nat_comm e).symm).mp
   have f_inj: Function.Injective f := cb_cast_mp_inj (dim_map_indices_to_nat_comm e).symm
@@ -1530,7 +1528,6 @@ lemma skn_sub_cell_iunion (n: ℕ): CWC.Fsk n ⊆ ⋃ p:cell_sets, ⋃ _: (dim_m
       constructor
       . use cell_define_map_range_in_sets n i
         rw [dim_map_cell_n_is_np1]
-        linarith
       . exact x_in_cell_ni
 
 theorem characteristic_map_boundary: ∀ e:(cell_sets (CWC := CWC)), Set.range (cb_boundary_map (characteristic_map e)) ⊆ ⋃ p:cell_sets, ⋃ _:(dim_map p < dim_map e), p.1 := by
@@ -1889,7 +1886,7 @@ lemma quotient_mk_direct_sum_preimage_zero_eq_left_adj_proj_preimage {n: ℕ} (f
       simp [left_adj_proj, adj_proj]
     · use CWC.Ff n ⟨⟨i, z⟩, hz_boundary⟩, hz
       simp [left_adj_proj, adj_proj]
-      simp [glue_setoid]
+      apply Quotient.sound
       apply Relation.EqvGen.rel
       exact ⟨⟨⟨i, z⟩, hz_boundary⟩, rfl, rfl⟩
   case mpr =>
@@ -1902,7 +1899,6 @@ lemma quotient_mk_direct_sum_preimage_zero_eq_left_adj_proj_preimage {n: ℕ} (f
     · simp [direct_sum_to_R_extension]
       convert hy using 1
     · simp [glue_setoid]
-      apply Relation.EqvGen.refl
 
 noncomputable def pid_to_sk_chain_to_R (p: point_indices (CWC := CWC)) : (n: ℕ) → CWC.Fsk (pid_to_nat p + n) → ℝ := fun n ↦ match n with
 | 0 => pid_to_sk_to_R p
@@ -1939,7 +1935,7 @@ lemma pid_to_sk_chain_to_R_nonneg (p: point_indices (CWC := CWC)): ∀ m x, 0 �
         split_ifs with h_i
         · norm_num
         · rcases eq_or_ne z.1 (b_to_cb xn).1 with heq | hne
-          · rw [Subtype.eq heq]; unfold sep_fun b_to_cb; simp
+          · rw [Subtype.ext heq]; unfold sep_fun b_to_cb; simp
           · rw [sep_fun, if_neg hne]
             have hp : (b_to_cb xn).1 ∈ interior (cb (n + 1)) := by
               simp only [cb]; rw [interior_closedBall' 0 1]; exact xn.2

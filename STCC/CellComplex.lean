@@ -98,7 +98,7 @@ theorem cell_closure_connected : ∀ s ∈ C.sets, IsConnected (closure s) := by
     rw [←Set.image_univ]
     apply IsConnected.image
     case H => exact isConnected_univ
-    case hf => exact continuous_iff_continuousOn_univ.mp (characteristic_map_continuous ⟨s, hs⟩)
+    case hf => exact (characteristic_map_continuous ⟨s, hs⟩).continuousOn
 theorem cell_closure_path_connected: ∀ s ∈ C.sets, IsPathConnected (closure s) := by
     intro s hs
     rw [←characteristic_map_range ⟨s, hs⟩]
@@ -259,8 +259,7 @@ instance cw_of_locally_finite {X: Type*} [TopologicalSpace X] [T2Space X] [C: Ce
                 tauto
             choose fv h_x_in_v h_v_open fss h_ss_all_cell h_ss_finite h_v_in_ss_union using this
             have fv_cover: ∀ t: Set X, t ⊆ ⋃ i, fv i:= by
-                intro t
-                intro x xt
+                intro t x xt
                 rw [Set.mem_iUnion]
                 use x, h_x_in_v x
             have : IsCompact (closure s) := by apply C.cell_compact s hs
@@ -769,6 +768,10 @@ lemma aux_closed_in_subspace_of_sub_complex_coeherent {X: Type*} [TopologicalSpa
             exact ⟨y.1, this⟩
         left_inv := fun x ↦ rfl
         right_inv := fun x ↦ rfl
+        continuous_toFun := ψ_cont
+        continuous_invFun := by
+            apply Continuous.subtype_mk
+            exact continuous_subtype_val.comp continuous_subtype_val
     }
     set η : closure e0' → Y := (↑) with η_def
     specialize hs (closure e0') (by use e0', e0'_in_sets)
@@ -859,7 +862,7 @@ instance cw_sub_cell_complex {X: Type*} [TopologicalSpace X] [T2Space X] [C: Cel
         let g: Y → X := (↑)
         let s' := g '' s
         have aux_carrier_eq : Y.carrier = g '' Set.univ := by simp [g]; rfl
-        have hs'_in_Y : s' ⊆ Y.carrier := by rw [aux_carrier_eq];apply Set.image_subset;apply Set.subset_univ
+        have hs'_in_Y : s' ⊆ Y.carrier := by rw [aux_carrier_eq];apply Set.image_mono;apply Set.subset_univ
         have hcs'_in_Y: closure s' ⊆ Y.carrier := by exact Y.cell_closure_incl s' hs hs'_in_Y
         have hs'_in_sets: s' ∈ C.sets := by simpa using hs
         rcases CW.closure_finite s' hs'_in_sets with ⟨ss', hss'_sub_sets, hss'_finite, hss'_incl_closure⟩
@@ -1247,7 +1250,7 @@ theorem skeleton0_discrete [CWComplexClass X]: DiscreteTopology (Skeleton X 0) :
             rw [cell_singleton_of_dim0]
             use x
         linarith
-    rw [←singletons_open_iff_discrete]
+    rw [discreteTopology_iff_isOpen_singleton]
     exact singleton_open
 theorem closed_of_cell_empty_or_full_intersection [CWComplexClass X] (s: Set X) (hs: ∀ e ∈ C.sets, closure e ∩ s = ∅ ∨ closure e ∩ s = closure e) : IsClosed s := by
     apply closed_crit_of_coeherent CWComplexClass.coeherent
@@ -1381,8 +1384,7 @@ theorem is_closed_iff_is_closed_in_ce_less_than_dim [CW:CWComplexClass X] {n: �
     have g_closed_embedding: IsClosedEmbedding g := IsClosed.isClosedEmbedding_subtypeVal (sub_cw_cell_complex_closed _)
     refine Iff.intro ?mp ?mpr
     case mp =>
-        intro S_closed_in_Xn
-        intro e h_e_dim
+        intro S_closed_in_Xn e h_e_dim
         exact IsClosed.inter isClosed_closure ((Topology.IsClosedEmbedding.isClosed_iff_image_isClosed g_closed_embedding).mp S_closed_in_Xn)
     case mpr =>
         intro h

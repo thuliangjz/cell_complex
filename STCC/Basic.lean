@@ -2,7 +2,15 @@ import Mathlib.Topology.Defs.Induced
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Topology.Constructions
-import Mathlib.Analysis.NormedSpace.Connected
+import Mathlib.Algebra.Order.Algebra
+import Mathlib.Algebra.Order.Field.Power
+import Mathlib.Analysis.Normed.Group.Basic
+import Mathlib.Data.EReal.Inv
+import Mathlib.Topology.Algebra.InfiniteSum.Order
+import Mathlib.Topology.MetricSpace.Bounded
+import Mathlib.Analysis.Normed.Module.Connected
+import Mathlib.Analysis.Convex.Contractible
+import Mathlib.Topology.Homotopy.Contractible
 
 namespace Chp5
 def b := fun n ↦ Metric.ball (0: EuclideanSpace ℝ (Fin n)) 1
@@ -19,13 +27,12 @@ instance cb_compact {n : ℕ} : CompactSpace (cb n) := by
     exact isCompact_iff_compactSpace.mp (isCompact_closedBall _ _)
 instance sph_connected {n : ℕ} (hn: 1 < n) : ConnectedSpace (sph n) := by
     apply isConnected_iff_connectedSpace.mp
-    apply isConnected_sphere
-    case h =>
-        have : Module.rank ℝ (EuclideanSpace ℝ (Fin n)) = n := by apply rank_fin_fun
-        rw [this]
-        exact Nat.one_lt_cast.mpr hn
-    case hr=>
-        norm_num
+    refine isConnected_sphere ?_ (0: EuclideanSpace ℝ (Fin n)) (r := 1) ?_
+    · have : Module.rank ℝ (EuclideanSpace ℝ (Fin n)) = n := by
+        show Module.rank ℝ (WithLp 2 (Fin n → ℝ)) = n
+        exact (WithLp.linearEquiv 2 ℝ (Fin n → ℝ)).rank_eq.trans (rank_fin_fun n)
+      simpa [this] using (Nat.one_lt_cast.mpr hn)
+    · norm_num
 theorem sph_nonempty {n : ℕ} (hn: 1 ≤ n) : (sph n).Nonempty := by
     have : Nontrivial (EuclideanSpace ℝ (Fin n)) := by
         rw [nontrivial_iff]
@@ -52,7 +59,8 @@ theorem cb_contractible {n : ℕ} : ContractibleSpace (cb n) := by
     rw [cb, Metric.mem_closedBall]
     norm_num
 theorem cb_path_connected {n : ℕ} : PathConnectedSpace (cb n) := by
-    exact @ContractibleSpace.instPathConnectedSpace _ _ (cb_contractible)
+    let _inst : ContractibleSpace (cb n) := cb_contractible
+    infer_instance
 theorem b_in_cb {n : ℕ}: b n ⊆ cb n := by
     intro x
     rw [b, cb, Metric.mem_ball, Metric.mem_closedBall]
@@ -212,7 +220,7 @@ theorem cb_boundary_connected {n: ℕ} (hn: 1 < n) : IsConnected (@cb_boundary n
         refine connectedSpace_iff_univ.mp ?_
         exact sph_connected hn
     case hf =>
-        refine continuous_iff_continuousOn_univ.mp ?_
+        refine (continuousOn_univ.mpr ?_)
         exact Isometry.continuous fun x1 ↦ congrFun rfl
 
 theorem cb_decomp {n: ℕ} {x: cb n} : x ∈ cb_inner ∨ x ∈ cb_boundary := by
@@ -352,7 +360,7 @@ end
 section
 variable {n: ℕ}
 
-def f_ray (p x: EuclideanSpace ℝ (Fin n)): ℝ → (EuclideanSpace ℝ (Fin n)) := fun t ↦ p + t • (x - p)
+noncomputable def f_ray (p x: EuclideanSpace ℝ (Fin n)): ℝ → (EuclideanSpace ℝ (Fin n)) := fun t ↦ p + t • (x - p)
 
 def seg_inside (p x: EuclideanSpace ℝ (Fin n)) (A: Set (EuclideanSpace ℝ (Fin n))): Set ℝ := (f_ray p x) ⁻¹' A
 
@@ -415,9 +423,9 @@ lemma f_ray_interior_of_interior_endpoint {p x: EuclideanSpace ℝ (Fin n)} {A: 
           field_simp
         _ = ‖(1 / (1 - t)) • (y - (f_ray p x t))‖ := by congr! 1; module
         _ < δ := by
-          rw [norm_smul]
-          field_simp
-          rw [abs_of_pos one_minus_t_gt_zero, (div_lt_iff₀' one_minus_t_gt_zero)]
+          rw [norm_smul, norm_div, norm_one,
+              Real.norm_eq_abs, abs_of_pos one_minus_t_gt_zero,
+              div_mul_eq_mul_div, one_mul, div_lt_iff₀' one_minus_t_gt_zero]
           rw [Metric.mem_ball] at hy
           exact hy
     have y_eq_combination: y = t • x + (1 - t) • y' := by
@@ -487,7 +495,7 @@ lemma seg_inside_sup_pos_of_interior (p x: EuclideanSpace ℝ (Fin n)) (A: Set (
       |d| * ‖x - p‖ = |(δ / (2 * ‖x - p‖))| * ‖x - p‖ := rfl
       _ = |δ| / |2 * ‖x - p‖| * ‖x - p‖ := by rw[abs_div]
       _ = |δ| / (2 * ‖x - p‖) * ‖x - p‖ := by rw [abs_mul]; simp
-      _ = |δ| / 2 := by have: ‖x - p‖ ≠ 0 := ne_of_gt (dist_pos.mpr hxp); field_simp; ring
+      _ = |δ| / 2 := by have: ‖x - p‖ ≠ 0 := ne_of_gt (dist_pos.mpr hxp); field_simp
       _ < δ := by rw [abs_of_pos δpos]; exact div_two_lt_of_pos δpos
   apply lt_of_lt_of_le (b := d)
   . exact dpos
@@ -614,8 +622,13 @@ lemma inv_cont_at_non_zero {x: ℝ} (hx: x ≠ 0): ContinuousAt (fun r:ℝ ↦ 1
   calc
     |x - y| < δ := by rw [abs_sub_comm]; exact hy
     _ ≤ (|x| * |x| * ε / 2) := by apply min_le_left
-    _ = ε * (|x| * |x| / 2) := by field_simp; ring
-    _ < ε * |y * x| := by rw [mul_lt_mul_left εpos, abs_mul, mul_comm |y| |x|, mul_div_assoc, mul_lt_mul_left abs_x_pos]; exact abs_y_gt_half_abs_x
+    _ = ε * (|x| * |x| / 2) := by field_simp
+    _ < ε * |y * x| := by
+      rw [abs_mul, mul_comm |y| |x|]
+      apply mul_lt_mul_of_pos_left _ εpos
+      calc
+        |x| * |x| / 2 = |x| * (|x| / 2) := by ring
+        _ < |x| * |y| := by exact mul_lt_mul_of_pos_left abs_y_gt_half_abs_x abs_x_pos
 
 lemma f_ray_interior_of_interior_endpoint' {p x: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (hp: p ∈ interior A) (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hx: x ≠ p): ∀ t ∈ Set.Ico (0:ℝ) (sSup (seg_inside p x A)), f_ray p x t ∈ interior A := by
   intro t ht
@@ -636,8 +649,8 @@ lemma f_ray_interior_of_interior_endpoint' {p x: EuclideanSpace ℝ (Fin n)} {A:
   rw [Set.mem_Ico]
   constructor
   . trans 0 / t'
-    . field_simp
-    exact (div_le_div_iff_of_pos_right t'_gt_0 (a := 0) (b := t)).mpr ht₀
+    . simp
+    . exact (div_le_div_iff_of_pos_right t'_gt_0 (a := 0) (b := t)).mpr ht₀
   . exact Bound.div_lt_one_of_pos_of_lt t'_gt_0 t_lt_t'
 
 lemma seg_inside_sup_left_cont {p x : EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ (Fin n))} (h_A_convex: Convex ℝ A) (h_A_compact: IsCompact A) (hp: p ∈ interior A) (hx: x ≠ p): ∀ ε > 0, ∃ δ > 0, ∀ y, dist y x < δ → (sSup (seg_inside p y A)) > (sSup (seg_inside p x A)) - ε := by
@@ -704,7 +717,7 @@ lemma f_ray_seg_inside_sup_inside {p x: EuclideanSpace ℝ (Fin n)} {A: Set (Euc
     apply interior_subset (s := A)
     exact (f_ray_interior_of_interior_endpoint' hp h_A_convex h_A_compact hxp) t ht
   . contrapose! hsup
-    simp [Filter.frequently_iff] at hsup
+    rw [Filter.eventually_iff_exists_mem] at hsup
     rcases hsup with ⟨U, U_nhds, hU⟩
     rw [Metric.nhds_basis_ball.mem_iff] at U_nhds
     rcases U_nhds with ⟨d, dpos, hd⟩
@@ -802,7 +815,10 @@ theorem sep_fun_cont {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace ℝ
         let t := sSup (seg_inside p x' A)
         have t_pos : t > 0 := seg_inside_sup_pos p x' A h_A_compact x'_ne_p x'_in_A
         rw [abs_of_pos t_pos]
-        have h_le: t⁻¹ ≤ d⁻¹ * ‖x' - p‖ := (le_inv_mul_iff₀' d_pos).mpr ((mul_inv_le_iff₀' t_pos).mpr (hd _ x'_in_A x'_ne_p))
+        have h_le: t⁻¹ ≤ d⁻¹ * ‖x' - p‖ := by
+          rw [le_inv_mul_iff₀' d_pos]
+          rw [mul_comm]
+          exact (mul_inv_le_iff₀' t_pos).mpr (hd _ x'_in_A x'_ne_p)
         apply lt_of_le_of_lt (b:= d⁻¹ * ‖x' - p‖) h_le
         have norm_lt: ‖x' - p‖ < d * ε := lt_of_lt_of_le hx' (min_le_right δ' (d * ε))
         apply lt_of_lt_of_eq (b := d ⁻¹ * (d * ε))
@@ -876,9 +892,9 @@ theorem sep_fun_lt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
     rcases eq_or_ne x p with x_eq_p | x_ne_p
     . simp [sep_fun, x_eq_p]
     . simp [sep_fun, x_ne_p]
-      have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
+      have hpos: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
       field_simp
-      refine Bound.div_lt_one_of_pos_of_lt this ?_
+      -- after field_simp, goal is 1 < sSup (seg_inside p x A)
       rcases Metric.mem_nhds_iff.mp (IsOpen.mem_nhds isOpen_interior x_in_interior) with ⟨d, dpos, hd⟩
       let t := (dist x p + d / 2) / (dist x p)
       have t_gt_1: t > 1 := by
@@ -898,7 +914,9 @@ theorem sep_fun_lt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
         calc
           ‖(p + ((‖x - p‖ + d / 2) / ‖x - p‖) • (x - p)) - x‖ = ‖((‖x - p‖ + d / 2) / ‖x - p‖ - 1) • (x - p)‖ := by congr! 1; module
           _ = ‖((d / 2) / ‖x - p‖) • (x - p)‖ := by congr! 2;field_simp;ring
-          _ = |d| / 2 := by rw [norm_smul]; field_simp; ring
+          _ = |d| / 2 := by
+            rw [norm_smul, Real.norm_eq_abs, abs_div, abs_norm]
+            rw [div_mul_cancel₀ _ aux_norm_diff_ne_0, abs_div, abs_two]
           _ < d := by rw [abs_of_pos dpos]; linarith
       have: t ≤ sSup (seg_inside p x A) := le_csSup (seg_inside_bdd p x A h_A_compact x_ne_p) ray_t_inside
       linarith
@@ -928,9 +946,9 @@ theorem sep_fun_gt_1_iff {p: EuclideanSpace ℝ (Fin n)} {A: Set (EuclideanSpace
       rw [x_not_in_A]
       exact hp
     simp [sep_fun, x_ne_p]
-    have: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
+    have hpos: sSup (seg_inside p x A) > 0 := seg_inside_sup_pos_of_interior p x A h_A_compact x_ne_p hp
     field_simp
-    apply Bound.one_lt_div_of_pos_of_lt this
+    -- after field_simp, goal is sSup (seg_inside p x A) < 1
     apply seg_inside_sup_of_not_inside h_A_compact h_A_convex x_ne_p hp ?_ (by linarith)
     simp [f_ray]
     exact x_not_in_A
@@ -1016,11 +1034,13 @@ lemma pre_proj_to_sph_cont_at_nonzero {n: ℕ} (hn: 1 ≤ n) (x: EuclideanSpace 
     ‖(‖y‖⁻¹ • y) - (‖x‖⁻¹ • x)‖ = ‖(‖y‖⁻¹ - ‖x‖⁻¹) • y + ‖x‖⁻¹ • (y - x)‖ := by congr! 1; module
     _ ≤ ‖(‖y‖⁻¹ - ‖x‖⁻¹) • y‖ + ‖‖x‖⁻¹ • (y - x)‖ := by apply norm_add_le
     _ ≤ |‖y‖⁻¹ - ‖x‖⁻¹| * ‖y‖ + ‖x‖⁻¹ * ‖y - x‖ := by simp [norm_smul]
-    _ = |(‖x‖ - ‖y‖) / (‖x‖)| + ‖x‖⁻¹ * ‖y - x‖ := by congr; rw [←abs_of_pos y_norm_pos, ←abs_mul]; congr! 1; field_simp; ring;
+    _ = |(‖x‖ - ‖y‖) / (‖x‖)| + ‖x‖⁻¹ * ‖y - x‖ := by
+        congr 1; rw [←abs_of_pos y_norm_pos, ←abs_mul]; congr 1
+        rw [abs_of_pos y_norm_pos]; field_simp
     _ = |‖x‖ - ‖y‖| / ‖x‖ + ‖x‖⁻¹ * ‖y - x‖ := by congr; rw [abs_div];congr; exact abs_norm x
     _ ≤ ‖x - y‖ / ‖x‖ + ‖x‖⁻¹ * ‖y - x‖ := by suffices |‖x‖ - ‖y‖| / ‖x‖ ≤ ‖x - y‖ / ‖x‖ by linarith;;rw [div_le_div_iff_of_pos_right x_norm_pos]; exact abs_norm_sub_norm_le x y
     _ = 2 * ‖y - x‖ / ‖x‖ := by rw [norm_sub_rev x y]; field_simp; ring
-    _ < 2 * δ / ‖x‖ := by refine div_lt_div_of_pos_right ?_ x_norm_pos; refine (mul_lt_mul_left (by norm_num)).mpr hy
+    _ < 2 * δ / ‖x‖ := by refine div_lt_div_of_pos_right ?_ x_norm_pos; exact mul_lt_mul_of_pos_left hy (by norm_num)
     _ ≤ 2 * (‖x‖ * ε / 2) / ‖x‖ := by refine (div_le_div_iff_of_pos_right x_norm_pos).mpr ?_; refine (mul_le_mul_iff_of_pos_left (by norm_num)).mpr (by apply min_le_left)
     _ = ε := by field_simp
 
@@ -1042,15 +1062,13 @@ theorem cb_extension_global_continuous {n: ℕ} (hn: 1 ≤ n) (f: sph n → ℝ)
       intro ε εpos
       let f_abs: sph n → ℝ := fun x ↦ |f x|
       have f_abs_cont: Continuous f_abs := by continuity
-      rcases (isCompact_iff_isCompact_univ.mp (isCompact_sphere 0 1)).bddAbove_image (continuous_iff_continuousOn_univ.mp f_abs_cont) with ⟨s₀, hs₀⟩
+      rcases (isCompact_iff_isCompact_univ.mp (isCompact_sphere 0 1)).bddAbove_image (continuousOn_univ.mpr f_abs_cont) with ⟨s₀, hs₀⟩
       let s := max s₀ 1
       have spos: s > 0 := by apply lt_max_of_lt_right; norm_num
       have hs: ∀ y, |f y| ≤ s := by
         intro y
-        trans s₀
-        . have : |f y| ∈ f_abs '' Set.univ := by use y, (by trivial)
-          exact hs₀ this
-        . exact le_max_left s₀ 1
+        have : |f y| ∈ f_abs '' Set.univ := by use y, (by trivial)
+        exact le_trans (hs₀ this) (le_max_left s₀ 1)
       let δ := ε / s
       have δpos: δ > 0 := div_pos εpos spos
       use δ, δpos
@@ -1556,7 +1574,7 @@ theorem left_adj_proj_closed_map (hA: IsClosed A) (hf: Continuous f): IsClosedMa
                 simp
                 simp[adj_proj] at hy
                 rcases hy with ⟨x, x_in_B, hxy⟩
-                rcases glue_rel_equiv_explicit A f (Sum.inl x) (Sum.inr y) hxy with c0 | c1 | c2 | c3 | c4
+                rcases glue_rel_equiv_explicit A f (Sum.inl x) (Sum.inr y) (Quotient.exact hxy) with c0 | c1 | c2 | c3 | c4
                 . rcases c0 with ⟨x₀, hx₀, hxy'⟩
                   contradiction
                 . rcases c1 with ⟨x₀, y₀, y₀', heq1, heq2, heq3, heq4⟩
@@ -1577,8 +1595,7 @@ theorem left_adj_proj_closed_map (hA: IsClosed A) (hf: Continuous f): IsClosedMa
                 simp
                 use (f y'), fy'_in_B
                 simp [adj_proj, glue_setoid]
-                apply Relation.EqvGen.rel
-                use y'
+                exact Quotient.sound (Relation.EqvGen.rel _ _ ⟨y', rfl, rfl⟩)
         rw [this]
         exact IsClosed.trans (IsClosed.preimage hf BClosed) hA
 
@@ -1698,7 +1715,7 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_ran
   rcases goal with ⟨w, ⟨x, h_xw⟩, ⟨y, h_yw⟩⟩
   have hxy: left_adj_proj A f x = right_adj_proj A f y := by rw [h_xw, h_yw]
   simp [left_adj_proj, right_adj_proj, adj_proj, glue_setoid] at hxy
-  rcases glue_rel_equiv_explicit A f (Sum.inl x) (Sum.inr y.1) hxy with c1 | c2 | c3 | c4 | c5
+  rcases glue_rel_equiv_explicit A f (Sum.inl x) (Sum.inr y.1) (Quotient.exact hxy) with c1 | c2 | c3 | c4 | c5
   . rcases c1 with ⟨x', h1, h2⟩
     contradiction
   . rcases c2 with ⟨x', y₀, y', heq1, heq2, y₀_is_y', heq4⟩
@@ -1727,8 +1744,7 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_adj_right_adj_cov
     . left
       use f ⟨y, y_in_A ⟩
       simp [left_adj_proj, adj_proj, glue_setoid]
-      apply Relation.EqvGen.rel
-      use ⟨y, y_in_A⟩
+      exact Quotient.sound (Relation.EqvGen.rel _ _ ⟨⟨y, y_in_A⟩, rfl, rfl⟩)
     . right
       use y, y_not_in_A
       simp [right_adj_proj, adj_proj]
@@ -1761,8 +1777,7 @@ omit [TopologicalSpace X] [TopologicalSpace Y] in theorem left_range_cover_glue_
   rintro z ⟨y, y_in_A, rfl⟩
   use f ⟨y, y_in_A⟩
   simp [left_adj_proj, adj_proj, glue_setoid]
-  apply Relation.EqvGen.rel
-  use ⟨y, y_in_A⟩
+  exact Quotient.sound (Relation.EqvGen.rel _ _ ⟨⟨y, y_in_A⟩, rfl, rfl⟩)
 
 instance instNonemptyAdjointSpaceOfNonemptyLeft [Nx: Nonempty X]: Nonempty (AdjointSpace A f) := by
   rcases Nx with ⟨x⟩
@@ -1847,41 +1862,3 @@ theorem quotient_of_saturate_closed_image_closed {X Y: Type*} [TopologicalSpace 
       exact h_closed_img_closed t Set.preimage_image_preimage h_inv_closed
 end
 end Chp5
-
-
-example : (∀ p : (ℕ → Prop), (p 0 ∧ (∀ n: ℕ, (∀ m : ℕ, m ≤ n → p m) → p (n + 1))) → ∀ n, p n) ↔ (∀ p : (ℕ → Prop), (p 0 ∧ (∀ n: ℕ, p n → p (n + 1))) → ∀ n, p n) := by
-    constructor
-    case mp =>
-        intro l
-        rintro p ⟨hp0, hp⟩
-        apply l
-        use hp0
-        intro n hn
-        apply hp
-        apply hn
-        exact Nat.le_refl n
-    case mpr =>
-        intro r
-        rintro p ⟨hp0, hp⟩
-        have : ∀ n, (∀ m, m ≤ n → p m) := by
-            apply r
-            constructor
-            case a.left =>
-                intro m hm
-                have : m = 0 := Nat.eq_zero_of_le_zero hm
-                rw [this]
-                exact hp0
-            case a.right =>
-                intro n hn
-                intro m hm
-                have : m ≤ n ∨ m = n + 1 := Nat.le_or_eq_of_le_succ hm
-                match this with
-                | Or.inl hm_le_n =>
-                    apply hn _ hm_le_n
-                | Or.inr hm_eq_np1 =>
-                    rw [hm_eq_np1]
-                    apply hp
-                    exact hn
-        apply r
-        use hp0
-        exact fun n a ↦ hp n (this n)
