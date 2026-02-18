@@ -197,7 +197,7 @@ theorem exists_cb_pou_on_cell
       pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩,
      ⟨⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
        pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩, rfl⟩⟩
-  let collar_of' (A : Set (@cb_boundary (n + 1))) (ε : ℝ) : Set (cb (n + 1)) :=
+  let collar_of (A : Set (@cb_boundary (n + 1))) (ε : ℝ) : Set (cb (n + 1)) :=
     {x |
       radial_proj x ∈ A ∧
       (1 - ε : ℝ) < ‖x.1‖ ∧ ‖x.1‖ ≤ 1}
@@ -208,7 +208,7 @@ theorem exists_cb_pou_on_cell
   have h_exists_uniform_epsilon :
       ∀ t : Finset α, (∀ a, a ∉ t → boundary_pullback a = 0) →
         ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧
-          ∀ a, collar_of' (tsupport (boundary_pullback a)) ε ⊆
+          ∀ a, closure (collar_of (tsupport (boundary_pullback a)) ε) ⊆
             (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
     intro t ht
     have h_boundary_pullback_subordinate: ∀ a, (↑) '' tsupport (boundary_pullback a) ⊆ ((characteristic_cn (n + 1) γ) ⁻¹' (s a)) := by
@@ -236,9 +236,10 @@ theorem exists_cb_pou_on_cell
         (closure_mono h_support).trans (hg_cont.closure_preimage_subset _)
       rintro y ⟨z, hz_mem, rfl⟩
       exact pou_n.subordinate a (h_tsupport_sub hz_mem)
-    have h_boundary_pullback_thicken_subset: ∀ a, ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧ collar_of' (tsupport (boundary_pullback a)) ε ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+    have h_boundary_pullback_thicken_subset: ∀ a, ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧
+        closure (collar_of (tsupport (boundary_pullback a)) ε) ⊆
+          (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
       intro a
-      -- Image of tsupport is compact
       have hK_compact : IsCompact ((Subtype.val : cb_boundary → cb (n + 1)) ''
           tsupport (boundary_pullback a)) := by
         have h_bd_compact : IsCompact (@cb_boundary (n + 1)) :=
@@ -250,30 +251,34 @@ theorem exists_cb_pou_on_cell
         h_cb_preimage_cover_open.1 a
       obtain ⟨δ, hδ_pos, hδ_thick⟩ :=
         hK_compact.exists_thickening_subset_open hU_open (h_boundary_pullback_subordinate a)
-      refine ⟨min δ (1 / 2), by positivity, by linarith [min_le_right δ (1 / 2 : ℝ)], ?_⟩
-      intro x hx
-      obtain ⟨hx_proj, hx_low, hx_high⟩ := hx
-      apply hδ_thick
-      -- Show x ∈ Metric.thickening δ (image of tsupport) via the radial projection witness
-      have hx_norm_pos : 0 < ‖x.1‖ := by linarith [min_le_right δ (1 / 2 : ℝ)]
-      have hx_ne : x.1 ≠ 0 := norm_pos_iff.mp hx_norm_pos
-      -- Distance computation: dist x (radial_proj x) = 1 - ‖x.1‖
-      have h_proj_val : ((↑(radial_proj x) : cb (n + 1)) : EuclideanSpace ℝ (Fin (n + 1))) =
-          (1 / ‖x.1‖) • x.1 := by
-        show (sph_to_cb ⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
-          pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩).1 = (1 / ‖x.1‖) • x.1
-        simp [sph_to_cb, pre_proj_to_sph, hx_ne]
-      have h_dist_eq : dist x (↑(radial_proj x) : cb (n + 1)) = 1 - ‖x.1‖ := by
-        rw [Subtype.dist_eq, dist_eq_norm, h_proj_val,
-          show x.1 - (1 / ‖x.1‖) • x.1 = (1 - 1 / ‖x.1‖) • x.1 from by
-            rw [sub_smul, one_smul],
-          norm_smul, Real.norm_eq_abs,
-          abs_of_nonpos (sub_nonpos.mpr ((le_div_iff₀ hx_norm_pos).mpr (by linarith)))]
-        field_simp; ring
-      -- Combine: witness in image + distance < δ
-      rw [Metric.mem_thickening_iff]
-      exact ⟨↑(radial_proj x), ⟨radial_proj x, hx_proj, rfl⟩,
-        by rw [h_dist_eq]; linarith [min_le_left δ (1 / 2 : ℝ)]⟩
+      refine ⟨min (δ / 2) (1 / 2), by positivity,
+        by linarith [min_le_right (δ / 2) (1 / 2 : ℝ)], ?_⟩
+      -- Chain: closure (collar) ⊆ cthickening (δ/2) K ⊆ thickening δ K ⊆ U
+      have h_collar_sub_cthick : collar_of (tsupport (boundary_pullback a)) (min (δ / 2) (1 / 2)) ⊆
+          Metric.cthickening (δ / 2) ((Subtype.val : cb_boundary → cb (n + 1)) ''
+            tsupport (boundary_pullback a)) := by
+        intro x hx
+        obtain ⟨hx_proj, hx_low, hx_high⟩ := hx
+        apply Metric.thickening_subset_cthickening
+        have hx_norm_pos : 0 < ‖x.1‖ := by linarith [min_le_right (δ / 2) (1 / 2 : ℝ)]
+        have hx_ne : x.1 ≠ 0 := norm_pos_iff.mp hx_norm_pos
+        have h_proj_val : ((↑(radial_proj x) : cb (n + 1)) : EuclideanSpace ℝ (Fin (n + 1))) =
+            (1 / ‖x.1‖) • x.1 := by
+          show (sph_to_cb ⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
+            pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩).1 = (1 / ‖x.1‖) • x.1
+          simp [sph_to_cb, pre_proj_to_sph, hx_ne]
+        have h_dist_eq : dist x (↑(radial_proj x) : cb (n + 1)) = 1 - ‖x.1‖ := by
+          rw [Subtype.dist_eq, dist_eq_norm, h_proj_val,
+            show x.1 - (1 / ‖x.1‖) • x.1 = (1 - 1 / ‖x.1‖) • x.1 from by
+              rw [sub_smul, one_smul],
+            norm_smul, Real.norm_eq_abs,
+            abs_of_nonpos (sub_nonpos.mpr ((le_div_iff₀ hx_norm_pos).mpr (by linarith)))]
+          field_simp; ring
+        rw [Metric.mem_thickening_iff]
+        exact ⟨↑(radial_proj x), ⟨radial_proj x, hx_proj, rfl⟩,
+          by rw [h_dist_eq]; linarith [min_le_left (δ / 2) (1 / 2 : ℝ)]⟩
+      exact (closure_minimal h_collar_sub_cthick Metric.isClosed_cthickening).trans
+        ((Metric.cthickening_subset_thickening' hδ_pos (half_lt_self hδ_pos) _).trans hδ_thick)
     choose f_a_ε hε₁ hε₂ hε₃ using h_boundary_pullback_thicken_subset
     -- For a ∉ t, boundary_pullback vanishes so tsupport is empty
     have h_outside_t : ∀ a, a ∉ t → tsupport (boundary_pullback a) = ∅ := by
@@ -287,20 +292,22 @@ theorem exists_cb_pou_on_cell
         (Finset.lt_inf'_iff ⟨a₀, ha₀⟩).mpr fun a _ => hε₁ a,
         lt_of_le_of_lt (Finset.inf'_le f_a_ε ha₀) (hε₂ a₀), fun a => ?_⟩
       by_cases ha : a ∈ t
-      · -- a ∈ t: collar monotonicity (smaller ε → thinner collar)
-        intro x hx
-        obtain ⟨hx_proj, hx_low, hx_high⟩ := hx
-        apply hε₃ a
+      · -- a ∈ t: closure_mono (smaller ε → thinner collar → smaller closure)
+        refine (closure_mono ?_).trans (hε₃ a)
+        intro x ⟨hx_proj, hx_low, hx_high⟩
         exact ⟨hx_proj, by linarith [Finset.inf'_le f_a_ε ha], hx_high⟩
       · -- a ∉ t: collar is empty (tsupport is empty)
-        intro x hx
-        obtain ⟨hx_proj, _, _⟩ := hx
-        simp [h_outside_t a ha] at hx_proj
+        suffices h : collar_of (tsupport (boundary_pullback a)) (t.inf' ⟨a₀, ha₀⟩ f_a_ε) = ∅ by
+          rw [h, closure_empty]; exact Set.empty_subset _
+        ext x; simp only [Set.mem_empty_iff_false, iff_false]
+        rintro ⟨hx_proj, _, _⟩; simp [h_outside_t a ha] at hx_proj
     · -- t empty: all boundary_pullbacks vanish, any ε works
       rw [Finset.not_nonempty_iff_eq_empty] at ht_ne
-      refine ⟨1 / 2, by norm_num, by norm_num, fun a x hx => ?_⟩
-      obtain ⟨hx_proj, _, _⟩ := hx
-      simp [h_outside_t a (by simp [ht_ne])] at hx_proj
+      refine ⟨1 / 2, by norm_num, by norm_num, fun a => ?_⟩
+      suffices h : collar_of (tsupport (boundary_pullback a)) (1 / 2 : ℝ) = ∅ by
+        rw [h, closure_empty]; exact Set.empty_subset _
+      ext x; simp only [Set.mem_empty_iff_false, iff_false]
+      rintro ⟨hx_proj, _, _⟩; simp [h_outside_t a (by simp [ht_ne])] at hx_proj
   have h_exists_sigma :
       ∀ ε : ℝ, 0 < ε → ε < 1 →
         ∃ σ : C(cb (n + 1), ℝ),
@@ -444,7 +451,11 @@ theorem exists_cb_pou_on_cell
         (tsupport_mul_subset_right
           (f := fun x : cb (n + 1) => σ x)
           (g := fun x : cb (n + 1) => η a x)).trans (hη_sub a)
-    sorry
+    have h_sub_1_sub_sigma_phi:
+        tsupport (fun x => (1 - σ x) * phi a x) ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+      sorry
+    exact (tsupport_add (fun x => σ x * η a x) (fun x => (1 - σ x) * phi a x)).trans
+      (Set.union_subset h_sub_sigma_eta h_sub_1_sub_sigma_phi)
 
   sorry
 
