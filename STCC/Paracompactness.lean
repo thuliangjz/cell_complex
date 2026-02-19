@@ -86,7 +86,7 @@ noncomputable def skeleton_pou_zero
     rw [← h_eq]
     exact h_idx x
 
-theorem exists_cb_pou_on_cell
+omit CW in theorem exists_cb_pou_on_cell
     {α : Type*} (s : α → Set X) (hs_open : ∀ a, IsOpen (s a)) (hs_cover : ⋃ a, s a = Set.univ)
     (n : ℕ) (γ : CellOfDim (n + 1)) (pou_n : CompatibleSkeletonPOU α s n) :
     ∃ cb_pou : α → C(cb (n + 1), ℝ),
@@ -453,11 +453,96 @@ theorem exists_cb_pou_on_cell
           (g := fun x : cb (n + 1) => η a x)).trans (hη_sub a)
     have h_sub_1_sub_sigma_phi:
         tsupport (fun x => (1 - σ x) * phi a x) ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
-      sorry
+      refine (closure_mono ?_).trans (hε_sub a)
+      intro x hx
+      have h1 : (1 : ℝ) - σ x ≠ 0 := left_ne_zero_of_mul hx
+      have h2 : phi a x ≠ 0 := right_ne_zero_of_mul hx
+      have hx_not_inner : x ∉ inner_core ε :=
+        fun h => h1 (by rw [hσ_inner x h]; ring)
+      have hx_norm_gt : (1 - ε : ℝ) < ‖x.1‖ := not_le.mp hx_not_inner
+      have hx_ne_zero : x.1 ≠ 0 := fun h => h2 (if_pos h)
+      have h_bp_ne_zero : boundary_pullback a (radial_proj x) ≠ 0 :=
+        fun h => h2 ((if_neg hx_ne_zero).trans h)
+      exact ⟨subset_closure h_bp_ne_zero, hx_norm_gt,
+        by have := x.property; change x.1 ∈ Metric.closedBall 0 1 at this
+           rwa [Metric.mem_closedBall', dist_zero] at this⟩
     exact (tsupport_add (fun x => σ x * η a x) (fun x => (1 - σ x) * phi a x)).trans
       (Set.union_subset h_sub_sigma_eta h_sub_1_sub_sigma_phi)
 
-  sorry
+  have cb_pou_candidate_boundary : ∀ a x (hx : x ∈ cb_boundary),
+      cb_pou_candidate a x =
+        pou_n.toFun a ⟨characteristic_cn (n + 1) γ x, char_cnp1_boundary_in_skn n γ x hx⟩ := by
+    intro a x hx
+    obtain ⟨y, hy⟩ := hx
+    have hx_norm : ‖x.1‖ = 1 := by
+      have : x.1 = y.1 := congr_arg Subtype.val (hy.symm)
+      rw [this, ← dist_zero, ← Metric.mem_sphere']
+      exact y.property
+    have hσ_zero : σ x = 0 :=
+      hσ_boundary x (show (1 - ε / 2 : ℝ) < ‖x.1‖ by rw [hx_norm]; linarith)
+    have hx_ne : x.1 ≠ 0 := fun h => by simp [h] at hx_norm
+    show σ x * η a x + (1 - σ x) * phi a x = _
+    rw [hσ_zero, zero_mul, zero_add, sub_zero, one_mul]
+    show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a (radial_proj x)) = _
+    rw [if_neg hx_ne]
+    have h_radial_eq : (radial_proj x).1 = x := by
+      apply Subtype.ext
+      change pre_proj_to_sph (Nat.le_add_left 1 n) x.1 = x.1
+      simp [pre_proj_to_sph, hx_ne, hx_norm]
+    exact congr_arg (boundary_pullback a)
+      (show radial_proj x = ⟨x, ⟨y, hy⟩⟩ from Subtype.ext h_radial_eq)
+
+  have cb_pou_candidate_cont : ∀ a, Continuous (cb_pou_candidate a) := by
+    intro a
+    have h_term1 : Continuous (fun x => σ x * η a x) :=
+      σ.continuous.mul (η a).continuous
+    suffices h_term2 : Continuous (fun x => (1 - σ x) * phi a x) from
+      h_term1.add h_term2
+    rw [continuous_iff_continuousAt]
+    intro x
+    by_cases hx_ne : x.1 = (0 : EuclideanSpace ℝ (Fin (n + 1)))
+    · -- At origin: locally zero since σ = 1 on inner_core ε
+      have hU_open : IsOpen {y : cb (n + 1) | ‖y.1‖ < 1 - ε} :=
+        isOpen_lt (continuous_norm.comp continuous_subtype_val) continuous_const
+      have hx_in_U : x ∈ {y : cb (n + 1) | ‖y.1‖ < 1 - ε} := by
+        show ‖x.1‖ < 1 - ε; rw [hx_ne, norm_zero]; linarith
+      refine (continuousAt_const (y := (0 : ℝ))).congr_of_eventuallyEq ?_
+      filter_upwards [hU_open.mem_nhds hx_in_U] with y hy
+      rw [hσ_inner y (le_of_lt hy), sub_self, zero_mul]
+    · -- Away from origin: phi a equals bp a ∘ rp near x, which is continuous
+      -- ContinuousAt of to_sph at nonzero points
+      let to_sph : EuclideanSpace ℝ (Fin (n + 1)) → sph (n + 1) :=
+        fun v => ⟨pre_proj_to_sph (Nat.le_add_left 1 n) v,
+          pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) v⟩
+      have h_to_sph_cat : ContinuousAt to_sph x.1 := by
+        show (nhds x.1).map to_sph ≤ nhds (to_sph x.1)
+        have : (nhds x.1).map (Subtype.val ∘ to_sph) ≤ nhds (to_sph x.1).1 :=
+          pre_proj_to_sph_cont_at_nonzero (Nat.le_add_left 1 n) x.1 hx_ne
+        rwa [← Filter.map_map, Filter.map_le_iff_le_comap, ← nhds_subtype] at this
+      -- sph → cb_boundary is continuous
+      let sph_to_bd : sph (n + 1) → @cb_boundary (n + 1) :=
+        fun s => ⟨sph_to_cb s, ⟨s, rfl⟩⟩
+      have h_sph_to_bd_cont : Continuous sph_to_bd :=
+        (continuous_subtype_val.subtype_mk (fun x => sph_in_cb x.prop)).subtype_mk _
+      -- bp a ∘ rp = (bp a ∘ sph_to_bd) ∘ to_sph ∘ Subtype.val
+      have h_bp_rp_cat : ContinuousAt
+          (fun y : cb (n + 1) => boundary_pullback a (radial_proj y)) x :=
+        ((h_boundary_pullback_cont a).comp h_sph_to_bd_cont).continuousAt.comp
+          (h_to_sph_cat.comp continuous_subtype_val.continuousAt)
+      -- (1 - σ) * (bp a ∘ rp) is ContinuousAt
+      have h_rhs_cat : ContinuousAt
+          (fun y => (1 - σ y) * boundary_pullback a (radial_proj y)) x :=
+        (continuous_const.sub σ.continuous).continuousAt.mul h_bp_rp_cat
+      -- The actual function equals the above near x (since phi a = bp a ∘ rp when y.1 ≠ 0)
+      refine h_rhs_cat.congr_of_eventuallyEq ?_
+      filter_upwards [(isOpen_ne.preimage continuous_subtype_val).mem_nhds hx_ne] with y hy
+      congr 1; exact if_neg hy
+
+  exact ⟨fun a => ⟨cb_pou_candidate a, cb_pou_candidate_cont a⟩,
+    cb_pou_candidate_nonneg,
+    cb_pou_candidate_sum_eq_one,
+    cb_pou_candidate_subordinate,
+    cb_pou_candidate_boundary⟩
 
 instance instCWComplexParacompactSpace : ParacompactSpace X := by
   apply paracompact_of_exist_partition_of_unity
