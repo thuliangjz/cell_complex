@@ -584,6 +584,174 @@ theorem skeleton_pou_succ
               Skeleton X (n + 1)) ∈ V') ∧
           (∀ a, (∀ x ∈ V, pou_n.toFun a x = 0) →
             (∀ y ∈ V', pou_succ.toFun a y = 0))) := by
+  -- Step 1: Choose cell-level POUs for all cells
+  choose cb_pou h_cb_pou using
+    fun γ : CellOfDim (n + 1) => exists_cb_pou_on_cell s hs_open hs_cover n γ pou_n
+  have h_cb_nonneg := fun γ => (h_cb_pou γ).1
+  have h_cb_sum := fun γ => (h_cb_pou γ).2.1
+  have h_cb_sub := fun γ => (h_cb_pou γ).2.2.1
+  have h_cb_boundary := fun γ => (h_cb_pou γ).2.2.2.1
+  choose cb_ε h_cb_ε using fun γ => (h_cb_pou γ).2.2.2.2
+  have h_ε_pos := fun γ => (h_cb_ε γ).1
+  have h_ε_lt := fun γ => (h_cb_ε γ).2.1
+  have h_cb_collar := fun γ => (h_cb_ε γ).2.2
+  -- Step 2: Define the function on the disjoint sum and show factoring
+  let pou_ext : α → (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) → ℝ :=
+    fun a x => match x with
+    | Sum.inl sk => pou_n.toFun a sk
+    | Sum.inr ⟨γ, y⟩ => cb_pou γ a y
+  have pou_ext_factors : ∀ a x₁ x₂,
+      glue_setoid
+        (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+        (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+          (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+        x₁ x₂ → pou_ext a x₁ = pou_ext a x₂ := by
+    intro a x₁ x₂ h₁₂
+    rcases glue_rel_equiv_explicit _ _ x₁ x₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+    · rcases c0 with ⟨_, _, rfl⟩; rfl
+    · rcases c1 with ⟨x, _, y', rfl, rfl, rfl, heq4⟩
+      rw [CellAttached_f] at heq4
+      show pou_n.toFun a x = cb_pou y'.1.1 a y'.1.2
+      rw [heq4]; exact (h_cb_boundary y'.1.1 a y'.1.2 y'.2).symm
+    · rcases c2 with ⟨_, x, y', rfl, rfl, rfl, heq4⟩
+      rw [CellAttached_f] at heq4
+      show cb_pou y'.1.1 a y'.1.2 = pou_n.toFun a x
+      rw [heq4]; exact h_cb_boundary y'.1.1 a y'.1.2 y'.2
+    · rcases c3 with ⟨_, _, y₁', y₂', rfl, rfl, rfl, rfl, heq5, _⟩
+      rw [CellAttached_f] at heq5
+      show cb_pou y₁'.1.1 a y₁'.1.2 = cb_pou y₂'.1.1 a y₂'.1.2
+      rw [h_cb_boundary y₁'.1.1 a y₁'.1.2 y₁'.2,
+          h_cb_boundary y₂'.1.1 a y₂'.1.2 y₂'.2]
+      exact congr_arg (pou_n.toFun a) heq5
+    · rcases c4 with ⟨_, _, rfl⟩; rfl
+  -- Step 3: Lift to Skeleton X (n+1) and prove continuity
+  have pou_ext_cont : ∀ a, Continuous (pou_ext a) := by
+    intro a; rw [continuous_sum_dom]
+    constructor
+    · have : pou_ext a ∘ Sum.inl = pou_n.toFun a := by ext x; rfl
+      rw [this]; exact (pou_n.toFun a).continuous
+    · have : pou_ext a ∘ Sum.inr = fun ⟨γ, y⟩ => cb_pou γ a y := by ext p; rfl
+      rw [this, continuous_sigma_iff]
+      intro γ; exact (cb_pou γ a).continuous
+  let h_homeo := (@cell_attached_to_sknp1_homeomorphic X _ _ _ _ n).homeomorph
+    (@cell_attached_to_sknp1 X _ _ _ n)
+  let pou_succ_fun : α → C(Skeleton X (n + 1), ℝ) := fun a =>
+    ⟨Quotient.lift (pou_ext a) (pou_ext_factors a) ∘ h_homeo.symm,
+     ((pou_ext_cont a).quotient_lift (pou_ext_factors a)).comp h_homeo.symm.continuous⟩
+  -- Step 4: Prove nonnegativity and sum equals one
+  have pou_succ_nonneg : ∀ a (x : Skeleton X (n + 1)), 0 ≤ pou_succ_fun a x := by
+    intro a x
+    obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+    show 0 ≤ Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x)
+    rw [← hx']; simp only [Quotient.lift_mk]
+    match x' with
+    | Sum.inl sk => exact pou_n.nonneg a sk
+    | Sum.inr ⟨γ, y⟩ => exact h_cb_nonneg γ a y
+  have pou_succ_sum : ∀ x : Skeleton X (n + 1), ∑ᶠ a, pou_succ_fun a x = 1 := by
+    intro x
+    obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+    have key : ∀ a, pou_succ_fun a x = pou_ext a x' := by
+      intro a
+      show Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x) = _
+      rw [← hx']; simp only [Quotient.lift_mk]
+    simp_rw [key]
+    match x' with
+    | Sum.inl sk => exact pou_n.sum_eq_one sk
+    | Sum.inr ⟨γ, y⟩ => exact h_cb_sum γ y
+  -- Step 5 (sum-side): subordination on the disjoint sum
+  have pou_ext_subordinate : ∀ a,
+      tsupport (pou_ext a) ⊆
+        (skn_sum_cnp1_to_sknp1 (C := C) n) ⁻¹' (Subtype.val ⁻¹' (s a)) := by
+    intro a z hz
+    cases z with
+    | inl sk =>
+      have hsk_pre : sk ∈ (Sum.inl : Skeleton X n → (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) ⁻¹'
+          tsupport (pou_ext a) := hz
+      rw [tsupport] at hsk_pre
+      rw [(isOpenMap_inl.preimage_closure_eq_closure_preimage
+        (continuous_inl : Continuous (Sum.inl : Skeleton X n →
+          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))))
+        (Function.support (pou_ext a)))] at hsk_pre
+      have hsk_tsupport : sk ∈ tsupport (pou_n.toFun a) := by
+        simpa [tsupport, pou_ext] using hsk_pre
+      exact pou_n.subordinate a hsk_tsupport
+    | inr p =>
+      have hp_pre : p ∈ (Sum.inr : (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) ⁻¹' tsupport (pou_ext a) := hz
+      rw [tsupport] at hp_pre
+      rw [(isOpenMap_inr.preimage_closure_eq_closure_preimage
+        (continuous_inr : Continuous (Sum.inr : (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))))
+        (Function.support (pou_ext a)))] at hp_pre
+      let fσ : (Σ _ : CellOfDim (n + 1), cb (n + 1)) → ℝ := fun q => cb_pou q.1 a q.2
+      have hp_tsupport_sigma : p ∈ tsupport fσ := by
+        simpa [tsupport, pou_ext, fσ] using hp_pre
+      rcases p with ⟨γ, y⟩
+      let mkγ : cb (n + 1) → (Σ _ : CellOfDim (n + 1), cb (n + 1)) := fun t => Sigma.mk γ t
+      have hmk_open : IsOpenMap mkγ := by
+        simpa [mkγ] using
+          (Topology.IsOpenEmbedding.sigmaMk (i := γ)
+            (σ := fun _ : CellOfDim (n + 1) => cb (n + 1))).isOpenMap
+      have hmk_cont : Continuous mkγ := by
+        simpa [mkγ] using
+          (continuous_sigmaMk (i := γ) (σ := fun _ : CellOfDim (n + 1) => cb (n + 1)))
+      have hy_pre :
+          y ∈ mkγ ⁻¹' tsupport fσ := hp_tsupport_sigma
+      rw [tsupport] at hy_pre
+      have hmk :
+          mkγ ⁻¹' closure (Function.support fσ) =
+            closure (mkγ ⁻¹' Function.support fσ) :=
+        hmk_open.preimage_closure_eq_closure_preimage hmk_cont (Function.support fσ)
+      rw [hmk] at hy_pre
+      have hy_tsupport : y ∈ tsupport (cb_pou γ a) := by
+        simpa [tsupport, fσ] using hy_pre
+      have hy_sub : characteristic_cn (n + 1) γ y ∈ s a := h_cb_sub γ a hy_tsupport
+      simpa [skn_sum_cnp1_to_sknp1] using hy_sub
+  -- Local transport lemma: tsupport of quotient lift comes from sum-side tsupport
+  have tsupport_quotLift_subset : ∀ a,
+      tsupport (Quotient.lift (pou_ext a) (pou_ext_factors a)) ⊆
+        (Quotient.mk'' :
+          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+          @CellAttached X (n + 1) _ _ (characteristic_cn (n + 1))
+            (char_cnp1_boundary_in_skn n)) '' tsupport (pou_ext a) := by
+    intro a q hq
+    sorry
+  -- Step 5 (target): subordination on Skeleton X (n+1)
+  have pou_succ_subordinate : ∀ a, tsupport (pou_succ_fun a) ⊆ Subtype.val ⁻¹' (s a) := by
+    intro a x hx
+    have hx_comp : x ∈ tsupport
+        ((Quotient.lift (pou_ext a) (pou_ext_factors a)) ∘ h_homeo.symm) := by
+      simpa [pou_succ_fun] using hx
+    have hxq : h_homeo.symm x ∈ tsupport (Quotient.lift (pou_ext a) (pou_ext_factors a)) := by
+      exact
+        (tsupport_comp_subset_preimage
+          (Quotient.lift (pou_ext a) (pou_ext_factors a)) h_homeo.symm.continuous) hx_comp
+    rcases tsupport_quotLift_subset a hxq with ⟨z, hz_tsupport, hz_q⟩
+    have hz_sub : skn_sum_cnp1_to_sknp1 (C := C) n z ∈ Subtype.val ⁻¹' (s a) :=
+      pou_ext_subordinate a hz_tsupport
+    have hx_eq : x = skn_sum_cnp1_to_sknp1 (C := C) n z := by
+      calc
+        x = h_homeo (h_homeo.symm x) := (h_homeo.apply_symm_apply x).symm
+        _ = h_homeo (Quotient.mk'' z) := by simp [hz_q]
+        _ = skn_sum_cnp1_to_sknp1 (C := C) n z := by
+              simp [h_homeo, cell_attached_to_sknp1]
+    simpa [Set.mem_preimage, hx_eq] using hz_sub
+  -- Step 5(i): restriction to the n-skeleton
+  have pou_succ_restrict : ∀ a (x : Skeleton X n),
+      pou_succ_fun a
+        ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ = pou_n.toFun a x := by
+    intro a x
+    let x_incl : Skeleton X (n + 1) :=
+      ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩
+    have hxrep : h_homeo.symm x_incl = Quotient.mk'' (Sum.inl x) := by
+      apply h_homeo.injective
+      calc
+        h_homeo (h_homeo.symm x_incl) = x_incl := h_homeo.apply_symm_apply x_incl
+        _ = h_homeo (Quotient.mk'' (Sum.inl x)) := by
+              simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1, x_incl]
+    change Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x_incl) = _
+    rw [hxrep]
+    simp [pou_ext]
   sorry
 
 instance instCWComplexParacompactSpace : ParacompactSpace X := by
