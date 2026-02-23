@@ -25,6 +25,13 @@ lemma paracompact_of_exist_partition_of_unity {X: Type u} [TopologicalSpace X] (
     intro b
     exact ⟨b, subset_closure.trans (hp b)⟩
 end helper
+
+noncomputable def cb_radial_proj {n : ℕ} (x : cb (n + 1)) : @cb_boundary (n + 1) :=
+  ⟨sph_to_cb ⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
+    pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩,
+   ⟨⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
+     pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩, rfl⟩⟩
+
 section
 variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X]
 open CellComplexClass
@@ -96,7 +103,13 @@ omit CW in theorem exists_cb_pou_on_cell
       (∀ a x (hx : x ∈ cb_boundary),
         cb_pou a x =
           pou_n.toFun a
-            ⟨characteristic_cn (n + 1) γ x, char_cnp1_boundary_in_skn n γ x hx⟩) := by
+            ⟨characteristic_cn (n + 1) γ x, char_cnp1_boundary_in_skn n γ x hx⟩) ∧
+      (∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧
+        ∀ a (x : cb (n + 1)), (1 - ε / 2 : ℝ) < ‖x.1‖ →
+          cb_pou a x = pou_n.toFun a
+            ⟨characteristic_cn (n + 1) γ (cb_radial_proj x).1,
+             char_cnp1_boundary_in_skn n γ (cb_radial_proj x).1
+               (cb_radial_proj x).2⟩) := by
   let boundary_pullback : α → cb_boundary → ℝ := fun a z =>
     pou_n.toFun a
       ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
@@ -192,14 +205,9 @@ omit CW in theorem exists_cb_pou_on_cell
       exact ha_mem
     exact ha ha_in_t
 
-  let radial_proj : cb (n + 1) → @cb_boundary (n + 1) := fun x =>
-    ⟨sph_to_cb ⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
-      pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩,
-     ⟨⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
-       pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩, rfl⟩⟩
   let collar_of (A : Set (@cb_boundary (n + 1))) (ε : ℝ) : Set (cb (n + 1)) :=
     {x |
-      radial_proj x ∈ A ∧
+      cb_radial_proj x ∈ A ∧
       (1 - ε : ℝ) < ‖x.1‖ ∧ ‖x.1‖ ≤ 1}
   let boundary_collar (ε : ℝ) : Set (cb (n + 1)) :=
     {x | (1 - ε : ℝ) < ‖x.1‖}
@@ -262,12 +270,12 @@ omit CW in theorem exists_cb_pou_on_cell
         apply Metric.thickening_subset_cthickening
         have hx_norm_pos : 0 < ‖x.1‖ := by linarith [min_le_right (δ / 2) (1 / 2 : ℝ)]
         have hx_ne : x.1 ≠ 0 := norm_pos_iff.mp hx_norm_pos
-        have h_proj_val : ((↑(radial_proj x) : cb (n + 1)) : EuclideanSpace ℝ (Fin (n + 1))) =
+        have h_proj_val : ((↑(cb_radial_proj x) : cb (n + 1)) : EuclideanSpace ℝ (Fin (n + 1))) =
             (1 / ‖x.1‖) • x.1 := by
           show (sph_to_cb ⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
             pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩).1 = (1 / ‖x.1‖) • x.1
           simp [sph_to_cb, pre_proj_to_sph, hx_ne]
-        have h_dist_eq : dist x (↑(radial_proj x) : cb (n + 1)) = 1 - ‖x.1‖ := by
+        have h_dist_eq : dist x (↑(cb_radial_proj x) : cb (n + 1)) = 1 - ‖x.1‖ := by
           rw [Subtype.dist_eq, dist_eq_norm, h_proj_val,
             show x.1 - (1 / ‖x.1‖) • x.1 = (1 - 1 / ‖x.1‖) • x.1 from by
               rw [sub_smul, one_smul],
@@ -275,7 +283,7 @@ omit CW in theorem exists_cb_pou_on_cell
             abs_of_nonpos (sub_nonpos.mpr ((le_div_iff₀ hx_norm_pos).mpr (by linarith)))]
           field_simp; ring
         rw [Metric.mem_thickening_iff]
-        exact ⟨↑(radial_proj x), ⟨radial_proj x, hx_proj, rfl⟩,
+        exact ⟨↑(cb_radial_proj x), ⟨cb_radial_proj x, hx_proj, rfl⟩,
           by rw [h_dist_eq]; linarith [min_le_left (δ / 2) (1 / 2 : ℝ)]⟩
       exact (closure_minimal h_collar_sub_cthick Metric.isClosed_cthickening).trans
         ((Metric.cthickening_subset_thickening' hδ_pos (half_lt_self hδ_pos) _).trans hδ_thick)
@@ -361,7 +369,7 @@ omit CW in theorem exists_cb_pou_on_cell
   -- At x = 0, assign 0 (this value is irrelevant since σ(0) = 1 kills the phi term).
   let phi : α → cb (n + 1) → ℝ := fun a x =>
     if x.1 = 0 then 0
-    else boundary_pullback a (radial_proj x)
+    else boundary_pullback a (cb_radial_proj x)
   let cb_pou_candidate : α → cb (n + 1) → ℝ := fun a x =>
     σ x * η a x + (1 - σ x) * phi a x
   have cb_pou_candidate_nonneg : ∀ a x, 0 ≤ cb_pou_candidate a x := by
@@ -431,7 +439,7 @@ omit CW in theorem exists_cb_pou_on_cell
     · -- x ≠ 0: ∑ᶠ a, phi a x = 1 by radial pullback from pou_n
       suffices h_phi_sum : ∑ᶠ a, phi a x = 1 by rw [h_phi_sum]; ring
       -- The projected boundary point and corresponding skeleton point
-      let z : @cb_boundary (n + 1) := radial_proj x
+      let z : @cb_boundary (n + 1) := cb_radial_proj x
       let sk : Skeleton X n :=
         ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
       -- phi a x = pou_n.toFun a sk for all a (by unfolding definitions)
@@ -461,7 +469,7 @@ omit CW in theorem exists_cb_pou_on_cell
         fun h => h1 (by rw [hσ_inner x h]; ring)
       have hx_norm_gt : (1 - ε : ℝ) < ‖x.1‖ := not_le.mp hx_not_inner
       have hx_ne_zero : x.1 ≠ 0 := fun h => h2 (if_pos h)
-      have h_bp_ne_zero : boundary_pullback a (radial_proj x) ≠ 0 :=
+      have h_bp_ne_zero : boundary_pullback a (cb_radial_proj x) ≠ 0 :=
         fun h => h2 ((if_neg hx_ne_zero).trans h)
       exact ⟨subset_closure h_bp_ne_zero, hx_norm_gt,
         by have := x.property; change x.1 ∈ Metric.closedBall 0 1 at this
@@ -483,14 +491,14 @@ omit CW in theorem exists_cb_pou_on_cell
     have hx_ne : x.1 ≠ 0 := fun h => by simp [h] at hx_norm
     show σ x * η a x + (1 - σ x) * phi a x = _
     rw [hσ_zero, zero_mul, zero_add, sub_zero, one_mul]
-    show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a (radial_proj x)) = _
+    show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a (cb_radial_proj x)) = _
     rw [if_neg hx_ne]
-    have h_radial_eq : (radial_proj x).1 = x := by
+    have h_radial_eq : (cb_radial_proj x).1 = x := by
       apply Subtype.ext
       change pre_proj_to_sph (Nat.le_add_left 1 n) x.1 = x.1
       simp [pre_proj_to_sph, hx_ne, hx_norm]
     exact congr_arg (boundary_pullback a)
-      (show radial_proj x = ⟨x, ⟨y, hy⟩⟩ from Subtype.ext h_radial_eq)
+      (show cb_radial_proj x = ⟨x, ⟨y, hy⟩⟩ from Subtype.ext h_radial_eq)
 
   have cb_pou_candidate_cont : ∀ a, Continuous (cb_pou_candidate a) := by
     intro a
@@ -526,23 +534,57 @@ omit CW in theorem exists_cb_pou_on_cell
         (continuous_subtype_val.subtype_mk (fun x => sph_in_cb x.prop)).subtype_mk _
       -- bp a ∘ rp = (bp a ∘ sph_to_bd) ∘ to_sph ∘ Subtype.val
       have h_bp_rp_cat : ContinuousAt
-          (fun y : cb (n + 1) => boundary_pullback a (radial_proj y)) x :=
+          (fun y : cb (n + 1) => boundary_pullback a (cb_radial_proj y)) x :=
         ((h_boundary_pullback_cont a).comp h_sph_to_bd_cont).continuousAt.comp
           (h_to_sph_cat.comp continuous_subtype_val.continuousAt)
       -- (1 - σ) * (bp a ∘ rp) is ContinuousAt
       have h_rhs_cat : ContinuousAt
-          (fun y => (1 - σ y) * boundary_pullback a (radial_proj y)) x :=
+          (fun y => (1 - σ y) * boundary_pullback a (cb_radial_proj y)) x :=
         (continuous_const.sub σ.continuous).continuousAt.mul h_bp_rp_cat
       -- The actual function equals the above near x (since phi a = bp a ∘ rp when y.1 ≠ 0)
       refine h_rhs_cat.congr_of_eventuallyEq ?_
       filter_upwards [(isOpen_ne.preimage continuous_subtype_val).mem_nhds hx_ne] with y hy
       congr 1; exact if_neg hy
 
+  have cb_pou_candidate_collar : ∃ ε' : ℝ, 0 < ε' ∧ ε' < 1 ∧
+      ∀ a (x : cb (n + 1)), (1 - ε' / 2 : ℝ) < ‖x.1‖ →
+        cb_pou_candidate a x = pou_n.toFun a
+          ⟨characteristic_cn (n + 1) γ (cb_radial_proj x).1,
+           char_cnp1_boundary_in_skn n γ (cb_radial_proj x).1
+             (cb_radial_proj x).2⟩ := by
+    refine ⟨ε, hε_pos, hε_lt_one, fun a x hx_collar => ?_⟩
+    have hx_ne : x.1 ≠ 0 := by
+      intro h; simp [h] at hx_collar; linarith
+    have hσ_zero : σ x = 0 := hσ_boundary x hx_collar
+    show σ x * η a x + (1 - σ x) * phi a x = _
+    rw [hσ_zero, zero_mul, zero_add, sub_zero, one_mul]
+    show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a (cb_radial_proj x)) = _
+    rw [if_neg hx_ne]
+
   exact ⟨fun a => ⟨cb_pou_candidate a, cb_pou_candidate_cont a⟩,
     cb_pou_candidate_nonneg,
     cb_pou_candidate_sum_eq_one,
     cb_pou_candidate_subordinate,
-    cb_pou_candidate_boundary⟩
+    cb_pou_candidate_boundary,
+    cb_pou_candidate_collar⟩
+
+theorem skeleton_pou_succ
+    {α : Type*} (s : α → Set X) (hs_open : ∀ a, IsOpen (s a))
+    (hs_cover : ⋃ a, s a = Set.univ)
+    (n : ℕ) (pou_n : CompatibleSkeletonPOU α s n) :
+    ∃ pou_succ : CompatibleSkeletonPOU α s (n + 1),
+      (∀ a (x : Skeleton X n),
+        pou_succ.toFun a
+          ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ =
+          pou_n.toFun a x) ∧
+      (∀ V : Set (Skeleton X n), IsOpen V →
+        ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧
+          (∀ x : Skeleton X n, x ∈ V →
+            (⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ :
+              Skeleton X (n + 1)) ∈ V') ∧
+          (∀ a, (∀ x ∈ V, pou_n.toFun a x = 0) →
+            (∀ y ∈ V', pou_succ.toFun a y = 0))) := by
+  sorry
 
 instance instCWComplexParacompactSpace : ParacompactSpace X := by
   apply paracompact_of_exist_partition_of_unity
