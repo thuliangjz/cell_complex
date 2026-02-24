@@ -707,35 +707,15 @@ theorem skeleton_pou_succ
         simpa [tsupport, fσ] using hy_pre
       have hy_sub : characteristic_cn (n + 1) γ y ∈ s a := h_cb_sub γ a hy_tsupport
       simpa [skn_sum_cnp1_to_sknp1] using hy_sub
-  -- Local transport lemma: tsupport of quotient lift comes from sum-side tsupport
-  have tsupport_quotLift_subset : ∀ a,
-      tsupport (Quotient.lift (pou_ext a) (pou_ext_factors a)) ⊆
-        (Quotient.mk'' :
-          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
-          @CellAttached X (n + 1) _ _ (characteristic_cn (n + 1))
-            (char_cnp1_boundary_in_skn n)) '' tsupport (pou_ext a) := by
-    intro a q hq
-    sorry
   -- Step 5 (target): subordination on Skeleton X (n+1)
   have pou_succ_subordinate : ∀ a, tsupport (pou_succ_fun a) ⊆ Subtype.val ⁻¹' (s a) := by
     intro a x hx
-    have hx_comp : x ∈ tsupport
-        ((Quotient.lift (pou_ext a) (pou_ext_factors a)) ∘ h_homeo.symm) := by
-      simpa [pou_succ_fun] using hx
-    have hxq : h_homeo.symm x ∈ tsupport (Quotient.lift (pou_ext a) (pou_ext_factors a)) := by
-      exact
-        (tsupport_comp_subset_preimage
-          (Quotient.lift (pou_ext a) (pou_ext_factors a)) h_homeo.symm.continuous) hx_comp
-    rcases tsupport_quotLift_subset a hxq with ⟨z, hz_tsupport, hz_q⟩
-    have hz_sub : skn_sum_cnp1_to_sknp1 (C := C) n z ∈ Subtype.val ⁻¹' (s a) :=
-      pou_ext_subordinate a hz_tsupport
-    have hx_eq : x = skn_sum_cnp1_to_sknp1 (C := C) n z := by
-      calc
-        x = h_homeo (h_homeo.symm x) := (h_homeo.apply_symm_apply x).symm
-        _ = h_homeo (Quotient.mk'' z) := by simp [hz_q]
-        _ = skn_sum_cnp1_to_sknp1 (C := C) n z := by
-              simp [h_homeo, cell_attached_to_sknp1]
-    simpa [Set.mem_preimage, hx_eq] using hz_sub
+    -- Step 1 scaffold: split points into old-skeleton vs new-cell cases.
+    by_cases h_old :
+        ∃ x0 : Skeleton X n,
+          x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩
+    · sorry
+    · sorry
   -- Step 5(i): restriction to the n-skeleton
   have pou_succ_restrict : ∀ a (x : Skeleton X n),
       pou_succ_fun a
@@ -752,7 +732,168 @@ theorem skeleton_pou_succ
     change Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x_incl) = _
     rw [hxrep]
     simp [pou_ext]
-  sorry
+  -- Step 6: zero-extension property (ii)
+  have pou_succ_zero_extension :
+      ∀ V : Set (Skeleton X n), IsOpen V →
+        ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧
+          (∀ x : Skeleton X n, x ∈ V →
+            (⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ :
+              Skeleton X (n + 1)) ∈ V') ∧
+          (∀ a, (∀ x ∈ V, pou_n.toFun a x = 0) →
+            (∀ y ∈ V', pou_succ_fun a y = 0)) := by
+    intro V hV_open
+    -- Map each cell's boundary to the n-skeleton
+    let boundary_to_skn : (γ : CellOfDim (n + 1)) → @cb_boundary (n + 1) → Skeleton X n :=
+      fun γ z => ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
+    -- Preimage of V' in the disjoint sum: left part is V, right part is collar ∩ radial-proj preimage of V
+    let S_V : Set ((Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) :=
+      {z | match z with
+        | Sum.inl x => x ∈ V
+        | Sum.inr ⟨γ, y⟩ => (1 - cb_ε γ / 2 : ℝ) < ‖y.1‖ ∧
+            boundary_to_skn γ (cb_radial_proj y) ∈ V}
+    -- boundary_to_skn γ is continuous for each γ
+    have h_bts_cont : ∀ γ : CellOfDim (n + 1), Continuous (boundary_to_skn γ) := by
+      intro ⟨e, he⟩
+      refine Continuous.subtype_mk ?_ _
+      exact ((C.characteristic_map_continuous e).comp
+        (@Eq.rec ℕ (C.dim_map e)
+          (fun m hm => Continuous ((congrArg (fun p ↦ (cb p : Type)) hm).mpr))
+          continuous_id (n + 1) he)).comp continuous_subtype_val
+    -- S_V is open in the disjoint sum
+    have hS_V_open : IsOpen S_V := by
+      rw [isOpen_sum_iff]
+      refine ⟨?_, ?_⟩
+      · -- Left: Sum.inl ⁻¹' S_V = V
+        exact hV_open
+      · -- Right: open in Σ γ, cb (n+1)
+        rw [isOpen_sigma_iff]
+        intro γ
+        let g_γ : cb (n + 1) → Skeleton X n := fun y => boundary_to_skn γ (cb_radial_proj y)
+        let U_γ : Set (cb (n + 1)) := {y | (1 - cb_ε γ / 2 : ℝ) < ‖y.1‖}
+        -- Rewrite fiber as U_γ ∩ g_γ⁻¹'(V)
+        suffices h : Sigma.mk γ ⁻¹' (Sum.inr ⁻¹' S_V) = U_γ ∩ g_γ ⁻¹' V by
+          rw [h]
+          apply ContinuousOn.isOpen_inter_preimage
+          · -- ContinuousOn g_γ U_γ
+            intro y hy
+            apply ContinuousAt.continuousWithinAt
+            have hy_ne : y.1 ≠ 0 :=
+              norm_pos_iff.mp (lt_trans (by linarith [h_ε_pos γ, h_ε_lt γ]) hy)
+            let to_sph : EuclideanSpace ℝ (Fin (n + 1)) → sph (n + 1) :=
+              fun v => ⟨pre_proj_to_sph (Nat.le_add_left 1 n) v,
+                pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) v⟩
+            let sph_to_bd : sph (n + 1) → @cb_boundary (n + 1) :=
+              fun s => ⟨sph_to_cb s, ⟨s, rfl⟩⟩
+            have h_to_sph_cat : ContinuousAt to_sph y.1 := by
+              show (nhds y.1).map to_sph ≤ nhds (to_sph y.1)
+              have : (nhds y.1).map (Subtype.val ∘ to_sph) ≤ nhds (to_sph y.1).1 :=
+                pre_proj_to_sph_cont_at_nonzero (Nat.le_add_left 1 n) y.1 hy_ne
+              rwa [← Filter.map_map, Filter.map_le_iff_le_comap, ← nhds_subtype] at this
+            have h_sph_to_bd_cont : Continuous sph_to_bd :=
+              (continuous_subtype_val.subtype_mk (fun x => sph_in_cb x.prop)).subtype_mk _
+            exact ((h_bts_cont γ).comp h_sph_to_bd_cont).continuousAt.comp
+              (h_to_sph_cat.comp continuous_subtype_val.continuousAt)
+          · exact isOpen_lt continuous_const (continuous_norm.comp continuous_subtype_val)
+          · exact hV_open
+        -- Show the fiber equals U_γ ∩ g_γ⁻¹'(V)
+        ext y; simp only [Set.mem_preimage, Set.mem_inter_iff, Set.mem_setOf_eq, S_V, U_γ, g_γ]
+    -- Boundary norm is 1
+    have h_boundary_norm : ∀ (y : cb (n + 1)), y ∈ @cb_boundary (n + 1) → ‖y.1‖ = 1 := by
+      intro y ⟨s, hs⟩
+      rw [show y.1 = s.1 from congr_arg Subtype.val hs.symm,
+        ← dist_zero, ← Metric.mem_sphere']
+      exact s.property
+    -- Radial projection on boundary: (cb_radial_proj y).1 = y
+    have h_rp_boundary : ∀ (y : cb (n + 1)), y ∈ @cb_boundary (n + 1) →
+        (cb_radial_proj y).1 = y := by
+      intro y hy
+      have hy_norm := h_boundary_norm y hy
+      have hy_ne : y.1 ≠ 0 := fun h => by simp [h] at hy_norm
+      apply Subtype.ext
+      change pre_proj_to_sph (Nat.le_add_left 1 n) y.1 = y.1
+      simp [pre_proj_to_sph, hy_ne, hy_norm]
+    -- S_V is saturated under glue_setoid
+    have hS_V_saturated : ∀ z₁ z₂,
+        glue_setoid
+          (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+          (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+            (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+          z₁ z₂ → z₁ ∈ S_V → z₂ ∈ S_V := by
+      intro z₁ z₂ h₁₂ hz₁
+      rcases glue_rel_equiv_explicit _ _ z₁ z₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+      · rcases c0 with ⟨_, _, rfl⟩; exact hz₁
+      · -- Sum.inl x ∈ S_V (so x ∈ V), need Sum.inr y'.1 ∈ S_V
+        rcases c1 with ⟨x, _, y', rfl, rfl, rfl, heq4⟩
+        rw [CellAttached_f] at heq4
+        refine ⟨by rw [h_boundary_norm y'.1.2 y'.2]; linarith [h_ε_pos y'.1.1], ?_⟩
+        suffices boundary_to_skn y'.1.1 (cb_radial_proj y'.1.2) = x by rw [this]; exact hz₁
+        exact (Subtype.ext (congr_arg (characteristic_cn (n + 1) y'.1.1)
+          (h_rp_boundary y'.1.2 y'.2))).trans heq4.symm
+      · -- Sum.inr y'.1 ∈ S_V, need Sum.inl x ∈ S_V (x ∈ V)
+        rcases c2 with ⟨_, x, y', rfl, rfl, rfl, heq4⟩
+        rw [CellAttached_f] at heq4
+        have key : boundary_to_skn y'.1.1 (cb_radial_proj y'.1.2) = x :=
+          (Subtype.ext (congr_arg (characteristic_cn (n + 1) y'.1.1)
+            (h_rp_boundary y'.1.2 y'.2))).trans heq4.symm
+        rw [← key]; exact hz₁.2
+      · -- Both Sum.inr, boundary points with same skeleton image
+        rcases c3 with ⟨_, _, y₁', y₂', rfl, rfl, rfl, rfl, heq5, _⟩
+        rw [CellAttached_f] at heq5
+        refine ⟨by rw [h_boundary_norm y₂'.1.2 y₂'.2]; linarith [h_ε_pos y₂'.1.1], ?_⟩
+        have key₁ : boundary_to_skn y₁'.1.1 (cb_radial_proj y₁'.1.2) =
+            boundary_to_skn y₁'.1.1 ⟨y₁'.1.2, y₁'.2⟩ :=
+          Subtype.ext (congr_arg (characteristic_cn (n + 1) y₁'.1.1)
+            (h_rp_boundary y₁'.1.2 y₁'.2))
+        have key₂ : boundary_to_skn y₂'.1.1 (cb_radial_proj y₂'.1.2) =
+            boundary_to_skn y₂'.1.1 ⟨y₂'.1.2, y₂'.2⟩ :=
+          Subtype.ext (congr_arg (characteristic_cn (n + 1) y₂'.1.1)
+            (h_rp_boundary y₂'.1.2 y₂'.2))
+        rw [key₂, show boundary_to_skn y₂'.1.1 ⟨y₂'.1.2, y₂'.2⟩ =
+            boundary_to_skn y₁'.1.1 ⟨y₁'.1.2, y₁'.2⟩ from heq5.symm, ← key₁]
+        exact hz₁.2
+      · rcases c4 with ⟨_, _, rfl⟩; exact hz₁
+    -- Define the composite map: disjoint sum → Skeleton X (n+1)
+    let comp_map : (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+        Skeleton X (n + 1) := fun z => h_homeo (Quotient.mk'' z)
+    -- comp_map is a quotient map (homeomorphism ∘ quotient projection)
+    have h_comp_qm : Topology.IsQuotientMap comp_map :=
+      h_homeo.isQuotientMap.comp (adj_proj_quotient _ _)
+    -- Preimage of image of S_V under comp_map = S_V (saturation)
+    have h_preimage_eq : comp_map ⁻¹' (comp_map '' S_V) = S_V := by
+      ext z; constructor
+      · rintro ⟨z', hz', heq⟩
+        exact hS_V_saturated z' z (Quotient.eq''.mp (h_homeo.injective heq)) hz'
+      · exact fun hz => ⟨z, hz, rfl⟩
+    refine ⟨comp_map '' S_V, ?_, ?_, ?_⟩
+    · -- V' is open
+      rw [← h_comp_qm.isOpen_preimage, h_preimage_eq]; exact hS_V_open
+    · -- Containment: V embeds into V'
+      intro x hx
+      exact ⟨Sum.inl x, hx, by
+        simp [comp_map, h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]⟩
+    · -- Zero property
+      intro a ha y ⟨z, hz, hzy⟩
+      have hval : pou_succ_fun a y = pou_ext a z := by
+        show Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm y) = pou_ext a z
+        rw [show y = comp_map z from hzy.symm]
+        simp [comp_map, h_homeo.symm_apply_apply, pou_ext]
+      rw [hval]
+      match z, hz with
+      | Sum.inl x, hx => exact ha x hx
+      | Sum.inr ⟨γ, w⟩, ⟨hw_norm, hw_proj⟩ =>
+        show cb_pou γ a w = 0
+        rw [h_cb_collar γ a w hw_norm]
+        exact ha _ hw_proj
+  -- Step 7: local finiteness on Skeleton X (n+1)
+  have pou_succ_locallyFinite : LocallyFinite (fun a => Function.support (pou_succ_fun a)) := by
+    sorry
+  let pou_succ : CompatibleSkeletonPOU α s (n + 1) :=
+    ⟨pou_succ_fun, pou_succ_nonneg, pou_succ_sum, pou_succ_locallyFinite, pou_succ_subordinate⟩
+  refine ⟨pou_succ, ?_, ?_⟩
+  · intro a x
+    simpa [pou_succ] using pou_succ_restrict a x
+  · intro V hV
+    simpa [pou_succ] using pou_succ_zero_extension V hV
 
 instance instCWComplexParacompactSpace : ParacompactSpace X := by
   apply paracompact_of_exist_partition_of_unity
