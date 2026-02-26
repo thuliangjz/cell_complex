@@ -707,15 +707,7 @@ theorem skeleton_pou_succ
         simpa [tsupport, fσ] using hy_pre
       have hy_sub : characteristic_cn (n + 1) γ y ∈ s a := h_cb_sub γ a hy_tsupport
       simpa [skn_sum_cnp1_to_sknp1] using hy_sub
-  -- Step 5 (target): subordination on Skeleton X (n+1)
-  have pou_succ_subordinate : ∀ a, tsupport (pou_succ_fun a) ⊆ Subtype.val ⁻¹' (s a) := by
-    intro a x hx
-    -- Step 1 scaffold: split points into old-skeleton vs new-cell cases.
-    by_cases h_old :
-        ∃ x0 : Skeleton X n,
-          x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩
-    · sorry
-    · sorry
+
   -- Step 5(i): restriction to the n-skeleton
   have pou_succ_restrict : ∀ a (x : Skeleton X n),
       pou_succ_fun a
@@ -884,6 +876,169 @@ theorem skeleton_pou_succ
         show cb_pou γ a w = 0
         rw [h_cb_collar γ a w hw_norm]
         exact ha _ hw_proj
+ -- Step 5 (target): subordination on Skeleton X (n+1)
+  have pou_succ_subordinate : ∀ a, tsupport (pou_succ_fun a) ⊆ Subtype.val ⁻¹' (s a) := by
+    intro a x hx
+    -- Step 1 scaffold: split points into old-skeleton vs new-cell cases.
+    by_cases h_old :
+        ∃ x0 : Skeleton X n,
+          x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩
+    · obtain ⟨x0, hx0⟩ := h_old
+      suffices h_tsup : x0 ∈ tsupport (pou_n.toFun a) by
+        subst hx0; exact pou_n.subordinate a h_tsup
+      by_contra h_not
+      have hV_open : IsOpen (tsupport (pou_n.toFun a))ᶜ :=
+        isOpen_compl_iff.mpr isClosed_closure
+      have hV_zero : ∀ y ∈ (tsupport (pou_n.toFun a))ᶜ, pou_n.toFun a y = 0 := by
+        intro y hy
+        by_contra h_ne
+        exact hy (subset_closure (Function.mem_support.mpr h_ne))
+      obtain ⟨V', hV'_open, hV'_contain, hV'_zero⟩ :=
+        pou_succ_zero_extension (tsupport (pou_n.toFun a))ᶜ hV_open
+      have hx_in_V' : x ∈ V' := by rw [hx0]; exact hV'_contain x0 h_not
+      have h_supp_sub : Function.support (↑(pou_succ_fun a)) ⊆ V'ᶜ := by
+        intro y hy hy'
+        exact absurd (hV'_zero a hV_zero y hy') (Function.mem_support.mp hy)
+      exact absurd hx_in_V' (closure_minimal h_supp_sub (isClosed_compl_iff.mpr hV'_open) hx)
+    · -- Case: x is in the interior of an (n+1)-cell
+      obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+      have hval : ∀ a, pou_succ_fun a x = pou_ext a x' := by
+        intro a
+        show Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x) = _
+        rw [← hx']; simp only [Quotient.lift_mk]
+      -- x' must be Sum.inr (if Sum.inl, contradicts ¬h_old)
+      obtain ⟨γ, y, rfl⟩ : ∃ γ y, x' = Sum.inr ⟨γ, y⟩ := by
+        match x' with
+        | Sum.inl sk =>
+          exfalso; apply h_old
+          exact ⟨sk, by
+            have : x = h_homeo (Quotient.mk'' (Sum.inl sk)) := by
+              have := h_homeo.apply_symm_apply x
+              rw [← hx'] at this; exact this.symm
+            rw [this]
+            simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]⟩
+        | Sum.inr ⟨γ, y⟩ => exact ⟨γ, y, rfl⟩
+      -- x = h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩))
+      have hx_eq : x = h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩)) := by
+        have := h_homeo.apply_symm_apply x
+        rw [← hx'] at this; exact this.symm
+      -- y is not on the boundary (otherwise h_old would hold)
+      have hy_not_bd : y ∉ @cb_boundary (n + 1) := by
+        intro hy_bd
+        apply h_old
+        let sk : Skeleton X n :=
+          ⟨characteristic_cn (n + 1) γ y, char_cnp1_boundary_in_skn n γ y hy_bd⟩
+        refine ⟨sk, ?_⟩
+        have hq_eq : h_homeo.symm x = Quotient.mk'' (Sum.inl sk) := by
+          rw [← hx', Quotient.eq'']
+          exact Relation.EqvGen.symm _ _
+            (Relation.EqvGen.rel _ _ ⟨⟨⟨γ, y⟩, hy_bd⟩, rfl, rfl⟩)
+        have := (h_homeo.apply_symm_apply x).symm
+        rw [hq_eq] at this; rw [this]
+        simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]
+      -- y ∈ tsupport (cb_pou γ a)
+      have hy_tsup : y ∈ tsupport (cb_pou γ a) := by
+        -- Apply the locally-open argument:
+        -- p : cb (n+1) → Skeleton X (n+1), f = pou_succ_fun a, g = cb_pou γ a
+        let p : cb (n + 1) → Skeleton X (n + 1) :=
+          fun w => h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))
+        -- V = Set.univ (the equality holds everywhere)
+        have hfg : ∀ w, (cb_pou γ a) w = (pou_succ_fun a) (p w) := by
+          intro w
+          show cb_pou γ a w =
+            Quotient.lift (pou_ext a) (pou_ext_factors a)
+              (h_homeo.symm (h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))))
+          rw [h_homeo.symm_apply_apply]
+          simp only [Quotient.lift_mk, pou_ext]
+        -- U₀ = cb_boundaryᶜ (the interior of the closed ball)
+        have hU₀_nhds : cb_boundaryᶜ ∈ nhds y := by
+          exact (isOpen_compl_iff.mpr cb_boundary_closed).mem_nhds hy_not_bd
+        -- p maps open subsets of the interior to open sets (locally open)
+        have h_locally_open : ∀ U', IsOpen U' → U' ⊆ (cb_boundaryᶜ : Set (cb (n + 1))) →
+            IsOpen (p '' U') := by
+          intro U' hU'_open hU'_sub
+          let comp_map : (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+              Skeleton X (n + 1) := fun z => h_homeo (Quotient.mk'' z)
+          have h_comp_qm : Topology.IsQuotientMap comp_map :=
+            h_homeo.isQuotientMap.comp (adj_proj_quotient _ _)
+          let S : Set ((Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) :=
+            {z | ∃ w ∈ U', z = Sum.inr ⟨γ, w⟩}
+          have h_eq : p '' U' = comp_map '' S := by
+            ext z; simp only [Set.mem_image, Set.mem_setOf_eq, S, comp_map, p]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨Sum.inr ⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_eq, ← h_comp_qm.isOpen_preimage]
+          -- Saturation: S is closed under the glue relation
+          have hS_saturated : ∀ z₁ z₂,
+              glue_setoid
+                (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+                (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+                  (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+                z₁ z₂ → z₁ ∈ S → z₂ ∈ S := by
+            intro z₁ z₂ h₁₂ hz₁
+            rcases glue_rel_equiv_explicit _ _ z₁ z₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+            · rcases c0 with ⟨_, _, rfl⟩; exact hz₁
+            · rcases c1 with ⟨_, _, _, rfl, _, _, _⟩
+              obtain ⟨_, _, habs⟩ := hz₁; simp at habs
+            · rcases c2 with ⟨_, _, y', rfl, rfl, rfl, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y'.property
+            · rcases c3 with ⟨_, _, y₁', _, rfl, rfl, rfl, rfl, _, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y₁'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y₁'.property
+            · rcases c4 with ⟨_, _, rfl⟩; exact hz₁
+          -- Preimage of image equals S
+          have h_sat : comp_map ⁻¹' (comp_map '' S) = S := by
+            ext z; constructor
+            · rintro ⟨z', hz', heq⟩
+              exact hS_saturated z' z (Quotient.eq''.mp (h_homeo.injective heq)) hz'
+            · exact fun hz => ⟨z, hz, rfl⟩
+          rw [h_sat]
+          -- S is open: it equals Sum.inr '' (Sigma.mk γ '' U')
+          have h_S_eq : S = Sum.inr '' (Sigma.mk γ '' U') := by
+            ext z; simp only [Set.mem_setOf_eq, Set.mem_image, S]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_S_eq]
+          exact isOpenMap_inr _
+            ((Topology.IsOpenEmbedding.sigmaMk (i := γ)
+              (σ := fun _ : CellOfDim (n + 1) => cb (n + 1))).isOpenMap _ hU'_open)
+        -- x = p y ∈ tsupport (pou_succ_fun a)
+        have hx_tsup : p y ∈ tsupport (pou_succ_fun a) := by
+          show h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩)) ∈ tsupport (pou_succ_fun a)
+          rwa [← hx_eq]
+        -- Now apply the contradiction argument (same as the example)
+        by_contra h_not
+        set U₁ := (cb_boundaryᶜ : Set (cb (n + 1))) ∩ (tsupport (cb_pou γ a))ᶜ
+        have hU₁_open : IsOpen (p '' U₁) :=
+          h_locally_open U₁
+            ((isOpen_compl_iff.mpr cb_boundary_closed).inter
+              (isOpen_compl_iff.mpr isClosed_closure))
+            (fun _ hy => hy.1)
+        have hy_mem : p y ∈ p '' U₁ :=
+          ⟨y, ⟨hy_not_bd, h_not⟩, rfl⟩
+        have h_supp_sub : Function.support (pou_succ_fun a) ⊆ (p '' U₁)ᶜ := by
+          intro z hz hz_mem
+          obtain ⟨w, ⟨_, hw_not_tsup⟩, rfl⟩ := hz_mem
+          have hgw : cb_pou γ a w = 0 := by
+            by_contra h_ne
+            exact hw_not_tsup (subset_closure (Function.mem_support.mpr h_ne))
+          exact (Function.mem_support.mp hz) ((hfg w).symm.trans hgw)
+        exact absurd hy_mem
+          (closure_minimal h_supp_sub (isClosed_compl_iff.mpr hU₁_open) hx_tsup)
+      -- Conclude: characteristic_cn maps y into s a, and x.val equals that
+      have hy_sub : characteristic_cn (n + 1) γ y ∈ s a := h_cb_sub γ a hy_tsup
+      show x.val ∈ s a
+      rw [hx_eq]
+      simpa [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1] using hy_sub
   -- Step 7: local finiteness on Skeleton X (n+1)
   have pou_succ_locallyFinite : LocallyFinite (fun a => Function.support (pou_succ_fun a)) := by
     sorry
@@ -902,5 +1057,4 @@ instance instCWComplexParacompactSpace : ParacompactSpace X := by
 
 
 end
-
 end Chp5
