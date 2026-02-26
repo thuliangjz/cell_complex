@@ -99,6 +99,7 @@ omit CW in theorem exists_cb_pou_on_cell
     ∃ cb_pou : α → C(cb (n + 1), ℝ),
       (∀ a x, 0 ≤ cb_pou a x) ∧
       (∀ x, ∑ᶠ a, cb_pou a x = 1) ∧
+      ({a : α | (Function.support (cb_pou a)).Nonempty}.Finite) ∧
       (∀ a, tsupport (cb_pou a) ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a)) ∧
       (∀ a x (hx : x ∈ cb_boundary),
         cb_pou a x =
@@ -561,9 +562,43 @@ omit CW in theorem exists_cb_pou_on_cell
     show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a (cb_radial_proj x)) = _
     rw [if_neg hx_ne]
 
+  have cb_pou_candidate_active_finite :
+      {a : α | (Function.support (cb_pou_candidate a)).Nonempty}.Finite := by
+    have h_mul_eta_locallyFinite :
+        LocallyFinite (fun a : α => Function.support (fun x : cb (n + 1) => σ x * η a x)) := by
+      refine η.locallyFinite.subset ?_
+      intro a x hx
+      rw [Function.mem_support] at hx ⊢
+      exact right_ne_zero_of_mul hx
+    have h_mul_eta_active_finite :
+        {a : α | (Function.support (fun x : cb (n + 1) => σ x * η a x)).Nonempty}.Finite := by
+      simpa [Set.inter_univ] using
+        h_mul_eta_locallyFinite.finite_nonempty_inter_compact (s := (Set.univ : Set (cb (n + 1))))
+          isCompact_univ
+    have h_mul_phi_active_finite :
+        {a : α | (Function.support (fun x : cb (n + 1) => (1 - σ x) * phi a x)).Nonempty}.Finite := by
+      refine (t.finite_toSet).subset ?_
+      intro a ha
+      by_contra ha_t
+      rcases ha with ⟨x, hx⟩
+      rw [Function.mem_support] at hx
+      exact hx (by rw [h_phi_zero_outside a ha_t x, mul_zero])
+    refine (h_mul_eta_active_finite.union h_mul_phi_active_finite).subset ?_
+    intro a ha
+    rcases ha with ⟨x, hx⟩
+    have hx_sum : σ x * η a x + (1 - σ x) * phi a x ≠ 0 := by
+      simpa [Function.mem_support, cb_pou_candidate] using hx
+    by_cases hηx : σ x * η a x = 0
+    · have hφx : (1 - σ x) * phi a x ≠ 0 := by
+        intro hzero
+        exact hx_sum (by rw [hηx, hzero, zero_add])
+      exact Or.inr ⟨x, by simpa [Function.mem_support] using hφx⟩
+    · exact Or.inl ⟨x, by simpa [Function.mem_support] using hηx⟩
+
   exact ⟨fun a => ⟨cb_pou_candidate a, cb_pou_candidate_cont a⟩,
     cb_pou_candidate_nonneg,
     cb_pou_candidate_sum_eq_one,
+    cb_pou_candidate_active_finite,
     cb_pou_candidate_subordinate,
     cb_pou_candidate_boundary,
     cb_pou_candidate_collar⟩
@@ -589,12 +624,22 @@ theorem skeleton_pou_succ
     fun γ : CellOfDim (n + 1) => exists_cb_pou_on_cell s hs_open hs_cover n γ pou_n
   have h_cb_nonneg := fun γ => (h_cb_pou γ).1
   have h_cb_sum := fun γ => (h_cb_pou γ).2.1
-  have h_cb_sub := fun γ => (h_cb_pou γ).2.2.1
-  have h_cb_boundary := fun γ => (h_cb_pou γ).2.2.2.1
-  choose cb_ε h_cb_ε using fun γ => (h_cb_pou γ).2.2.2.2
+  have h_cb_active_finite := fun γ => (h_cb_pou γ).2.2.1
+  have h_cb_sub := fun γ => (h_cb_pou γ).2.2.2.1
+  have h_cb_boundary := fun γ => (h_cb_pou γ).2.2.2.2.1
+  choose cb_ε h_cb_ε using fun γ => (h_cb_pou γ).2.2.2.2.2
   have h_ε_pos := fun γ => (h_cb_ε γ).1
   have h_ε_lt := fun γ => (h_cb_ε γ).2.1
   have h_cb_collar := fun γ => (h_cb_ε γ).2.2
+  have h_cb_active_interior_finite :
+      ∀ γ : CellOfDim (n + 1),
+        {a : α |
+          (Function.support (cb_pou γ a) ∩ (cb_boundaryᶜ : Set (cb (n + 1)))).Nonempty}.Finite := by
+    intro γ
+    refine (h_cb_active_finite γ).subset ?_
+    intro a ha
+    rcases ha with ⟨x, hx⟩
+    exact ⟨x, hx.1⟩
   -- Step 2: Define the function on the disjoint sum and show factoring
   let pou_ext : α → (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) → ℝ :=
     fun a x => match x with
@@ -1041,7 +1086,180 @@ theorem skeleton_pou_succ
       simpa [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1] using hy_sub
   -- Step 7: local finiteness on Skeleton X (n+1)
   have pou_succ_locallyFinite : LocallyFinite (fun a => Function.support (pou_succ_fun a)) := by
-    sorry
+    intro x
+    by_cases h_old :
+        ∃ x0 : Skeleton X n,
+          x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩
+    · -- `x ∈ Skeleton X n` case
+      have h_old_step1 :
+          ∃ x0 : Skeleton X n, ∃ V : Set (Skeleton X n),
+            x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩ ∧
+            IsOpen V ∧ x0 ∈ V ∧
+            {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty}.Finite := by
+        rcases h_old with ⟨x0, hx0⟩
+        obtain ⟨t, ht_nhds, ht_fin⟩ := pou_n.locallyFinite x0
+        rcases mem_nhds_iff.mp ht_nhds with ⟨V, hV_sub_t, hV_open, hx0_in_V⟩
+        have hV_fin :
+            {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty}.Finite := by
+          refine ht_fin.subset ?_
+          intro a ha
+          rcases ha with ⟨u, hu_supp, huV⟩
+          exact ⟨u, hu_supp, hV_sub_t huV⟩
+        exact ⟨x0, V, hx0, hV_open, hx0_in_V, hV_fin⟩
+      rcases h_old_step1 with ⟨x0, V, hx0, hV_open, hx0_in_V, hV_fin⟩
+      let F : Set α := {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty}
+      have h_zero_on_V_outside_F :
+          ∀ a, a ∉ F → ∀ u ∈ V, pou_n.toFun a u = 0 := by
+        intro a haF u huV
+        by_contra h_ne
+        apply haF
+        exact ⟨u, Function.mem_support.mpr h_ne, huV⟩
+      have h_exists_V'_old_branch :
+          ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧ x ∈ V' ∧
+            (∀ a, a ∉ F → ∀ y ∈ V', pou_succ_fun a y = 0) := by
+        obtain ⟨V', hV'_open, hV'_contains, hV'_zero⟩ := pou_succ_zero_extension V hV_open
+        have hx_in_V' : x ∈ V' := by
+          rw [hx0]
+          exact hV'_contains x0 hx0_in_V
+        refine ⟨V', hV'_open, hx_in_V', ?_⟩
+        intro a haF y hyV'
+        exact hV'_zero a (h_zero_on_V_outside_F a haF) y hyV'
+      have hF_fin : F.Finite := by simpa [F] using hV_fin
+      rcases h_exists_V'_old_branch with ⟨V', hV'_open, hx_in_V', h_zero_on_V'⟩
+      have h_active_subset :
+          {a : α | (Function.support (pou_succ_fun a) ∩ V').Nonempty} ⊆ F := by
+        intro a ha
+        by_contra haF
+        rcases ha with ⟨y, hy_supp, hyV'⟩
+        exact (Function.mem_support.mp hy_supp) (h_zero_on_V' a haF y hyV')
+      refine ⟨V', hV'_open.mem_nhds hx_in_V', ?_⟩
+      exact hF_fin.subset h_active_subset
+    · -- Step 1 (interior-cell case): choose right-summand representative with non-boundary point
+      have h_repr :
+          ∃ γ y, x = h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩)) ∧ y ∉ @cb_boundary (n + 1) := by
+        obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+        obtain ⟨γ, y, rfl⟩ : ∃ γ y, x' = Sum.inr ⟨γ, y⟩ := by
+          match x' with
+          | Sum.inl sk =>
+            exfalso; apply h_old
+            refine ⟨sk, ?_⟩
+            have : x = h_homeo (Quotient.mk'' (Sum.inl sk)) := by
+              have := h_homeo.apply_symm_apply x
+              rw [← hx'] at this
+              exact this.symm
+            rw [this]
+            simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]
+          | Sum.inr ⟨γ, y⟩ => exact ⟨γ, y, rfl⟩
+        refine ⟨γ, y, ?_, ?_⟩
+        · have := h_homeo.apply_symm_apply x
+          rw [← hx'] at this
+          exact this.symm
+        · intro hy_bd
+          apply h_old
+          let sk : Skeleton X n :=
+            ⟨characteristic_cn (n + 1) γ y, char_cnp1_boundary_in_skn n γ y hy_bd⟩
+          refine ⟨sk, ?_⟩
+          have hq_eq : h_homeo.symm x = Quotient.mk'' (Sum.inl sk) := by
+            rw [← hx', Quotient.eq'']
+            exact Relation.EqvGen.symm _ _
+              (Relation.EqvGen.rel _ _ ⟨⟨⟨γ, y⟩, hy_bd⟩, rfl, rfl⟩)
+          have := (h_homeo.apply_symm_apply x).symm
+          rw [hq_eq] at this
+          rw [this]
+          simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]
+      rcases h_repr with ⟨γ, y, hx_eq, hy_not_bd⟩
+      have h_exists_V_int_and_support_transfer :
+          ∃ V_int : Set (Skeleton X (n + 1)),
+            IsOpen V_int ∧ x ∈ V_int ∧
+            (∀ a, (Function.support (pou_succ_fun a) ∩ V_int).Nonempty →
+              (Function.support (cb_pou γ a) ∩ (cb_boundaryᶜ : Set (cb (n + 1)))).Nonempty) := by
+        let pγ : cb (n + 1) → Skeleton X (n + 1) :=
+          fun w => h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))
+        have hfg : ∀ a w, cb_pou γ a w = pou_succ_fun a (pγ w) := by
+          intro a w
+          show cb_pou γ a w =
+            Quotient.lift (pou_ext a) (pou_ext_factors a)
+              (h_homeo.symm (h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))))
+          rw [h_homeo.symm_apply_apply]
+          simp only [Quotient.lift_mk, pou_ext]
+        have h_locally_open : ∀ U', IsOpen U' → U' ⊆ (cb_boundaryᶜ : Set (cb (n + 1))) →
+            IsOpen (pγ '' U') := by
+          intro U' hU'_open hU'_sub
+          let comp_map : (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+              Skeleton X (n + 1) := fun z => h_homeo (Quotient.mk'' z)
+          have h_comp_qm : Topology.IsQuotientMap comp_map :=
+            h_homeo.isQuotientMap.comp (adj_proj_quotient _ _)
+          let S : Set ((Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) :=
+            {z | ∃ w ∈ U', z = Sum.inr ⟨γ, w⟩}
+          have h_eq : pγ '' U' = comp_map '' S := by
+            ext z; simp only [Set.mem_image, Set.mem_setOf_eq, S, comp_map, pγ]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨Sum.inr ⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_eq, ← h_comp_qm.isOpen_preimage]
+          have hS_saturated : ∀ z₁ z₂,
+              glue_setoid
+                (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+                (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+                  (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+                z₁ z₂ → z₁ ∈ S → z₂ ∈ S := by
+            intro z₁ z₂ h₁₂ hz₁
+            rcases glue_rel_equiv_explicit _ _ z₁ z₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+            · rcases c0 with ⟨_, _, rfl⟩; exact hz₁
+            · rcases c1 with ⟨_, _, _, rfl, _, _, _⟩
+              obtain ⟨_, _, habs⟩ := hz₁; simp at habs
+            · rcases c2 with ⟨_, _, y', rfl, rfl, rfl, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y'.property
+            · rcases c3 with ⟨_, _, y₁', _, rfl, rfl, rfl, rfl, _, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y₁'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y₁'.property
+            · rcases c4 with ⟨_, _, rfl⟩; exact hz₁
+          have h_sat : comp_map ⁻¹' (comp_map '' S) = S := by
+            ext z; constructor
+            · rintro ⟨z', hz', heq⟩
+              exact hS_saturated z' z (Quotient.eq''.mp (h_homeo.injective heq)) hz'
+            · exact fun hz => ⟨z, hz, rfl⟩
+          rw [h_sat]
+          have h_S_eq : S = Sum.inr '' (Sigma.mk γ '' U') := by
+            ext z; simp only [Set.mem_setOf_eq, Set.mem_image, S]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_S_eq]
+          exact isOpenMap_inr _
+            ((Topology.IsOpenEmbedding.sigmaMk (i := γ)
+              (σ := fun _ : CellOfDim (n + 1) => cb (n + 1))).isOpenMap _ hU'_open)
+        let V_int : Set (Skeleton X (n + 1)) := pγ '' (cb_boundaryᶜ : Set (cb (n + 1)))
+        have hV_int_open : IsOpen V_int :=
+          h_locally_open _ (isOpen_compl_iff.mpr cb_boundary_closed) (fun _ h => h)
+        have hx_in_V_int : x ∈ V_int := by
+          refine ⟨y, hy_not_bd, ?_⟩
+          simpa [V_int, pγ] using hx_eq.symm
+        refine ⟨V_int, hV_int_open, hx_in_V_int, ?_⟩
+        intro a ha
+        rcases ha with ⟨z, hz_supp, hz_mem⟩
+        rcases hz_mem with ⟨w, hw_int, hwz⟩
+        refine ⟨w, ?_, hw_int⟩
+        have hz_nz : pou_succ_fun a z ≠ 0 := Function.mem_support.mp hz_supp
+        have hw_nz_succ : pou_succ_fun a (pγ w) ≠ 0 := by simpa [hwz] using hz_nz
+        have hw_nz : cb_pou γ a w ≠ 0 := by simpa [hfg a w] using hw_nz_succ
+        exact Function.mem_support.mpr hw_nz
+      have h_cb_active_interior_finite_γ :
+          {a : α |
+            (Function.support (cb_pou γ a) ∩ (cb_boundaryᶜ : Set (cb (n + 1)))).Nonempty}.Finite :=
+        h_cb_active_interior_finite γ
+      rcases h_exists_V_int_and_support_transfer with ⟨V_int, hV_int_open, hx_in_V_int, h_transfer⟩
+      refine ⟨V_int, hV_int_open.mem_nhds hx_in_V_int, ?_⟩
+      refine Set.Finite.subset h_cb_active_interior_finite_γ ?_
+      intro a ha
+      exact h_transfer a ha
   let pou_succ : CompatibleSkeletonPOU α s (n + 1) :=
     ⟨pou_succ_fun, pou_succ_nonneg, pou_succ_sum, pou_succ_locallyFinite, pou_succ_subordinate⟩
   refine ⟨pou_succ, ?_, ?_⟩
