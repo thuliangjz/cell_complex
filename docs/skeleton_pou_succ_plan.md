@@ -153,13 +153,36 @@ preimage `x'` in the disjoint sum. Then `pou_succ_fun a x = pou_ext a x'`.
 
 **How (~20 lines).**
 
-- **Subordination:** lift to disjoint sum. If `Sum.inl z`, then
-  `z ∈ tsupport (pou_n.toFun a)` gives `z.1 ∈ s a` by `pou_n.subordinate`.
-  If `Sum.inr ⟨γ, y⟩`, then `y ∈ tsupport (cb_pou γ a)` gives
-  `characteristic_cn (n+1) γ y ∈ s a` by `h_sub γ`.
 - **Restriction (i):** for `x : Skeleton X n`, the inclusion into
   `Skeleton X (n+1)` has preimage `Sum.inl x`. So
   `pou_succ_fun a (incl x) = pou_ext a (Sum.inl x) = pou_n.toFun a x`.
+- **Subordination (broken into Lean-sized sub-steps):**
+  1. **Setup / goal type (`Subset` introduction, ~10-20 lines).**
+     Start
+     `intro a x hx`; target is `x.1 ∈ s a` from
+     `hx : x ∈ tsupport (pou_succ_fun a)`.
+     Immediately state a dichotomy for `x`:
+     either `x` comes from embedded `Skeleton X n`, or `x` is in the interior
+     of some `(n+1)`-cell.
+  2. **Case A goal type (`∃ x0 : Skeleton X n, ...`, ~15-25 lines).**
+     Assume `x = ⟨x0.1, skeleton_mono ... x0.2⟩`.
+     Rewrite values with `pou_succ_restrict a x0` so near/at this point
+     `pou_succ_fun a` is identified with `pou_n.toFun a`.
+     Convert support membership to
+     `x0 ∈ tsupport (pou_n.toFun a)`, then finish by
+     `exact pou_n.subordinate a ...`.
+  3. **Case B goal type (`∃ γ y, interior-point representation`, ~15-25 lines).**
+     Assume `x` lies in interior of a specific `(n+1)`-cell `γ`, represented by
+     some `y : cb (n+1)` in that interior chart.
+     Use the cell-side identification of `pou_succ_fun` with `cb_pou γ a`
+     at that point to transport `hx` to
+     `hy : y ∈ tsupport (cb_pou γ a)`.
+  4. **Case B closure goal type (direct membership, ~5-15 lines).**
+     Apply `h_cb_sub γ a hy` to get
+     `characteristic_cn (n+1) γ y ∈ s a`, then rewrite this point as `x.1`
+     via the interior representation. Conclude `x.1 ∈ s a`.
+  5. **Finish (`by_cases`/`rcases` close, ~5-10 lines).**
+     Close both branches and return the required inclusion.
 
 ---
 
@@ -201,16 +224,81 @@ LocallyFinite (fun a => Function.support (pou_succ_fun a))
 
 **How (~20 lines).** For any `x : Skeleton X (n+1)`, two cases:
 
-- **`x` is in the interior of cell `γ`:** the open cell `e_γ` is a
-  neighborhood. On `e_γ`, `pou_succ_fun a = cb_pou γ a`. Since `cb (n+1)` is
-  compact, the cell-level POU has only finitely many nonzero members, so
-  `{a | support(cb_pou γ a) ∩ e_γ ≠ ∅}` is finite.
-- **`x ∈ Skeleton X n`:** by `pou_n.locallyFinite`, there is a neighborhood
-  `V` of `x` in `Skeleton X n` with
-  `F = {a | support(pou_n.toFun a) ∩ V ≠ ∅}` finite. For `a ∉ F`,
-  `pou_n.toFun a = 0` on `V`. Apply Step 6 to get `V'` open in
-  `Skeleton X (n+1)` containing `x`, with `pou_succ_fun a = 0` on `V'` for
-  all `a ∉ F`. Hence `{a | support(pou_succ_fun a) ∩ V' ≠ ∅} ⊆ F`.
+- **`x` is in the interior of cell `γ`:** do this in concrete substeps.
+
+  1. **Choose right-summand representative (≈15 lines).**  
+     **Target type:**
+     `∃ γ y, x = h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩)) ∧ y ∉ cb_boundary`.  
+     **Method:** as in Step 5, get `x'` from `Quotient.exists_rep (h_homeo.symm x)`,
+     rule out `Sum.inl` by contradiction with the “old skeleton” branch, then prove
+     `y ∉ cb_boundary` (the same argument used around `hy_not_bd`).
+
+  2. **Build `V_int` and support-transfer in one lemma (≈30 lines).**  
+     **Target type:**
+     `∃ V_int : Set (Skeleton X (n+1)),
+        IsOpen V_int ∧ x ∈ V_int ∧
+        (∀ a, (Function.support (pou_succ_fun a) ∩ V_int).Nonempty →
+          (Function.support (cb_pou γ a) ∩ cb_boundaryᶜ).Nonempty)`.  
+     **Method:** define
+     `pγ : cb (n+1) → Skeleton X (n+1) := fun w => h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))`,
+     set `V_int := pγ '' (cb_boundaryᶜ)`. Reuse the already-developed “`p` maps interior
+     opens to opens” lemma/pattern (the `h_locally_open` block in Step 5) to get
+     `IsOpen V_int`; membership of `x` follows from witness `y`. For transfer, unpack
+     `z ∈ V_int` as `z = pγ w` with `w ∈ cb_boundaryᶜ`, then use
+     `cb_pou γ a w = pou_succ_fun a (pγ w)` (same `hfg`-style equation as Step 5) to move
+     nonvanishing from `pou_succ_fun` at `z` to `cb_pou` at `w`.
+
+  3. **Import finite activity for fixed cell `γ` (≈5–10 lines).**  
+     **Target type:**
+     `{a | (Function.support (cb_pou γ a) ∩ cb_boundaryᶜ).Nonempty}.Finite`.  
+     **Method:** use a previously prepared lemma for cell `γ` (recommended to be added near
+     Step 1) giving finite active indices on the interior; this is the exact finiteness
+     input needed here.
+
+  4. **Conclude the neighborhood finiteness at `x` (≈10 lines).**  
+     **Target type:**
+     `{a | (Function.support (pou_succ_fun a) ∩ V_int).Nonempty}.Finite`.  
+     **Method:** apply `Set.Finite.subset` with the transfer property from Step 2 to bound
+     this set by the finite set in Step 3. Package with Step 2 as the `LocallyFinite`
+     witness at `x`.
+
+  This completes the interior-cell branch without touching the `x ∈ Skeleton X n` branch.
+- **`x ∈ Skeleton X n`:** do this in concrete substeps.
+
+  1. **Pick `x0` and local finite data on the old skeleton (≈20 lines).**  
+     **Target type:**
+     `∃ x0 : Skeleton X n, ∃ V : Set (Skeleton X n),
+        x = ⟨x0.1, skeleton_mono n (n+1) (Nat.le_add_right n 1) x0.2⟩ ∧
+        IsOpen V ∧ x0 ∈ V ∧
+        {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty}.Finite`.  
+     **Method:** use `h_old` to obtain `x0`. Apply `pou_n.locallyFinite x0` to get
+     `⟨t, ht_nhds, ht_fin⟩`. Extract an open `V` with `x0 ∈ V` and `V ⊆ t` from `ht_nhds`,
+     then deduce finiteness on `V` by `Set.Finite.subset` from `ht_fin`.
+
+  2. **Show zero-on-`V` outside the finite index set (≈15–20 lines).**  
+     **Target type:**
+     `let F := {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty};
+      ∀ a, a ∉ F → ∀ u ∈ V, pou_n.toFun a u = 0`.  
+     **Method:** fix `a ∉ F`, `u ∈ V`. If `pou_n.toFun a u ≠ 0`, then
+     `u ∈ Function.support (pou_n.toFun a)` and hence
+     `(Function.support (pou_n.toFun a) ∩ V).Nonempty`, contradiction.
+
+  3. **Apply Step 6 to transport zeroes to `(n+1)`-skeleton (≈20 lines).**  
+     **Target type:**
+     `∃ V' : Set (Skeleton X (n+1)), IsOpen V' ∧ x ∈ V' ∧
+        (∀ a, a ∉ F → ∀ y ∈ V', pou_succ_fun a y = 0)`.  
+     **Method:** apply `pou_succ_zero_extension V hV_open`, obtaining
+     `⟨V', hV'_open, hV'_contains, hV'_zero⟩`. Use `hx0` and `x0 ∈ V` to prove `x ∈ V'`.
+     For `a ∉ F`, feed Step 2's zero-on-`V` fact into `hV'_zero` to get zero-on-`V'`.
+
+  4. **Conclude finiteness on `V'` and finish this branch (≈15 lines).**  
+     **Target type:**
+     `{a : α | (Function.support (pou_succ_fun a) ∩ V').Nonempty}.Finite`.  
+     **Method:** prove
+     `{a | (Function.support (pou_succ_fun a) ∩ V').Nonempty} ⊆ F` using Step 3:
+     if `a ∉ F`, Step 3 gives `pou_succ_fun a = 0` on `V'`, contradicting nonempty
+     support intersection. Then apply `Set.Finite.subset` with finiteness of `F`, and
+     package `⟨V', hV'_open.mem_nhds hx_in_V', ...⟩` as the local finiteness witness.
 
 ---
 
