@@ -1,0 +1,1977 @@
+import STCC.TopologicalProperties
+import STCC.Construction
+import Mathlib.Topology.Compactness.Paracompact
+import Mathlib.Topology.PartitionOfUnity
+namespace Chp5
+
+section helper
+universe u
+lemma paracompact_of_exist_partition_of_unity {X: Type u} [TopologicalSpace X] (hX: ∀ (α: Type u) (s: α → Set X), (∀ a, IsOpen (s a)) → (⋃ a, s a = Set.univ) → ∃ p:(PartitionOfUnity α X), p.IsSubordinate s): ParacompactSpace X := by
+  constructor
+  intro α s hs_open hs_cover
+  obtain ⟨p, hp⟩ := hX α s hs_open hs_cover
+  refine ⟨α, fun a => Function.support (p a), ?openness, ?covering, ?locally_finite, ?refinement⟩
+  case openness =>
+    intro b
+    exact isOpen_ne.preimage (map_continuous (p b))
+  case covering =>
+    rw [Set.iUnion_eq_univ_iff]
+    intro x
+    obtain ⟨a, ha⟩ := p.exists_pos (Set.mem_univ x)
+    exact ⟨a, ne_of_gt ha⟩
+  case locally_finite =>
+    exact p.locallyFinite
+  case refinement =>
+    intro b
+    exact ⟨b, subset_closure.trans (hp b)⟩
+end helper
+
+noncomputable def cb_radial_proj {n : ℕ} (x : cb (n + 1)) : @cb_boundary (n + 1) :=
+  ⟨sph_to_cb ⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
+    pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩,
+   ⟨⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
+     pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩, rfl⟩⟩
+
+section
+variable {X: Type*} [TopologicalSpace X] [T2Space X] [C: CellComplexClass X] [CW: CWComplexClass X]
+open CellComplexClass
+open Classical
+
+structure CompatibleSkeletonPOU (α : Type*) (s : α → Set X) (n : ℕ) where
+  toFun : α → C(Skeleton X n, ℝ)
+  nonneg : ∀ a (x : Skeleton X n), 0 ≤ toFun a x
+  sum_eq_one : ∀ x : Skeleton X n, ∑ᶠ a, toFun a x = 1
+  locallyFinite : LocallyFinite (fun a => Function.support (toFun a))
+  subordinate : ∀ a, tsupport (toFun a) ⊆ (Subtype.val ⁻¹' (s a))
+
+noncomputable def skeleton_pou_zero
+    (s : α → Set X) (_hs_open : ∀ a, IsOpen (s a)) (hs_cover : ⋃ a, s a = Set.univ) :
+    CompatibleSkeletonPOU α s 0 := by
+  haveI : DiscreteTopology (Skeleton X 0) := skeleton0_discrete
+  -- For each point in the 0-skeleton, choose a covering index
+  have h_mem : ∀ x : Skeleton X 0, ∃ a : α, (x : X) ∈ s a := by
+    intro x
+    have : (x : X) ∈ ⋃ a, s a := hs_cover ▸ Set.mem_univ _
+    exact Set.mem_iUnion.mp this
+  let idx : Skeleton X 0 → α := fun x => (h_mem x).choose
+  have h_idx : ∀ x, (x : X) ∈ s (idx x) := fun x => (h_mem x).choose_spec
+  refine ⟨fun a => ⟨fun x => if idx x = a then 1 else 0, continuous_of_discreteTopology⟩,
+    ?_, ?_, ?_, ?_⟩
+  · -- nonneg
+    intro a x
+    simp only [ContinuousMap.coe_mk]
+    split_ifs <;> norm_num
+  · -- sum_eq_one
+    intro x
+    simp only [ContinuousMap.coe_mk]
+    convert finsum_eq_single _ (idx x) (fun b hb => ?_) using 1
+    · simp
+    · simp [Ne.symm hb]
+  · -- locallyFinite
+    intro x
+    refine ⟨{x}, (isOpen_discrete _).mem_nhds rfl, ?_⟩
+    apply Set.Finite.subset (Set.finite_singleton (idx x))
+    intro a ha
+    simp only [Set.mem_singleton_iff]
+    obtain ⟨y, hy_supp, hy_mem⟩ := ha
+    rw [Set.mem_singleton_iff] at hy_mem
+    subst hy_mem
+    rw [Function.mem_support] at hy_supp
+    simp only [ContinuousMap.coe_mk] at hy_supp
+    by_contra h
+    exact hy_supp (if_neg (Ne.symm h))
+  · -- subordinate
+    intro a
+    apply subset_trans (closure_minimal (fun x hx => ?_) (isClosed_discrete _))
+      (le_refl _)
+    rw [Function.mem_support] at hx
+    simp only [ContinuousMap.coe_mk] at hx
+    simp only [Set.mem_preimage]
+    have h_eq : idx x = a := by
+      by_contra h
+      exact hx (if_neg h)
+    rw [← h_eq]
+    exact h_idx x
+
+omit CW in theorem exists_cb_pou_on_cell
+    {α : Type*} (s : α → Set X) (hs_open : ∀ a, IsOpen (s a)) (hs_cover : ⋃ a, s a = Set.univ)
+    (n : ℕ) (γ : CellOfDim (n + 1)) (pou_n : CompatibleSkeletonPOU α s n) :
+    ∃ cb_pou : α → C(cb (n + 1), ℝ),
+      (∀ a x, 0 ≤ cb_pou a x) ∧
+      (∀ x, ∑ᶠ a, cb_pou a x = 1) ∧
+      ({a : α | (Function.support (cb_pou a)).Nonempty}.Finite) ∧
+      (∀ a, tsupport (cb_pou a) ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a)) ∧
+      (∀ a x (hx : x ∈ cb_boundary),
+        cb_pou a x =
+          pou_n.toFun a
+            ⟨characteristic_cn (n + 1) γ x, char_cnp1_boundary_in_skn n γ x hx⟩) ∧
+      (∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧
+        ∀ a (x : cb (n + 1)), (1 - ε / 2 : ℝ) < ‖x.1‖ →
+          cb_pou a x = pou_n.toFun a
+            ⟨characteristic_cn (n + 1) γ (cb_radial_proj x).1,
+             char_cnp1_boundary_in_skn n γ (cb_radial_proj x).1
+               (cb_radial_proj x).2⟩) := by
+  let boundary_pullback : α → cb_boundary → ℝ := fun a z =>
+    pou_n.toFun a
+      ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
+  have h_boundary_pullback_cont : ∀ a, Continuous (boundary_pullback a) := by
+    intro a
+    change Continuous (fun z : cb_boundary =>
+      pou_n.toFun a
+        ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩)
+    refine (pou_n.toFun a).continuous.comp ?_
+    refine Continuous.subtype_mk ?_ (fun z : cb_boundary => char_cnp1_boundary_in_skn n γ z.1 z.2)
+    change Continuous (fun z : cb_boundary => characteristic_cn (n + 1) γ z.1)
+    have h_char : Continuous (characteristic_cn (n + 1) γ) := by
+      rcases γ with ⟨e, he⟩
+      change Continuous (fun x : cb (n + 1) =>
+        C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) he).mpr x))
+      refine Continuous.comp (C.characteristic_map_continuous e) ?_
+      exact @Eq.rec ℕ (C.dim_map e)
+        (fun m hm => Continuous ((congrArg (fun p ↦ (cb p : Type)) hm).mpr))
+        continuous_id (n + 1) he
+    exact h_char.comp continuous_subtype_val
+  have h_cb_preimage_cover_open :
+      (∀ a, IsOpen ((characteristic_cn (n + 1) γ) ⁻¹' (s a))) ∧
+      (⋃ a, (characteristic_cn (n + 1) γ) ⁻¹' (s a) = Set.univ) := by
+    have h_char_cont : Continuous (characteristic_cn (n + 1) γ) := by
+      rcases γ with ⟨e, he⟩
+      change Continuous (fun x : cb (n + 1) =>
+        C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) he).mpr x))
+      refine Continuous.comp (C.characteristic_map_continuous e) ?_
+      exact @Eq.rec ℕ (C.dim_map e)
+        (fun m hm => Continuous ((congrArg (fun p ↦ (cb p : Type)) hm).mpr))
+        continuous_id (n + 1) he
+    refine ⟨?_, ?_⟩
+    · intro a
+      exact (hs_open a).preimage h_char_cont
+    · rw [Set.iUnion_eq_univ_iff]
+      intro x
+      have hx : characteristic_cn (n + 1) γ x ∈ ⋃ a, s a := by
+        simp [hs_cover]
+      simpa [Set.mem_iUnion, Set.mem_preimage] using hx
+  have h_exists_eta_on_cb :
+      ∃ η : PartitionOfUnity α (cb (n + 1)),
+        η.IsSubordinate (fun a => (characteristic_cn (n + 1) γ) ⁻¹' (s a)) := by
+    rcases h_cb_preimage_cover_open with ⟨hopen, hcover⟩
+    have hcover_subset : (Set.univ : Set (cb (n + 1))) ⊆
+        ⋃ a, (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+      simp [hcover]
+    simpa using
+      (PartitionOfUnity.exists_isSubordinate
+        (X := cb (n + 1)) (s := Set.univ)
+        isClosed_univ
+        (fun a => (characteristic_cn (n + 1) γ) ⁻¹' (s a))
+        hopen hcover_subset)
+  have h_exists_finite_active_boundary :
+      ∃ t : Finset α, ∀ a, a ∉ t → boundary_pullback a = 0 := by
+    classical
+    let boundary_to_skeleton : cb_boundary → Skeleton X n := fun z =>
+      ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
+    have h_boundary_to_skeleton_cont : Continuous boundary_to_skeleton := by
+      refine Continuous.subtype_mk ?_ (fun z : cb_boundary => char_cnp1_boundary_in_skn n γ z.1 z.2)
+      change Continuous (fun z : cb_boundary => characteristic_cn (n + 1) γ z.1)
+      have h_char : Continuous (characteristic_cn (n + 1) γ) := by
+        rcases γ with ⟨e, he⟩
+        change Continuous (fun x : cb (n + 1) =>
+          C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) he).mpr x))
+        refine Continuous.comp (C.characteristic_map_continuous e) ?_
+        exact @Eq.rec ℕ (C.dim_map e)
+          (fun m hm => Continuous ((congrArg (fun p ↦ (cb p : Type)) hm).mpr))
+          continuous_id (n + 1) he
+      exact h_char.comp continuous_subtype_val
+    have h_cb_boundary_compact : IsCompact (@cb_boundary (n + 1)) := by
+      exact (isCompact_univ.of_isClosed_subset cb_boundary_closed (by intro x hx; trivial))
+    let K : Set (Skeleton X n) := Set.range boundary_to_skeleton
+    have hK_compact : IsCompact K := by
+      letI : CompactSpace cb_boundary := isCompact_iff_compactSpace.mp h_cb_boundary_compact
+      exact isCompact_range h_boundary_to_skeleton_cont
+    have h_finite :
+        {a | (Function.support (pou_n.toFun a) ∩ K).Nonempty}.Finite := by
+      simpa [K] using pou_n.locallyFinite.finite_nonempty_inter_compact hK_compact
+    refine ⟨h_finite.toFinset, ?_⟩
+    intro a ha
+    funext z
+    by_contra hz
+    have hz_support :
+        ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
+          ∈ Function.support (pou_n.toFun a) := by
+      rw [Function.mem_support]
+      simpa [boundary_pullback] using hz
+    have ha_mem :
+        a ∈ {a | (Function.support (pou_n.toFun a) ∩ K).Nonempty} := by
+      exact ⟨_, hz_support, ⟨z, rfl⟩⟩
+    have ha_in_t : a ∈ h_finite.toFinset := by
+      rw [Set.Finite.mem_toFinset]
+      exact ha_mem
+    exact ha ha_in_t
+
+  let collar_of (A : Set (@cb_boundary (n + 1))) (ε : ℝ) : Set (cb (n + 1)) :=
+    {x |
+      cb_radial_proj x ∈ A ∧
+      (1 - ε : ℝ) < ‖x.1‖ ∧ ‖x.1‖ ≤ 1}
+  let boundary_collar (ε : ℝ) : Set (cb (n + 1)) :=
+    {x | (1 - ε : ℝ) < ‖x.1‖}
+  let inner_core (ε : ℝ) : Set (cb (n + 1)) :=
+    {x | ‖x.1‖ ≤ (1 - ε : ℝ)}
+  have h_exists_uniform_epsilon :
+      ∀ t : Finset α, (∀ a, a ∉ t → boundary_pullback a = 0) →
+        ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧
+          ∀ a, closure (collar_of (tsupport (boundary_pullback a)) ε) ⊆
+            (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+    intro t ht
+    have h_boundary_pullback_subordinate: ∀ a, (↑) '' tsupport (boundary_pullback a) ⊆ ((characteristic_cn (n + 1) γ) ⁻¹' (s a)) := by
+      intro a
+      let g : cb_boundary → Skeleton X n := fun z =>
+        ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
+      have hg_cont : Continuous g := by
+        refine Continuous.subtype_mk ?_
+          (fun z : cb_boundary => char_cnp1_boundary_in_skn n γ z.1 z.2)
+        change Continuous (fun z : cb_boundary => characteristic_cn (n + 1) γ z.1)
+        have h_char_cont : Continuous (characteristic_cn (n + 1) γ) := by
+          rcases γ with ⟨e, he⟩
+          change Continuous (fun x : cb (n + 1) =>
+            C.characteristic_map e ((congrArg (fun p ↦ (cb p : Type)) he).mpr x))
+          exact Continuous.comp (C.characteristic_map_continuous e)
+            (@Eq.rec ℕ (C.dim_map e)
+              (fun m hm => Continuous ((congrArg (fun p ↦ (cb p : Type)) hm).mpr))
+              continuous_id (n + 1) he)
+        exact h_char_cont.comp continuous_subtype_val
+      have h_support : Function.support (boundary_pullback a) ⊆
+          g ⁻¹' (Function.support (pou_n.toFun a)) := by
+        intro z hz; exact hz
+      have h_tsupport_sub : tsupport (boundary_pullback a) ⊆
+          g ⁻¹' (tsupport (pou_n.toFun a)) :=
+        (closure_mono h_support).trans (hg_cont.closure_preimage_subset _)
+      rintro y ⟨z, hz_mem, rfl⟩
+      exact pou_n.subordinate a (h_tsupport_sub hz_mem)
+    have h_boundary_pullback_thicken_subset: ∀ a, ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧
+        closure (collar_of (tsupport (boundary_pullback a)) ε) ⊆
+          (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+      intro a
+      have hK_compact : IsCompact ((Subtype.val : cb_boundary → cb (n + 1)) ''
+          tsupport (boundary_pullback a)) := by
+        have h_bd_compact : IsCompact (@cb_boundary (n + 1)) :=
+          isCompact_univ.of_isClosed_subset cb_boundary_closed fun x _ => trivial
+        haveI : CompactSpace (cb_boundary : Set (cb (n + 1))) :=
+          isCompact_iff_compactSpace.mp h_bd_compact
+        exact (isClosed_tsupport (boundary_pullback a)).isCompact.image continuous_subtype_val
+      have hU_open : IsOpen ((characteristic_cn (n + 1) γ) ⁻¹' (s a)) :=
+        h_cb_preimage_cover_open.1 a
+      obtain ⟨δ, hδ_pos, hδ_thick⟩ :=
+        hK_compact.exists_thickening_subset_open hU_open (h_boundary_pullback_subordinate a)
+      refine ⟨min (δ / 2) (1 / 2), by positivity,
+        by linarith [min_le_right (δ / 2) (1 / 2 : ℝ)], ?_⟩
+      -- Chain: closure (collar) ⊆ cthickening (δ/2) K ⊆ thickening δ K ⊆ U
+      have h_collar_sub_cthick : collar_of (tsupport (boundary_pullback a)) (min (δ / 2) (1 / 2)) ⊆
+          Metric.cthickening (δ / 2) ((Subtype.val : cb_boundary → cb (n + 1)) ''
+            tsupport (boundary_pullback a)) := by
+        intro x hx
+        obtain ⟨hx_proj, hx_low, hx_high⟩ := hx
+        apply Metric.thickening_subset_cthickening
+        have hx_norm_pos : 0 < ‖x.1‖ := by linarith [min_le_right (δ / 2) (1 / 2 : ℝ)]
+        have hx_ne : x.1 ≠ 0 := norm_pos_iff.mp hx_norm_pos
+        have h_proj_val : ((↑(cb_radial_proj x) : cb (n + 1)) : EuclideanSpace ℝ (Fin (n + 1))) =
+            (1 / ‖x.1‖) • x.1 := by
+          show (sph_to_cb ⟨pre_proj_to_sph (Nat.le_add_left 1 n) x.1,
+            pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) x.1⟩).1 = (1 / ‖x.1‖) • x.1
+          simp [sph_to_cb, pre_proj_to_sph, hx_ne]
+        have h_dist_eq : dist x (↑(cb_radial_proj x) : cb (n + 1)) = 1 - ‖x.1‖ := by
+          rw [Subtype.dist_eq, dist_eq_norm, h_proj_val,
+            show x.1 - (1 / ‖x.1‖) • x.1 = (1 - 1 / ‖x.1‖) • x.1 from by
+              rw [sub_smul, one_smul],
+            norm_smul, Real.norm_eq_abs,
+            abs_of_nonpos (sub_nonpos.mpr ((le_div_iff₀ hx_norm_pos).mpr (by linarith)))]
+          field_simp; ring
+        rw [Metric.mem_thickening_iff]
+        exact ⟨↑(cb_radial_proj x), ⟨cb_radial_proj x, hx_proj, rfl⟩,
+          by rw [h_dist_eq]; linarith [min_le_left (δ / 2) (1 / 2 : ℝ)]⟩
+      exact (closure_minimal h_collar_sub_cthick Metric.isClosed_cthickening).trans
+        ((Metric.cthickening_subset_thickening' hδ_pos (half_lt_self hδ_pos) _).trans hδ_thick)
+    choose f_a_ε hε₁ hε₂ hε₃ using h_boundary_pullback_thicken_subset
+    -- For a ∉ t, boundary_pullback vanishes so tsupport is empty
+    have h_outside_t : ∀ a, a ∉ t → tsupport (boundary_pullback a) = ∅ := by
+      intro a ha
+      change closure (Function.support (boundary_pullback a)) = ∅
+      rw [Function.support_eq_empty_iff.mpr (ht a ha), closure_empty]
+    by_cases ht_ne : t.Nonempty
+    · -- t nonempty: take ε = inf' of f_a_ε over t
+      obtain ⟨a₀, ha₀⟩ := ht_ne
+      refine ⟨t.inf' ⟨a₀, ha₀⟩ f_a_ε,
+        (Finset.lt_inf'_iff ⟨a₀, ha₀⟩).mpr fun a _ => hε₁ a,
+        lt_of_le_of_lt (Finset.inf'_le f_a_ε ha₀) (hε₂ a₀), fun a => ?_⟩
+      by_cases ha : a ∈ t
+      · -- a ∈ t: closure_mono (smaller ε → thinner collar → smaller closure)
+        refine (closure_mono ?_).trans (hε₃ a)
+        intro x ⟨hx_proj, hx_low, hx_high⟩
+        exact ⟨hx_proj, by linarith [Finset.inf'_le f_a_ε ha], hx_high⟩
+      · -- a ∉ t: collar is empty (tsupport is empty)
+        suffices h : collar_of (tsupport (boundary_pullback a)) (t.inf' ⟨a₀, ha₀⟩ f_a_ε) = ∅ by
+          rw [h, closure_empty]; exact Set.empty_subset _
+        ext x; simp only [Set.mem_empty_iff_false, iff_false]
+        rintro ⟨hx_proj, _, _⟩; simp [h_outside_t a ha] at hx_proj
+    · -- t empty: all boundary_pullbacks vanish, any ε works
+      rw [Finset.not_nonempty_iff_eq_empty] at ht_ne
+      refine ⟨1 / 2, by norm_num, by norm_num, fun a => ?_⟩
+      suffices h : collar_of (tsupport (boundary_pullback a)) (1 / 2 : ℝ) = ∅ by
+        rw [h, closure_empty]; exact Set.empty_subset _
+      ext x; simp only [Set.mem_empty_iff_false, iff_false]
+      rintro ⟨hx_proj, _, _⟩; simp [h_outside_t a (by simp [ht_ne])] at hx_proj
+  have h_exists_sigma :
+      ∀ ε : ℝ, 0 < ε → ε < 1 →
+        ∃ σ : C(cb (n + 1), ℝ),
+          (∀ x, 0 ≤ σ x ∧ σ x ≤ 1) ∧
+          (∀ x, x ∈ inner_core ε → σ x = 1) ∧
+          (∀ x, x ∈ boundary_collar (ε / 2) → σ x = 0) := by
+    intro ε hε0 hε1
+    let s0 : Set (cb (n + 1)) := {x | (1 - ε / 2 : ℝ) ≤ ‖x.1‖}
+    let s1 : Set (cb (n + 1)) := inner_core ε
+    have hs0 : IsClosed s0 := by
+      refine isClosed_le continuous_const ?_
+      exact (continuous_norm.comp continuous_subtype_val)
+    have hs1 : IsClosed s1 := by
+      change IsClosed {x : cb (n + 1) | ‖x.1‖ ≤ (1 - ε : ℝ)}
+      refine isClosed_le ?_ continuous_const
+      exact (continuous_norm.comp continuous_subtype_val)
+    have hs01 : Disjoint s0 s1 := by
+      rw [Set.disjoint_iff]
+      intro x hx
+      have hx0 : (1 - ε / 2 : ℝ) ≤ ‖x.1‖ := hx.1
+      have hx1 : ‖x.1‖ ≤ (1 - ε : ℝ) := by
+        simpa [s1, inner_core] using hx.2
+      have hlt : (1 - ε : ℝ) < (1 - ε / 2 : ℝ) := by linarith
+      linarith
+    obtain ⟨σ, hσ0, hσ1, hσIcc⟩ := exists_continuous_zero_one_of_isClosed hs0 hs1 hs01
+    refine ⟨σ, ?_, ?_, ?_⟩
+    · intro x
+      have hxIcc : σ x ∈ Set.Icc (0 : ℝ) 1 := hσIcc x
+      exact ⟨hxIcc.1, hxIcc.2⟩
+    · intro x hx
+      simpa [s1, inner_core] using hσ1 hx
+    · intro x hx
+      have hx0 : x ∈ s0 := by
+        change (1 - ε / 2 : ℝ) ≤ ‖x.1‖
+        exact le_of_lt hx
+      simpa [s0] using hσ0 hx0
+  -- the original text here does not consider the case for x == 0, however we need only extension to be equal to the value on boundary
+  have h_exists_boundary_extension :
+      ∃ phi : α → C(cb (n + 1), ℝ),
+        ∀ a x (hx : x ∈ cb_boundary), phi a x = boundary_pullback a ⟨x, hx⟩ := by
+    refine ⟨fun a => ⟨cb_extension (Nat.le_add_left 1 n) (boundary_pullback a),
+      cb_extension_continuous (Nat.le_add_left 1 n) (h_boundary_pullback_cont a)⟩, ?_⟩
+    intro a x hx
+    exact cb_extension_eq_on_boundary (Nat.le_add_left 1 n) (boundary_pullback a) x hx
+
+  obtain ⟨η, hη_sub⟩ := h_exists_eta_on_cb
+  obtain ⟨t, ht_zero⟩ := h_exists_finite_active_boundary
+  obtain ⟨ε, hε_pos, hε_lt_one, hε_sub⟩ := h_exists_uniform_epsilon t ht_zero
+  obtain ⟨σ, hσ_range, hσ_inner, hσ_boundary⟩ := h_exists_sigma ε hε_pos hε_lt_one
+  -- Radial pullback: for x ≠ 0, project x to boundary via x/‖x‖ and evaluate boundary_pullback.
+  -- At x = 0, assign 0 (this value is irrelevant since σ(0) = 1 kills the phi term).
+  let phi : α → cb (n + 1) → ℝ := fun a x =>
+    if x.1 = 0 then 0
+    else boundary_pullback a (cb_radial_proj x)
+  let cb_pou_candidate : α → cb (n + 1) → ℝ := fun a x =>
+    σ x * η a x + (1 - σ x) * phi a x
+  have cb_pou_candidate_nonneg : ∀ a x, 0 ≤ cb_pou_candidate a x := by
+    intro a x
+    have hσ0 : 0 ≤ σ x := (hσ_range x).1
+    have hσ1 : σ x ≤ 1 := (hσ_range x).2
+    have hη0 : 0 ≤ η a x := η.nonneg a x
+    have hphi0 : 0 ≤ phi a x := by
+      show 0 ≤ phi a x
+      simp only [phi]
+      split_ifs with h
+      · exact le_refl 0
+      · exact pou_n.nonneg a _
+    have hmul1 : 0 ≤ σ x * η a x := mul_nonneg hσ0 hη0
+    have hmul2 : 0 ≤ (1 - σ x) * phi a x := mul_nonneg (sub_nonneg.mpr hσ1) hphi0
+    simpa [cb_pou_candidate] using add_nonneg hmul1 hmul2
+
+  -- phi a x = 0 whenever a ∉ t (boundary pullback vanishes outside finite active set)
+  have h_phi_zero_outside : ∀ a, a ∉ t → ∀ x, phi a x = 0 := by
+    intro a ha x
+    simp only [phi]
+    split_ifs with h
+    · rfl
+    · exact congr_fun (ht_zero a ha) _
+
+  -- Support of fun a => phi a x is contained in t (finite)
+  have h_phi_support_finite : ∀ x, (Function.support (fun a => phi a x)).Finite := by
+    intro x
+    exact (t.finite_toSet).subset fun a ha => by
+      rw [Function.mem_support] at ha
+      exact Finset.mem_coe.mpr (by_contra fun h => ha (h_phi_zero_outside a h x))
+
+  -- Support of fun a => η a x is finite (from η.locallyFinite)
+  have h_eta_support_finite : ∀ x, (Function.support (fun a => η a x)).Finite := by
+    intro x
+    exact η.locallyFinite.point_finite x
+
+  have cb_pou_candidate_sum_eq_one : ∀ x, ∑ᶠ a, cb_pou_candidate a x = 1 := by
+    intro x
+    -- Finite support of the two summand families
+    have h1_fin : (Function.support (fun a => σ x * η a x)).Finite :=
+      (h_eta_support_finite x).subset fun a ha => by
+        rw [Function.mem_support] at ha ⊢; exact right_ne_zero_of_mul ha
+    have h2_fin : (Function.support (fun a => (1 - σ x) * phi a x)).Finite :=
+      (h_phi_support_finite x).subset fun a ha => by
+        rw [Function.mem_support] at ha ⊢; exact right_ne_zero_of_mul ha
+    -- Distribute the finsum
+    have h_split : ∑ᶠ a, cb_pou_candidate a x =
+        (∑ᶠ a, σ x * η a x) + (∑ᶠ a, (1 - σ x) * phi a x) := by
+      have h_eq : ∀ a, cb_pou_candidate a x = σ x * η a x + (1 - σ x) * phi a x :=
+        fun _ => rfl
+      simp_rw [h_eq]
+      exact finsum_add_distrib h1_fin h2_fin
+    -- Factor out constants
+    rw [h_split,
+      (mul_finsum' _ _ (h_eta_support_finite x)).symm,
+      (mul_finsum' _ _ (h_phi_support_finite x)).symm,
+      η.sum_eq_one (Set.mem_univ x), mul_one]
+    -- Goal: σ x + (1 - σ x) * ∑ᶠ a, phi a x = 1
+    by_cases hx : x.1 = 0
+    · -- x = 0: σ x = 1 since 0 ∈ inner_core ε
+      have hx_inner : x ∈ inner_core ε := by
+        simp only [inner_core, Set.mem_setOf_eq]
+        rw [hx, norm_zero]
+        linarith
+      rw [hσ_inner x hx_inner]; ring
+    · -- x ≠ 0: ∑ᶠ a, phi a x = 1 by radial pullback from pou_n
+      suffices h_phi_sum : ∑ᶠ a, phi a x = 1 by rw [h_phi_sum]; ring
+      -- The projected boundary point and corresponding skeleton point
+      let z : @cb_boundary (n + 1) := cb_radial_proj x
+      let sk : Skeleton X n :=
+        ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
+      -- phi a x = pou_n.toFun a sk for all a (by unfolding definitions)
+      have h_eq : ∀ a, phi a x = pou_n.toFun a sk := by
+        intro a
+        show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a z) = pou_n.toFun a sk
+        rw [if_neg hx]
+      simp_rw [h_eq]
+      exact pou_n.sum_eq_one sk
+
+  have cb_pou_candidate_subordinate :
+      ∀ a, tsupport (cb_pou_candidate a) ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+    intro a
+    have h_sub_sigma_eta :
+        tsupport (fun x => σ x * η a x) ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+      exact
+        (tsupport_mul_subset_right
+          (f := fun x : cb (n + 1) => σ x)
+          (g := fun x : cb (n + 1) => η a x)).trans (hη_sub a)
+    have h_sub_1_sub_sigma_phi:
+        tsupport (fun x => (1 - σ x) * phi a x) ⊆ (characteristic_cn (n + 1) γ) ⁻¹' (s a) := by
+      refine (closure_mono ?_).trans (hε_sub a)
+      intro x hx
+      have h1 : (1 : ℝ) - σ x ≠ 0 := left_ne_zero_of_mul hx
+      have h2 : phi a x ≠ 0 := right_ne_zero_of_mul hx
+      have hx_not_inner : x ∉ inner_core ε :=
+        fun h => h1 (by rw [hσ_inner x h]; ring)
+      have hx_norm_gt : (1 - ε : ℝ) < ‖x.1‖ := not_le.mp hx_not_inner
+      have hx_ne_zero : x.1 ≠ 0 := fun h => h2 (if_pos h)
+      have h_bp_ne_zero : boundary_pullback a (cb_radial_proj x) ≠ 0 :=
+        fun h => h2 ((if_neg hx_ne_zero).trans h)
+      exact ⟨subset_closure h_bp_ne_zero, hx_norm_gt,
+        by have := x.property; change x.1 ∈ Metric.closedBall 0 1 at this
+           rwa [Metric.mem_closedBall', dist_zero] at this⟩
+    exact (tsupport_add (fun x => σ x * η a x) (fun x => (1 - σ x) * phi a x)).trans
+      (Set.union_subset h_sub_sigma_eta h_sub_1_sub_sigma_phi)
+
+  have cb_pou_candidate_boundary : ∀ a x (hx : x ∈ cb_boundary),
+      cb_pou_candidate a x =
+        pou_n.toFun a ⟨characteristic_cn (n + 1) γ x, char_cnp1_boundary_in_skn n γ x hx⟩ := by
+    intro a x hx
+    obtain ⟨y, hy⟩ := hx
+    have hx_norm : ‖x.1‖ = 1 := by
+      have : x.1 = y.1 := congr_arg Subtype.val (hy.symm)
+      rw [this, ← dist_zero, ← Metric.mem_sphere']
+      exact y.property
+    have hσ_zero : σ x = 0 :=
+      hσ_boundary x (show (1 - ε / 2 : ℝ) < ‖x.1‖ by rw [hx_norm]; linarith)
+    have hx_ne : x.1 ≠ 0 := fun h => by simp [h] at hx_norm
+    show σ x * η a x + (1 - σ x) * phi a x = _
+    rw [hσ_zero, zero_mul, zero_add, sub_zero, one_mul]
+    show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a (cb_radial_proj x)) = _
+    rw [if_neg hx_ne]
+    have h_radial_eq : (cb_radial_proj x).1 = x := by
+      apply Subtype.ext
+      change pre_proj_to_sph (Nat.le_add_left 1 n) x.1 = x.1
+      simp [pre_proj_to_sph, hx_ne, hx_norm]
+    exact congr_arg (boundary_pullback a)
+      (show cb_radial_proj x = ⟨x, ⟨y, hy⟩⟩ from Subtype.ext h_radial_eq)
+
+  have cb_pou_candidate_cont : ∀ a, Continuous (cb_pou_candidate a) := by
+    intro a
+    have h_term1 : Continuous (fun x => σ x * η a x) :=
+      σ.continuous.mul (η a).continuous
+    suffices h_term2 : Continuous (fun x => (1 - σ x) * phi a x) from
+      h_term1.add h_term2
+    rw [continuous_iff_continuousAt]
+    intro x
+    by_cases hx_ne : x.1 = (0 : EuclideanSpace ℝ (Fin (n + 1)))
+    · -- At origin: locally zero since σ = 1 on inner_core ε
+      have hU_open : IsOpen {y : cb (n + 1) | ‖y.1‖ < 1 - ε} :=
+        isOpen_lt (continuous_norm.comp continuous_subtype_val) continuous_const
+      have hx_in_U : x ∈ {y : cb (n + 1) | ‖y.1‖ < 1 - ε} := by
+        show ‖x.1‖ < 1 - ε; rw [hx_ne, norm_zero]; linarith
+      refine (continuousAt_const (y := (0 : ℝ))).congr_of_eventuallyEq ?_
+      filter_upwards [hU_open.mem_nhds hx_in_U] with y hy
+      rw [hσ_inner y (le_of_lt hy), sub_self, zero_mul]
+    · -- Away from origin: phi a equals bp a ∘ rp near x, which is continuous
+      -- ContinuousAt of to_sph at nonzero points
+      let to_sph : EuclideanSpace ℝ (Fin (n + 1)) → sph (n + 1) :=
+        fun v => ⟨pre_proj_to_sph (Nat.le_add_left 1 n) v,
+          pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) v⟩
+      have h_to_sph_cat : ContinuousAt to_sph x.1 := by
+        show (nhds x.1).map to_sph ≤ nhds (to_sph x.1)
+        have : (nhds x.1).map (Subtype.val ∘ to_sph) ≤ nhds (to_sph x.1).1 :=
+          pre_proj_to_sph_cont_at_nonzero (Nat.le_add_left 1 n) x.1 hx_ne
+        rwa [← Filter.map_map, Filter.map_le_iff_le_comap, ← nhds_subtype] at this
+      -- sph → cb_boundary is continuous
+      let sph_to_bd : sph (n + 1) → @cb_boundary (n + 1) :=
+        fun s => ⟨sph_to_cb s, ⟨s, rfl⟩⟩
+      have h_sph_to_bd_cont : Continuous sph_to_bd :=
+        (continuous_subtype_val.subtype_mk (fun x => sph_in_cb x.prop)).subtype_mk _
+      -- bp a ∘ rp = (bp a ∘ sph_to_bd) ∘ to_sph ∘ Subtype.val
+      have h_bp_rp_cat : ContinuousAt
+          (fun y : cb (n + 1) => boundary_pullback a (cb_radial_proj y)) x :=
+        ((h_boundary_pullback_cont a).comp h_sph_to_bd_cont).continuousAt.comp
+          (h_to_sph_cat.comp continuous_subtype_val.continuousAt)
+      -- (1 - σ) * (bp a ∘ rp) is ContinuousAt
+      have h_rhs_cat : ContinuousAt
+          (fun y => (1 - σ y) * boundary_pullback a (cb_radial_proj y)) x :=
+        (continuous_const.sub σ.continuous).continuousAt.mul h_bp_rp_cat
+      -- The actual function equals the above near x (since phi a = bp a ∘ rp when y.1 ≠ 0)
+      refine h_rhs_cat.congr_of_eventuallyEq ?_
+      filter_upwards [(isOpen_ne.preimage continuous_subtype_val).mem_nhds hx_ne] with y hy
+      congr 1; exact if_neg hy
+
+  have cb_pou_candidate_collar : ∃ ε' : ℝ, 0 < ε' ∧ ε' < 1 ∧
+      ∀ a (x : cb (n + 1)), (1 - ε' / 2 : ℝ) < ‖x.1‖ →
+        cb_pou_candidate a x = pou_n.toFun a
+          ⟨characteristic_cn (n + 1) γ (cb_radial_proj x).1,
+           char_cnp1_boundary_in_skn n γ (cb_radial_proj x).1
+             (cb_radial_proj x).2⟩ := by
+    refine ⟨ε, hε_pos, hε_lt_one, fun a x hx_collar => ?_⟩
+    have hx_ne : x.1 ≠ 0 := by
+      intro h; simp [h] at hx_collar; linarith
+    have hσ_zero : σ x = 0 := hσ_boundary x hx_collar
+    show σ x * η a x + (1 - σ x) * phi a x = _
+    rw [hσ_zero, zero_mul, zero_add, sub_zero, one_mul]
+    show (if x.1 = 0 then (0 : ℝ) else boundary_pullback a (cb_radial_proj x)) = _
+    rw [if_neg hx_ne]
+
+  have cb_pou_candidate_active_finite :
+      {a : α | (Function.support (cb_pou_candidate a)).Nonempty}.Finite := by
+    have h_mul_eta_locallyFinite :
+        LocallyFinite (fun a : α => Function.support (fun x : cb (n + 1) => σ x * η a x)) := by
+      refine η.locallyFinite.subset ?_
+      intro a x hx
+      rw [Function.mem_support] at hx ⊢
+      exact right_ne_zero_of_mul hx
+    have h_mul_eta_active_finite :
+        {a : α | (Function.support (fun x : cb (n + 1) => σ x * η a x)).Nonempty}.Finite := by
+      simpa [Set.inter_univ] using
+        h_mul_eta_locallyFinite.finite_nonempty_inter_compact (s := (Set.univ : Set (cb (n + 1))))
+          isCompact_univ
+    have h_mul_phi_active_finite :
+        {a : α | (Function.support (fun x : cb (n + 1) => (1 - σ x) * phi a x)).Nonempty}.Finite := by
+      refine (t.finite_toSet).subset ?_
+      intro a ha
+      by_contra ha_t
+      rcases ha with ⟨x, hx⟩
+      rw [Function.mem_support] at hx
+      exact hx (by rw [h_phi_zero_outside a ha_t x, mul_zero])
+    refine (h_mul_eta_active_finite.union h_mul_phi_active_finite).subset ?_
+    intro a ha
+    rcases ha with ⟨x, hx⟩
+    have hx_sum : σ x * η a x + (1 - σ x) * phi a x ≠ 0 := by
+      simpa [Function.mem_support, cb_pou_candidate] using hx
+    by_cases hηx : σ x * η a x = 0
+    · have hφx : (1 - σ x) * phi a x ≠ 0 := by
+        intro hzero
+        exact hx_sum (by rw [hηx, hzero, zero_add])
+      exact Or.inr ⟨x, by simpa [Function.mem_support] using hφx⟩
+    · exact Or.inl ⟨x, by simpa [Function.mem_support] using hηx⟩
+
+  exact ⟨fun a => ⟨cb_pou_candidate a, cb_pou_candidate_cont a⟩,
+    cb_pou_candidate_nonneg,
+    cb_pou_candidate_sum_eq_one,
+    cb_pou_candidate_active_finite,
+    cb_pou_candidate_subordinate,
+    cb_pou_candidate_boundary,
+    cb_pou_candidate_collar⟩
+
+theorem skeleton_pou_succ
+    {α : Type*} (s : α → Set X) (hs_open : ∀ a, IsOpen (s a))
+    (hs_cover : ⋃ a, s a = Set.univ)
+    (n : ℕ) (pou_n : CompatibleSkeletonPOU α s n) :
+    ∃ pou_succ : CompatibleSkeletonPOU α s (n + 1),
+      (∀ a (x : Skeleton X n),
+        pou_succ.toFun a
+          ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ =
+          pou_n.toFun a x) ∧
+      (∀ V : Set (Skeleton X n), IsOpen V →
+        ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧
+          (∀ x : Skeleton X n, x ∈ V ↔
+            (⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ :
+              Skeleton X (n + 1)) ∈ V') ∧
+          (∀ a, (∀ x ∈ V, pou_n.toFun a x = 0) →
+            (∀ y ∈ V', pou_succ.toFun a y = 0))) := by
+  -- Step 1: Choose cell-level POUs for all cells
+  choose cb_pou h_cb_pou using
+    fun γ : CellOfDim (n + 1) => exists_cb_pou_on_cell s hs_open hs_cover n γ pou_n
+  have h_cb_nonneg := fun γ => (h_cb_pou γ).1
+  have h_cb_sum := fun γ => (h_cb_pou γ).2.1
+  have h_cb_active_finite := fun γ => (h_cb_pou γ).2.2.1
+  have h_cb_sub := fun γ => (h_cb_pou γ).2.2.2.1
+  have h_cb_boundary := fun γ => (h_cb_pou γ).2.2.2.2.1
+  choose cb_ε h_cb_ε using fun γ => (h_cb_pou γ).2.2.2.2.2
+  have h_ε_pos := fun γ => (h_cb_ε γ).1
+  have h_ε_lt := fun γ => (h_cb_ε γ).2.1
+  have h_cb_collar := fun γ => (h_cb_ε γ).2.2
+  have h_cb_active_interior_finite :
+      ∀ γ : CellOfDim (n + 1),
+        {a : α |
+          (Function.support (cb_pou γ a) ∩ (cb_boundaryᶜ : Set (cb (n + 1)))).Nonempty}.Finite := by
+    intro γ
+    refine (h_cb_active_finite γ).subset ?_
+    intro a ha
+    rcases ha with ⟨x, hx⟩
+    exact ⟨x, hx.1⟩
+  -- Step 2: Define the function on the disjoint sum and show factoring
+  let pou_ext : α → (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) → ℝ :=
+    fun a x => match x with
+    | Sum.inl sk => pou_n.toFun a sk
+    | Sum.inr ⟨γ, y⟩ => cb_pou γ a y
+  have pou_ext_factors : ∀ a x₁ x₂,
+      glue_setoid
+        (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+        (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+          (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+        x₁ x₂ → pou_ext a x₁ = pou_ext a x₂ := by
+    intro a x₁ x₂ h₁₂
+    rcases glue_rel_equiv_explicit _ _ x₁ x₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+    · rcases c0 with ⟨_, _, rfl⟩; rfl
+    · rcases c1 with ⟨x, _, y', rfl, rfl, rfl, heq4⟩
+      rw [CellAttached_f] at heq4
+      show pou_n.toFun a x = cb_pou y'.1.1 a y'.1.2
+      rw [heq4]; exact (h_cb_boundary y'.1.1 a y'.1.2 y'.2).symm
+    · rcases c2 with ⟨_, x, y', rfl, rfl, rfl, heq4⟩
+      rw [CellAttached_f] at heq4
+      show cb_pou y'.1.1 a y'.1.2 = pou_n.toFun a x
+      rw [heq4]; exact h_cb_boundary y'.1.1 a y'.1.2 y'.2
+    · rcases c3 with ⟨_, _, y₁', y₂', rfl, rfl, rfl, rfl, heq5, _⟩
+      rw [CellAttached_f] at heq5
+      show cb_pou y₁'.1.1 a y₁'.1.2 = cb_pou y₂'.1.1 a y₂'.1.2
+      rw [h_cb_boundary y₁'.1.1 a y₁'.1.2 y₁'.2,
+          h_cb_boundary y₂'.1.1 a y₂'.1.2 y₂'.2]
+      exact congr_arg (pou_n.toFun a) heq5
+    · rcases c4 with ⟨_, _, rfl⟩; rfl
+  -- Step 3: Lift to Skeleton X (n+1) and prove continuity
+  have pou_ext_cont : ∀ a, Continuous (pou_ext a) := by
+    intro a; rw [continuous_sum_dom]
+    constructor
+    · have : pou_ext a ∘ Sum.inl = pou_n.toFun a := by ext x; rfl
+      rw [this]; exact (pou_n.toFun a).continuous
+    · have : pou_ext a ∘ Sum.inr = fun ⟨γ, y⟩ => cb_pou γ a y := by ext p; rfl
+      rw [this, continuous_sigma_iff]
+      intro γ; exact (cb_pou γ a).continuous
+  let h_homeo := (@cell_attached_to_sknp1_homeomorphic X _ _ _ _ n).homeomorph
+    (@cell_attached_to_sknp1 X _ _ _ n)
+  let pou_succ_fun : α → C(Skeleton X (n + 1), ℝ) := fun a =>
+    ⟨Quotient.lift (pou_ext a) (pou_ext_factors a) ∘ h_homeo.symm,
+     ((pou_ext_cont a).quotient_lift (pou_ext_factors a)).comp h_homeo.symm.continuous⟩
+  -- Step 4: Prove nonnegativity and sum equals one
+  have pou_succ_nonneg : ∀ a (x : Skeleton X (n + 1)), 0 ≤ pou_succ_fun a x := by
+    intro a x
+    obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+    show 0 ≤ Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x)
+    rw [← hx']; simp only [Quotient.lift_mk]
+    match x' with
+    | Sum.inl sk => exact pou_n.nonneg a sk
+    | Sum.inr ⟨γ, y⟩ => exact h_cb_nonneg γ a y
+  have pou_succ_sum : ∀ x : Skeleton X (n + 1), ∑ᶠ a, pou_succ_fun a x = 1 := by
+    intro x
+    obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+    have key : ∀ a, pou_succ_fun a x = pou_ext a x' := by
+      intro a
+      show Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x) = _
+      rw [← hx']; simp only [Quotient.lift_mk]
+    simp_rw [key]
+    match x' with
+    | Sum.inl sk => exact pou_n.sum_eq_one sk
+    | Sum.inr ⟨γ, y⟩ => exact h_cb_sum γ y
+  -- Step 5 (sum-side): subordination on the disjoint sum
+  have pou_ext_subordinate : ∀ a,
+      tsupport (pou_ext a) ⊆
+        (skn_sum_cnp1_to_sknp1 (C := C) n) ⁻¹' (Subtype.val ⁻¹' (s a)) := by
+    intro a z hz
+    cases z with
+    | inl sk =>
+      have hsk_pre : sk ∈ (Sum.inl : Skeleton X n → (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) ⁻¹'
+          tsupport (pou_ext a) := hz
+      rw [tsupport] at hsk_pre
+      rw [(isOpenMap_inl.preimage_closure_eq_closure_preimage
+        (continuous_inl : Continuous (Sum.inl : Skeleton X n →
+          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))))
+        (Function.support (pou_ext a)))] at hsk_pre
+      have hsk_tsupport : sk ∈ tsupport (pou_n.toFun a) := by
+        simpa [tsupport, pou_ext] using hsk_pre
+      exact pou_n.subordinate a hsk_tsupport
+    | inr p =>
+      have hp_pre : p ∈ (Sum.inr : (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) ⁻¹' tsupport (pou_ext a) := hz
+      rw [tsupport] at hp_pre
+      rw [(isOpenMap_inr.preimage_closure_eq_closure_preimage
+        (continuous_inr : Continuous (Sum.inr : (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+          (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))))
+        (Function.support (pou_ext a)))] at hp_pre
+      let fσ : (Σ _ : CellOfDim (n + 1), cb (n + 1)) → ℝ := fun q => cb_pou q.1 a q.2
+      have hp_tsupport_sigma : p ∈ tsupport fσ := by
+        simpa [tsupport, pou_ext, fσ] using hp_pre
+      rcases p with ⟨γ, y⟩
+      let mkγ : cb (n + 1) → (Σ _ : CellOfDim (n + 1), cb (n + 1)) := fun t => Sigma.mk γ t
+      have hmk_open : IsOpenMap mkγ := by
+        simpa [mkγ] using
+          (Topology.IsOpenEmbedding.sigmaMk (i := γ)
+            (σ := fun _ : CellOfDim (n + 1) => cb (n + 1))).isOpenMap
+      have hmk_cont : Continuous mkγ := by
+        simpa [mkγ] using
+          (continuous_sigmaMk (i := γ) (σ := fun _ : CellOfDim (n + 1) => cb (n + 1)))
+      have hy_pre :
+          y ∈ mkγ ⁻¹' tsupport fσ := hp_tsupport_sigma
+      rw [tsupport] at hy_pre
+      have hmk :
+          mkγ ⁻¹' closure (Function.support fσ) =
+            closure (mkγ ⁻¹' Function.support fσ) :=
+        hmk_open.preimage_closure_eq_closure_preimage hmk_cont (Function.support fσ)
+      rw [hmk] at hy_pre
+      have hy_tsupport : y ∈ tsupport (cb_pou γ a) := by
+        simpa [tsupport, fσ] using hy_pre
+      have hy_sub : characteristic_cn (n + 1) γ y ∈ s a := h_cb_sub γ a hy_tsupport
+      simpa [skn_sum_cnp1_to_sknp1] using hy_sub
+
+  -- Step 5(i): restriction to the n-skeleton
+  have pou_succ_restrict : ∀ a (x : Skeleton X n),
+      pou_succ_fun a
+        ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ = pou_n.toFun a x := by
+    intro a x
+    let x_incl : Skeleton X (n + 1) :=
+      ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩
+    have hxrep : h_homeo.symm x_incl = Quotient.mk'' (Sum.inl x) := by
+      apply h_homeo.injective
+      calc
+        h_homeo (h_homeo.symm x_incl) = x_incl := h_homeo.apply_symm_apply x_incl
+        _ = h_homeo (Quotient.mk'' (Sum.inl x)) := by
+              simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1, x_incl]
+    change Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x_incl) = _
+    rw [hxrep]
+    simp [pou_ext]
+  -- Step 6: zero-extension property (ii)
+  have pou_succ_zero_extension :
+      ∀ V : Set (Skeleton X n), IsOpen V →
+        ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧
+          (∀ x : Skeleton X n, x ∈ V ↔
+            (⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ :
+              Skeleton X (n + 1)) ∈ V') ∧
+          (∀ a, (∀ x ∈ V, pou_n.toFun a x = 0) →
+            (∀ y ∈ V', pou_succ_fun a y = 0)) := by
+    intro V hV_open
+    -- Map each cell's boundary to the n-skeleton
+    let boundary_to_skn : (γ : CellOfDim (n + 1)) → @cb_boundary (n + 1) → Skeleton X n :=
+      fun γ z => ⟨characteristic_cn (n + 1) γ z.1, char_cnp1_boundary_in_skn n γ z.1 z.2⟩
+    -- Preimage of V' in the disjoint sum: left part is V, right part is collar ∩ radial-proj preimage of V
+    let S_V : Set ((Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) :=
+      {z | match z with
+        | Sum.inl x => x ∈ V
+        | Sum.inr ⟨γ, y⟩ => (1 - cb_ε γ / 2 : ℝ) < ‖y.1‖ ∧
+            boundary_to_skn γ (cb_radial_proj y) ∈ V}
+    -- boundary_to_skn γ is continuous for each γ
+    have h_bts_cont : ∀ γ : CellOfDim (n + 1), Continuous (boundary_to_skn γ) := by
+      intro ⟨e, he⟩
+      refine Continuous.subtype_mk ?_ _
+      exact ((C.characteristic_map_continuous e).comp
+        (@Eq.rec ℕ (C.dim_map e)
+          (fun m hm => Continuous ((congrArg (fun p ↦ (cb p : Type)) hm).mpr))
+          continuous_id (n + 1) he)).comp continuous_subtype_val
+    -- S_V is open in the disjoint sum
+    have hS_V_open : IsOpen S_V := by
+      rw [isOpen_sum_iff]
+      refine ⟨?_, ?_⟩
+      · -- Left: Sum.inl ⁻¹' S_V = V
+        exact hV_open
+      · -- Right: open in Σ γ, cb (n+1)
+        rw [isOpen_sigma_iff]
+        intro γ
+        let g_γ : cb (n + 1) → Skeleton X n := fun y => boundary_to_skn γ (cb_radial_proj y)
+        let U_γ : Set (cb (n + 1)) := {y | (1 - cb_ε γ / 2 : ℝ) < ‖y.1‖}
+        -- Rewrite fiber as U_γ ∩ g_γ⁻¹'(V)
+        suffices h : Sigma.mk γ ⁻¹' (Sum.inr ⁻¹' S_V) = U_γ ∩ g_γ ⁻¹' V by
+          rw [h]
+          apply ContinuousOn.isOpen_inter_preimage
+          · -- ContinuousOn g_γ U_γ
+            intro y hy
+            apply ContinuousAt.continuousWithinAt
+            have hy_ne : y.1 ≠ 0 :=
+              norm_pos_iff.mp (lt_trans (by linarith [h_ε_pos γ, h_ε_lt γ]) hy)
+            let to_sph : EuclideanSpace ℝ (Fin (n + 1)) → sph (n + 1) :=
+              fun v => ⟨pre_proj_to_sph (Nat.le_add_left 1 n) v,
+                pre_proj_to_sph_in_sph (Nat.le_add_left 1 n) v⟩
+            let sph_to_bd : sph (n + 1) → @cb_boundary (n + 1) :=
+              fun s => ⟨sph_to_cb s, ⟨s, rfl⟩⟩
+            have h_to_sph_cat : ContinuousAt to_sph y.1 := by
+              show (nhds y.1).map to_sph ≤ nhds (to_sph y.1)
+              have : (nhds y.1).map (Subtype.val ∘ to_sph) ≤ nhds (to_sph y.1).1 :=
+                pre_proj_to_sph_cont_at_nonzero (Nat.le_add_left 1 n) y.1 hy_ne
+              rwa [← Filter.map_map, Filter.map_le_iff_le_comap, ← nhds_subtype] at this
+            have h_sph_to_bd_cont : Continuous sph_to_bd :=
+              (continuous_subtype_val.subtype_mk (fun x => sph_in_cb x.prop)).subtype_mk _
+            exact ((h_bts_cont γ).comp h_sph_to_bd_cont).continuousAt.comp
+              (h_to_sph_cat.comp continuous_subtype_val.continuousAt)
+          · exact isOpen_lt continuous_const (continuous_norm.comp continuous_subtype_val)
+          · exact hV_open
+        -- Show the fiber equals U_γ ∩ g_γ⁻¹'(V)
+        ext y; simp only [Set.mem_preimage, Set.mem_inter_iff, Set.mem_setOf_eq, S_V, U_γ, g_γ]
+    -- Boundary norm is 1
+    have h_boundary_norm : ∀ (y : cb (n + 1)), y ∈ @cb_boundary (n + 1) → ‖y.1‖ = 1 := by
+      intro y ⟨s, hs⟩
+      rw [show y.1 = s.1 from congr_arg Subtype.val hs.symm,
+        ← dist_zero, ← Metric.mem_sphere']
+      exact s.property
+    -- Radial projection on boundary: (cb_radial_proj y).1 = y
+    have h_rp_boundary : ∀ (y : cb (n + 1)), y ∈ @cb_boundary (n + 1) →
+        (cb_radial_proj y).1 = y := by
+      intro y hy
+      have hy_norm := h_boundary_norm y hy
+      have hy_ne : y.1 ≠ 0 := fun h => by simp [h] at hy_norm
+      apply Subtype.ext
+      change pre_proj_to_sph (Nat.le_add_left 1 n) y.1 = y.1
+      simp [pre_proj_to_sph, hy_ne, hy_norm]
+    -- S_V is saturated under glue_setoid
+    have hS_V_saturated : ∀ z₁ z₂,
+        glue_setoid
+          (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+          (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+            (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+          z₁ z₂ → z₁ ∈ S_V → z₂ ∈ S_V := by
+      intro z₁ z₂ h₁₂ hz₁
+      rcases glue_rel_equiv_explicit _ _ z₁ z₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+      · rcases c0 with ⟨_, _, rfl⟩; exact hz₁
+      · -- Sum.inl x ∈ S_V (so x ∈ V), need Sum.inr y'.1 ∈ S_V
+        rcases c1 with ⟨x, _, y', rfl, rfl, rfl, heq4⟩
+        rw [CellAttached_f] at heq4
+        refine ⟨by rw [h_boundary_norm y'.1.2 y'.2]; linarith [h_ε_pos y'.1.1], ?_⟩
+        suffices boundary_to_skn y'.1.1 (cb_radial_proj y'.1.2) = x by rw [this]; exact hz₁
+        exact (Subtype.ext (congr_arg (characteristic_cn (n + 1) y'.1.1)
+          (h_rp_boundary y'.1.2 y'.2))).trans heq4.symm
+      · -- Sum.inr y'.1 ∈ S_V, need Sum.inl x ∈ S_V (x ∈ V)
+        rcases c2 with ⟨_, x, y', rfl, rfl, rfl, heq4⟩
+        rw [CellAttached_f] at heq4
+        have key : boundary_to_skn y'.1.1 (cb_radial_proj y'.1.2) = x :=
+          (Subtype.ext (congr_arg (characteristic_cn (n + 1) y'.1.1)
+            (h_rp_boundary y'.1.2 y'.2))).trans heq4.symm
+        rw [← key]; exact hz₁.2
+      · -- Both Sum.inr, boundary points with same skeleton image
+        rcases c3 with ⟨_, _, y₁', y₂', rfl, rfl, rfl, rfl, heq5, _⟩
+        rw [CellAttached_f] at heq5
+        refine ⟨by rw [h_boundary_norm y₂'.1.2 y₂'.2]; linarith [h_ε_pos y₂'.1.1], ?_⟩
+        have key₁ : boundary_to_skn y₁'.1.1 (cb_radial_proj y₁'.1.2) =
+            boundary_to_skn y₁'.1.1 ⟨y₁'.1.2, y₁'.2⟩ :=
+          Subtype.ext (congr_arg (characteristic_cn (n + 1) y₁'.1.1)
+            (h_rp_boundary y₁'.1.2 y₁'.2))
+        have key₂ : boundary_to_skn y₂'.1.1 (cb_radial_proj y₂'.1.2) =
+            boundary_to_skn y₂'.1.1 ⟨y₂'.1.2, y₂'.2⟩ :=
+          Subtype.ext (congr_arg (characteristic_cn (n + 1) y₂'.1.1)
+            (h_rp_boundary y₂'.1.2 y₂'.2))
+        rw [key₂, show boundary_to_skn y₂'.1.1 ⟨y₂'.1.2, y₂'.2⟩ =
+            boundary_to_skn y₁'.1.1 ⟨y₁'.1.2, y₁'.2⟩ from heq5.symm, ← key₁]
+        exact hz₁.2
+      · rcases c4 with ⟨_, _, rfl⟩; exact hz₁
+    -- Define the composite map: disjoint sum → Skeleton X (n+1)
+    let comp_map : (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+        Skeleton X (n + 1) := fun z => h_homeo (Quotient.mk'' z)
+    -- comp_map is a quotient map (homeomorphism ∘ quotient projection)
+    have h_comp_qm : Topology.IsQuotientMap comp_map :=
+      h_homeo.isQuotientMap.comp (adj_proj_quotient _ _)
+    -- Preimage of image of S_V under comp_map = S_V (saturation)
+    have h_preimage_eq : comp_map ⁻¹' (comp_map '' S_V) = S_V := by
+      ext z; constructor
+      · rintro ⟨z', hz', heq⟩
+        exact hS_V_saturated z' z (Quotient.eq''.mp (h_homeo.injective heq)) hz'
+      · exact fun hz => ⟨z, hz, rfl⟩
+    refine ⟨comp_map '' S_V, ?_, ?_, ?_⟩
+    · -- V' is open
+      rw [← h_comp_qm.isOpen_preimage, h_preimage_eq]; exact hS_V_open
+    · -- Exact preimage on the n-skeleton
+      intro x
+      constructor
+      · intro hx
+        exact ⟨Sum.inl x, hx, by
+          simp [comp_map, h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]⟩
+      · intro hx
+        have hx_pre : Sum.inl x ∈ comp_map ⁻¹' (comp_map '' S_V) := by
+          change comp_map (Sum.inl x) ∈ comp_map '' S_V
+          simpa [comp_map, h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1] using hx
+        have hx_SV : Sum.inl x ∈ S_V := by
+          rw [← h_preimage_eq]
+          exact hx_pre
+        simpa [S_V] using hx_SV
+    · -- Zero property
+      intro a ha y ⟨z, hz, hzy⟩
+      have hval : pou_succ_fun a y = pou_ext a z := by
+        show Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm y) = pou_ext a z
+        rw [show y = comp_map z from hzy.symm]
+        simp [comp_map, h_homeo.symm_apply_apply, pou_ext]
+      rw [hval]
+      match z, hz with
+      | Sum.inl x, hx => exact ha x hx
+      | Sum.inr ⟨γ, w⟩, ⟨hw_norm, hw_proj⟩ =>
+        show cb_pou γ a w = 0
+        rw [h_cb_collar γ a w hw_norm]
+        exact ha _ hw_proj
+ -- Step 5 (target): subordination on Skeleton X (n+1)
+  have pou_succ_subordinate : ∀ a, tsupport (pou_succ_fun a) ⊆ Subtype.val ⁻¹' (s a) := by
+    intro a x hx
+    -- Step 1 scaffold: split points into old-skeleton vs new-cell cases.
+    by_cases h_old :
+        ∃ x0 : Skeleton X n,
+          x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩
+    · obtain ⟨x0, hx0⟩ := h_old
+      suffices h_tsup : x0 ∈ tsupport (pou_n.toFun a) by
+        subst hx0; exact pou_n.subordinate a h_tsup
+      by_contra h_not
+      have hV_open : IsOpen (tsupport (pou_n.toFun a))ᶜ :=
+        isOpen_compl_iff.mpr isClosed_closure
+      have hV_zero : ∀ y ∈ (tsupport (pou_n.toFun a))ᶜ, pou_n.toFun a y = 0 := by
+        intro y hy
+        by_contra h_ne
+        exact hy (subset_closure (Function.mem_support.mpr h_ne))
+      obtain ⟨V', hV'_open, hV'_contain, hV'_zero⟩ :=
+        pou_succ_zero_extension (tsupport (pou_n.toFun a))ᶜ hV_open
+      have hx_in_V' : x ∈ V' := by rw [hx0]; exact (hV'_contain x0).1 h_not
+      have h_supp_sub : Function.support (↑(pou_succ_fun a)) ⊆ V'ᶜ := by
+        intro y hy hy'
+        exact absurd (hV'_zero a hV_zero y hy') (Function.mem_support.mp hy)
+      exact absurd hx_in_V' (closure_minimal h_supp_sub (isClosed_compl_iff.mpr hV'_open) hx)
+    · -- Case: x is in the interior of an (n+1)-cell
+      obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+      have hval : ∀ a, pou_succ_fun a x = pou_ext a x' := by
+        intro a
+        show Quotient.lift (pou_ext a) (pou_ext_factors a) (h_homeo.symm x) = _
+        rw [← hx']; simp only [Quotient.lift_mk]
+      -- x' must be Sum.inr (if Sum.inl, contradicts ¬h_old)
+      obtain ⟨γ, y, rfl⟩ : ∃ γ y, x' = Sum.inr ⟨γ, y⟩ := by
+        match x' with
+        | Sum.inl sk =>
+          exfalso; apply h_old
+          exact ⟨sk, by
+            have : x = h_homeo (Quotient.mk'' (Sum.inl sk)) := by
+              have := h_homeo.apply_symm_apply x
+              rw [← hx'] at this; exact this.symm
+            rw [this]
+            simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]⟩
+        | Sum.inr ⟨γ, y⟩ => exact ⟨γ, y, rfl⟩
+      -- x = h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩))
+      have hx_eq : x = h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩)) := by
+        have := h_homeo.apply_symm_apply x
+        rw [← hx'] at this; exact this.symm
+      -- y is not on the boundary (otherwise h_old would hold)
+      have hy_not_bd : y ∉ @cb_boundary (n + 1) := by
+        intro hy_bd
+        apply h_old
+        let sk : Skeleton X n :=
+          ⟨characteristic_cn (n + 1) γ y, char_cnp1_boundary_in_skn n γ y hy_bd⟩
+        refine ⟨sk, ?_⟩
+        have hq_eq : h_homeo.symm x = Quotient.mk'' (Sum.inl sk) := by
+          rw [← hx', Quotient.eq'']
+          exact Relation.EqvGen.symm _ _
+            (Relation.EqvGen.rel _ _ ⟨⟨⟨γ, y⟩, hy_bd⟩, rfl, rfl⟩)
+        have := (h_homeo.apply_symm_apply x).symm
+        rw [hq_eq] at this; rw [this]
+        simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]
+      -- y ∈ tsupport (cb_pou γ a)
+      have hy_tsup : y ∈ tsupport (cb_pou γ a) := by
+        -- Apply the locally-open argument:
+        -- p : cb (n+1) → Skeleton X (n+1), f = pou_succ_fun a, g = cb_pou γ a
+        let p : cb (n + 1) → Skeleton X (n + 1) :=
+          fun w => h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))
+        -- V = Set.univ (the equality holds everywhere)
+        have hfg : ∀ w, (cb_pou γ a) w = (pou_succ_fun a) (p w) := by
+          intro w
+          show cb_pou γ a w =
+            Quotient.lift (pou_ext a) (pou_ext_factors a)
+              (h_homeo.symm (h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))))
+          rw [h_homeo.symm_apply_apply]
+          simp only [Quotient.lift_mk, pou_ext]
+        -- U₀ = cb_boundaryᶜ (the interior of the closed ball)
+        have hU₀_nhds : cb_boundaryᶜ ∈ nhds y := by
+          exact (isOpen_compl_iff.mpr cb_boundary_closed).mem_nhds hy_not_bd
+        -- p maps open subsets of the interior to open sets (locally open)
+        have h_locally_open : ∀ U', IsOpen U' → U' ⊆ (cb_boundaryᶜ : Set (cb (n + 1))) →
+            IsOpen (p '' U') := by
+          intro U' hU'_open hU'_sub
+          let comp_map : (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+              Skeleton X (n + 1) := fun z => h_homeo (Quotient.mk'' z)
+          have h_comp_qm : Topology.IsQuotientMap comp_map :=
+            h_homeo.isQuotientMap.comp (adj_proj_quotient _ _)
+          let S : Set ((Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) :=
+            {z | ∃ w ∈ U', z = Sum.inr ⟨γ, w⟩}
+          have h_eq : p '' U' = comp_map '' S := by
+            ext z; simp only [Set.mem_image, Set.mem_setOf_eq, S, comp_map, p]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨Sum.inr ⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_eq, ← h_comp_qm.isOpen_preimage]
+          -- Saturation: S is closed under the glue relation
+          have hS_saturated : ∀ z₁ z₂,
+              glue_setoid
+                (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+                (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+                  (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+                z₁ z₂ → z₁ ∈ S → z₂ ∈ S := by
+            intro z₁ z₂ h₁₂ hz₁
+            rcases glue_rel_equiv_explicit _ _ z₁ z₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+            · rcases c0 with ⟨_, _, rfl⟩; exact hz₁
+            · rcases c1 with ⟨_, _, _, rfl, _, _, _⟩
+              obtain ⟨_, _, habs⟩ := hz₁; simp at habs
+            · rcases c2 with ⟨_, _, y', rfl, rfl, rfl, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y'.property
+            · rcases c3 with ⟨_, _, y₁', _, rfl, rfl, rfl, rfl, _, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y₁'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y₁'.property
+            · rcases c4 with ⟨_, _, rfl⟩; exact hz₁
+          -- Preimage of image equals S
+          have h_sat : comp_map ⁻¹' (comp_map '' S) = S := by
+            ext z; constructor
+            · rintro ⟨z', hz', heq⟩
+              exact hS_saturated z' z (Quotient.eq''.mp (h_homeo.injective heq)) hz'
+            · exact fun hz => ⟨z, hz, rfl⟩
+          rw [h_sat]
+          -- S is open: it equals Sum.inr '' (Sigma.mk γ '' U')
+          have h_S_eq : S = Sum.inr '' (Sigma.mk γ '' U') := by
+            ext z; simp only [Set.mem_setOf_eq, Set.mem_image, S]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_S_eq]
+          exact isOpenMap_inr _
+            ((Topology.IsOpenEmbedding.sigmaMk (i := γ)
+              (σ := fun _ : CellOfDim (n + 1) => cb (n + 1))).isOpenMap _ hU'_open)
+        -- x = p y ∈ tsupport (pou_succ_fun a)
+        have hx_tsup : p y ∈ tsupport (pou_succ_fun a) := by
+          show h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩)) ∈ tsupport (pou_succ_fun a)
+          rwa [← hx_eq]
+        -- Now apply the contradiction argument (same as the example)
+        by_contra h_not
+        set U₁ := (cb_boundaryᶜ : Set (cb (n + 1))) ∩ (tsupport (cb_pou γ a))ᶜ
+        have hU₁_open : IsOpen (p '' U₁) :=
+          h_locally_open U₁
+            ((isOpen_compl_iff.mpr cb_boundary_closed).inter
+              (isOpen_compl_iff.mpr isClosed_closure))
+            (fun _ hy => hy.1)
+        have hy_mem : p y ∈ p '' U₁ :=
+          ⟨y, ⟨hy_not_bd, h_not⟩, rfl⟩
+        have h_supp_sub : Function.support (pou_succ_fun a) ⊆ (p '' U₁)ᶜ := by
+          intro z hz hz_mem
+          obtain ⟨w, ⟨_, hw_not_tsup⟩, rfl⟩ := hz_mem
+          have hgw : cb_pou γ a w = 0 := by
+            by_contra h_ne
+            exact hw_not_tsup (subset_closure (Function.mem_support.mpr h_ne))
+          exact (Function.mem_support.mp hz) ((hfg w).symm.trans hgw)
+        exact absurd hy_mem
+          (closure_minimal h_supp_sub (isClosed_compl_iff.mpr hU₁_open) hx_tsup)
+      -- Conclude: characteristic_cn maps y into s a, and x.val equals that
+      have hy_sub : characteristic_cn (n + 1) γ y ∈ s a := h_cb_sub γ a hy_tsup
+      show x.val ∈ s a
+      rw [hx_eq]
+      simpa [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1] using hy_sub
+  -- Step 7: local finiteness on Skeleton X (n+1)
+  have pou_succ_locallyFinite : LocallyFinite (fun a => Function.support (pou_succ_fun a)) := by
+    intro x
+    by_cases h_old :
+        ∃ x0 : Skeleton X n,
+          x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩
+    · -- `x ∈ Skeleton X n` case
+      have h_old_step1 :
+          ∃ x0 : Skeleton X n, ∃ V : Set (Skeleton X n),
+            x = ⟨x0.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x0.2⟩ ∧
+            IsOpen V ∧ x0 ∈ V ∧
+            {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty}.Finite := by
+        rcases h_old with ⟨x0, hx0⟩
+        obtain ⟨t, ht_nhds, ht_fin⟩ := pou_n.locallyFinite x0
+        rcases mem_nhds_iff.mp ht_nhds with ⟨V, hV_sub_t, hV_open, hx0_in_V⟩
+        have hV_fin :
+            {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty}.Finite := by
+          refine ht_fin.subset ?_
+          intro a ha
+          rcases ha with ⟨u, hu_supp, huV⟩
+          exact ⟨u, hu_supp, hV_sub_t huV⟩
+        exact ⟨x0, V, hx0, hV_open, hx0_in_V, hV_fin⟩
+      rcases h_old_step1 with ⟨x0, V, hx0, hV_open, hx0_in_V, hV_fin⟩
+      let F : Set α := {a : α | (Function.support (pou_n.toFun a) ∩ V).Nonempty}
+      have h_zero_on_V_outside_F :
+          ∀ a, a ∉ F → ∀ u ∈ V, pou_n.toFun a u = 0 := by
+        intro a haF u huV
+        by_contra h_ne
+        apply haF
+        exact ⟨u, Function.mem_support.mpr h_ne, huV⟩
+      have h_exists_V'_old_branch :
+          ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧ x ∈ V' ∧
+            (∀ a, a ∉ F → ∀ y ∈ V', pou_succ_fun a y = 0) := by
+        obtain ⟨V', hV'_open, hV'_contains, hV'_zero⟩ := pou_succ_zero_extension V hV_open
+        have hx_in_V' : x ∈ V' := by
+          rw [hx0]
+          exact (hV'_contains x0).1 hx0_in_V
+        refine ⟨V', hV'_open, hx_in_V', ?_⟩
+        intro a haF y hyV'
+        exact hV'_zero a (h_zero_on_V_outside_F a haF) y hyV'
+      have hF_fin : F.Finite := by simpa [F] using hV_fin
+      rcases h_exists_V'_old_branch with ⟨V', hV'_open, hx_in_V', h_zero_on_V'⟩
+      have h_active_subset :
+          {a : α | (Function.support (pou_succ_fun a) ∩ V').Nonempty} ⊆ F := by
+        intro a ha
+        by_contra haF
+        rcases ha with ⟨y, hy_supp, hyV'⟩
+        exact (Function.mem_support.mp hy_supp) (h_zero_on_V' a haF y hyV')
+      refine ⟨V', hV'_open.mem_nhds hx_in_V', ?_⟩
+      exact hF_fin.subset h_active_subset
+    · -- Step 1 (interior-cell case): choose right-summand representative with non-boundary point
+      have h_repr :
+          ∃ γ y, x = h_homeo (Quotient.mk'' (Sum.inr ⟨γ, y⟩)) ∧ y ∉ @cb_boundary (n + 1) := by
+        obtain ⟨x', hx'⟩ := Quotient.exists_rep (h_homeo.symm x)
+        obtain ⟨γ, y, rfl⟩ : ∃ γ y, x' = Sum.inr ⟨γ, y⟩ := by
+          match x' with
+          | Sum.inl sk =>
+            exfalso; apply h_old
+            refine ⟨sk, ?_⟩
+            have : x = h_homeo (Quotient.mk'' (Sum.inl sk)) := by
+              have := h_homeo.apply_symm_apply x
+              rw [← hx'] at this
+              exact this.symm
+            rw [this]
+            simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]
+          | Sum.inr ⟨γ, y⟩ => exact ⟨γ, y, rfl⟩
+        refine ⟨γ, y, ?_, ?_⟩
+        · have := h_homeo.apply_symm_apply x
+          rw [← hx'] at this
+          exact this.symm
+        · intro hy_bd
+          apply h_old
+          let sk : Skeleton X n :=
+            ⟨characteristic_cn (n + 1) γ y, char_cnp1_boundary_in_skn n γ y hy_bd⟩
+          refine ⟨sk, ?_⟩
+          have hq_eq : h_homeo.symm x = Quotient.mk'' (Sum.inl sk) := by
+            rw [← hx', Quotient.eq'']
+            exact Relation.EqvGen.symm _ _
+              (Relation.EqvGen.rel _ _ ⟨⟨⟨γ, y⟩, hy_bd⟩, rfl, rfl⟩)
+          have := (h_homeo.apply_symm_apply x).symm
+          rw [hq_eq] at this
+          rw [this]
+          simp [h_homeo, cell_attached_to_sknp1, skn_sum_cnp1_to_sknp1]
+      rcases h_repr with ⟨γ, y, hx_eq, hy_not_bd⟩
+      have h_exists_V_int_and_support_transfer :
+          ∃ V_int : Set (Skeleton X (n + 1)),
+            IsOpen V_int ∧ x ∈ V_int ∧
+            (∀ a, (Function.support (pou_succ_fun a) ∩ V_int).Nonempty →
+              (Function.support (cb_pou γ a) ∩ (cb_boundaryᶜ : Set (cb (n + 1)))).Nonempty) := by
+        let pγ : cb (n + 1) → Skeleton X (n + 1) :=
+          fun w => h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))
+        have hfg : ∀ a w, cb_pou γ a w = pou_succ_fun a (pγ w) := by
+          intro a w
+          show cb_pou γ a w =
+            Quotient.lift (pou_ext a) (pou_ext_factors a)
+              (h_homeo.symm (h_homeo (Quotient.mk'' (Sum.inr ⟨γ, w⟩))))
+          rw [h_homeo.symm_apply_apply]
+          simp only [Quotient.lift_mk, pou_ext]
+        have h_locally_open : ∀ U', IsOpen U' → U' ⊆ (cb_boundaryᶜ : Set (cb (n + 1))) →
+            IsOpen (pγ '' U') := by
+          intro U' hU'_open hU'_sub
+          let comp_map : (Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1)) →
+              Skeleton X (n + 1) := fun z => h_homeo (Quotient.mk'' z)
+          have h_comp_qm : Topology.IsQuotientMap comp_map :=
+            h_homeo.isQuotientMap.comp (adj_proj_quotient _ _)
+          let S : Set ((Skeleton X n) ⊕ (Σ _ : CellOfDim (n + 1), cb (n + 1))) :=
+            {z | ∃ w ∈ U', z = Sum.inr ⟨γ, w⟩}
+          have h_eq : pγ '' U' = comp_map '' S := by
+            ext z; simp only [Set.mem_image, Set.mem_setOf_eq, S, comp_map, pγ]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨Sum.inr ⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_eq, ← h_comp_qm.isOpen_preimage]
+          have hS_saturated : ∀ z₁ z₂,
+              glue_setoid
+                (@CellAttached_boundary (n + 1) (CellOfDim (n + 1)))
+                (@CellAttached_f X (n + 1) (CellOfDim (n + 1)) (Skeleton X n)
+                  (characteristic_cn (n + 1)) (char_cnp1_boundary_in_skn n))
+                z₁ z₂ → z₁ ∈ S → z₂ ∈ S := by
+            intro z₁ z₂ h₁₂ hz₁
+            rcases glue_rel_equiv_explicit _ _ z₁ z₂ h₁₂ with c0 | c1 | c2 | c3 | c4
+            · rcases c0 with ⟨_, _, rfl⟩; exact hz₁
+            · rcases c1 with ⟨_, _, _, rfl, _, _, _⟩
+              obtain ⟨_, _, habs⟩ := hz₁; simp at habs
+            · rcases c2 with ⟨_, _, y', rfl, rfl, rfl, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y'.property
+            · rcases c3 with ⟨_, _, y₁', _, rfl, rfl, rfl, rfl, _, _⟩
+              obtain ⟨w', hw', h_eq⟩ := hz₁
+              exfalso; apply hU'_sub hw'
+              have := Sum.inr.inj h_eq
+              rw [show w' = y₁'.val.2 from (congr_arg Sigma.snd this).symm]
+              exact y₁'.property
+            · rcases c4 with ⟨_, _, rfl⟩; exact hz₁
+          have h_sat : comp_map ⁻¹' (comp_map '' S) = S := by
+            ext z; constructor
+            · rintro ⟨z', hz', heq⟩
+              exact hS_saturated z' z (Quotient.eq''.mp (h_homeo.injective heq)) hz'
+            · exact fun hz => ⟨z, hz, rfl⟩
+          rw [h_sat]
+          have h_S_eq : S = Sum.inr '' (Sigma.mk γ '' U') := by
+            ext z; simp only [Set.mem_setOf_eq, Set.mem_image, S]
+            constructor
+            · rintro ⟨w, hw, rfl⟩; exact ⟨⟨γ, w⟩, ⟨w, hw, rfl⟩, rfl⟩
+            · rintro ⟨_, ⟨w, hw, rfl⟩, rfl⟩; exact ⟨w, hw, rfl⟩
+          rw [h_S_eq]
+          exact isOpenMap_inr _
+            ((Topology.IsOpenEmbedding.sigmaMk (i := γ)
+              (σ := fun _ : CellOfDim (n + 1) => cb (n + 1))).isOpenMap _ hU'_open)
+        let V_int : Set (Skeleton X (n + 1)) := pγ '' (cb_boundaryᶜ : Set (cb (n + 1)))
+        have hV_int_open : IsOpen V_int :=
+          h_locally_open _ (isOpen_compl_iff.mpr cb_boundary_closed) (fun _ h => h)
+        have hx_in_V_int : x ∈ V_int := by
+          refine ⟨y, hy_not_bd, ?_⟩
+          simpa [V_int, pγ] using hx_eq.symm
+        refine ⟨V_int, hV_int_open, hx_in_V_int, ?_⟩
+        intro a ha
+        rcases ha with ⟨z, hz_supp, hz_mem⟩
+        rcases hz_mem with ⟨w, hw_int, hwz⟩
+        refine ⟨w, ?_, hw_int⟩
+        have hz_nz : pou_succ_fun a z ≠ 0 := Function.mem_support.mp hz_supp
+        have hw_nz_succ : pou_succ_fun a (pγ w) ≠ 0 := by simpa [hwz] using hz_nz
+        have hw_nz : cb_pou γ a w ≠ 0 := by simpa [hfg a w] using hw_nz_succ
+        exact Function.mem_support.mpr hw_nz
+      have h_cb_active_interior_finite_γ :
+          {a : α |
+            (Function.support (cb_pou γ a) ∩ (cb_boundaryᶜ : Set (cb (n + 1)))).Nonempty}.Finite :=
+        h_cb_active_interior_finite γ
+      rcases h_exists_V_int_and_support_transfer with ⟨V_int, hV_int_open, hx_in_V_int, h_transfer⟩
+      refine ⟨V_int, hV_int_open.mem_nhds hx_in_V_int, ?_⟩
+      refine Set.Finite.subset h_cb_active_interior_finite_γ ?_
+      intro a ha
+      exact h_transfer a ha
+  let pou_succ : CompatibleSkeletonPOU α s (n + 1) :=
+    ⟨pou_succ_fun, pou_succ_nonneg, pou_succ_sum, pou_succ_locallyFinite, pou_succ_subordinate⟩
+  refine ⟨pou_succ, ?_, ?_⟩
+  · intro a x
+    simpa [pou_succ] using pou_succ_restrict a x
+  · intro V hV
+    simpa [pou_succ] using pou_succ_zero_extension V hV
+
+theorem exists_skeleton_pou_tower
+    {α : Type*} (s : α → Set X) (hs_open : ∀ a, IsOpen (s a))
+    (hs_cover : ⋃ a, s a = Set.univ) :
+    ∃ pou : ∀ n, CompatibleSkeletonPOU α s n,
+      (∀ n a (x : Skeleton X n),
+        (pou (n + 1)).toFun a
+          ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ =
+          (pou n).toFun a x) ∧
+      (∀ n, ∀ V : Set (Skeleton X n), IsOpen V →
+        ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧
+          (∀ x : Skeleton X n, x ∈ V ↔
+            (⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ :
+              Skeleton X (n + 1)) ∈ V') ∧
+          (∀ a, (∀ x ∈ V, (pou n).toFun a x = 0) →
+            (∀ y ∈ V', (pou (n + 1)).toFun a y = 0))) := by
+  classical
+  let pou : ∀ n, CompatibleSkeletonPOU α s n :=
+    fun n =>
+      Nat.rec
+        (motive := fun k => CompatibleSkeletonPOU α s k)
+        (skeleton_pou_zero s hs_open hs_cover)
+        (fun k pou_k =>
+          Classical.choose (skeleton_pou_succ s hs_open hs_cover k pou_k))
+        n
+  have h_step :
+      ∀ n,
+        (∀ a (x : Skeleton X n),
+          (pou (n + 1)).toFun a
+            ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ =
+            (pou n).toFun a x) ∧
+        (∀ V : Set (Skeleton X n), IsOpen V →
+          ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧
+            (∀ x : Skeleton X n, x ∈ V ↔
+              (⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ :
+                Skeleton X (n + 1)) ∈ V') ∧
+            (∀ a, (∀ x ∈ V, (pou n).toFun a x = 0) →
+              (∀ y ∈ V', (pou (n + 1)).toFun a y = 0))) := by
+    intro n
+    simpa [pou] using
+      (Classical.choose_spec (skeleton_pou_succ s hs_open hs_cover n (pou n)))
+  refine ⟨pou, ?_⟩
+  exact ⟨(fun n a x => (h_step n).1 a x), (fun n V hV => (h_step n).2 V hV)⟩
+
+omit CW in theorem tower_restrict_le
+    {α : Type*} {s : α → Set X}
+    (pou : ∀ n, CompatibleSkeletonPOU α s n)
+    (hpou_restrict :
+      ∀ n a (x : Skeleton X n),
+        (pou (n + 1)).toFun a
+          ⟨x.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x.2⟩ =
+          (pou n).toFun a x) :
+    ∀ {m n : ℕ} (hmn : m ≤ n) (a : α) (x : Skeleton X m),
+      (pou n).toFun a
+        ⟨x.1, skeleton_mono m n hmn x.2⟩ =
+        (pou m).toFun a x := by
+  intro m n hmn
+  induction hmn with
+  | refl =>
+      intro a x
+      have hx :
+          (⟨x.1, skeleton_mono m m (Nat.le_refl m) x.2⟩ : Skeleton X m) = x := by
+        ext
+        rfl
+      simp [hx]
+  | @step n hmn ih =>
+      intro a x
+      let x' : Skeleton X n := ⟨x.1, skeleton_mono m n hmn x.2⟩
+      have hstep := hpou_restrict n a x'
+      have hcast :
+          (⟨x'.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) x'.2⟩ :
+            Skeleton X (n + 1)) =
+          ⟨x.1, skeleton_mono m (n + 1) (Nat.le.step hmn) x.2⟩ := by
+        ext
+        rfl
+      have hstep' :
+          (pou (n + 1)).toFun a
+            ⟨x.1, skeleton_mono m (n + 1) (Nat.le.step hmn) x.2⟩ =
+          (pou n).toFun a x' := by
+        simpa [x', hcast] using hstep
+      exact hstep'.trans (ih a x)
+
+instance instCWComplexParacompactSpace : ParacompactSpace X := by
+  apply paracompact_of_exist_partition_of_unity
+  intro α s hs_open hs_cover
+  obtain ⟨pou, hpou_restrict, hpou_zero_extension⟩ :=
+    exists_skeleton_pou_tower (X := X) s hs_open hs_cover
+  have h_restrict_le :
+      ∀ {m n : ℕ} (hmn : m ≤ n) (a : α) (x : Skeleton X m),
+        (pou n).toFun a
+          ⟨x.1, skeleton_mono m n hmn x.2⟩ =
+          (pou m).toFun a x :=
+    tower_restrict_le (X := X) pou hpou_restrict
+  let level : X → ℕ := fun x => Classical.choose (exists_mem_of_skeleton (X := X) x)
+  have level_mem : ∀ x : X, x ∈ Skeleton X (level x) := by
+    intro x
+    exact Classical.choose_spec (exists_mem_of_skeleton (X := X) x)
+  let ψ : α → X → ℝ := fun a x => (pou (level x)).toFun a ⟨x, level_mem x⟩
+  have hψ_on_skeleton :
+      ∀ (n : ℕ) (a : α) (x : Skeleton X n),
+        ψ a x.1 = (pou n).toFun a x := by
+    intro n a x
+    let k : ℕ := level x.1
+    let xk : Skeleton X k := ⟨x.1, level_mem x.1⟩
+    let M : ℕ := max k n
+    have hkM : k ≤ M := Nat.le_max_left k n
+    have hnM : n ≤ M := Nat.le_max_right k n
+    have hk :
+        (pou M).toFun a
+          ⟨xk.1, skeleton_mono k M hkM xk.2⟩ =
+        (pou k).toFun a xk :=
+      h_restrict_le hkM a xk
+    have hn :
+        (pou M).toFun a
+          ⟨x.1, skeleton_mono n M hnM x.2⟩ =
+        (pou n).toFun a x :=
+      h_restrict_le hnM a x
+    have hMk :
+        (⟨xk.1, skeleton_mono k M hkM xk.2⟩ : Skeleton X M) =
+        ⟨x.1, skeleton_mono n M hnM x.2⟩ := by
+      ext
+      rfl
+    have hk_to_M :
+        (pou k).toFun a xk =
+        (pou M).toFun a ⟨x.1, skeleton_mono n M hnM x.2⟩ := by
+      calc
+        (pou k).toFun a xk =
+            (pou M).toFun a ⟨xk.1, skeleton_mono k M hkM xk.2⟩ := by
+              exact hk.symm
+        _ = (pou M).toFun a ⟨x.1, skeleton_mono n M hnM x.2⟩ := by
+              simp [hMk]
+    calc
+      ψ a x.1 = (pou k).toFun a xk := by
+        rfl
+      _ = (pou M).toFun a ⟨x.1, skeleton_mono n M hnM x.2⟩ := hk_to_M
+      _ = (pou n).toFun a x := hn
+  have hψ_cont : ∀ a : α, Continuous (ψ a) := by
+    intro a
+    have h_closure_sub_skeleton_dim :
+        ∀ e : C.sets, closure e.1 ⊆ Skeleton X (C.dim_map e) := by
+      intro e
+      have he_sub : e.1 ⊆ Skeleton X (C.dim_map e) := by
+        exact (sub_skeleton_iff e).mpr (Nat.le_refl _)
+      exact (Skeleton X (C.dim_map e)).cell_closure_incl e.1 e.2 he_sub
+    have h_incl_to_skeleton_cont :
+        ∀ e : C.sets,
+          Continuous
+            (fun z : closure e.1 =>
+              ((⟨z.1, h_closure_sub_skeleton_dim e z.2⟩ : Skeleton X (C.dim_map e)))) := by
+      intro e
+      refine Continuous.subtype_mk ?_ (fun z => h_closure_sub_skeleton_dim e z.2)
+      exact continuous_subtype_val
+    have hψ_on_closure :
+        ∀ (e : C.sets) (z : closure e.1),
+          ψ a z.1 =
+            (pou (C.dim_map e)).toFun a
+              ⟨z.1, h_closure_sub_skeleton_dim e z.2⟩ := by
+      intro e z
+      simpa using hψ_on_skeleton (C.dim_map e) a
+        (⟨z.1, h_closure_sub_skeleton_dim e z.2⟩ : Skeleton X (C.dim_map e))
+    have hψ_restrict_cont :
+        ∀ (e : C.sets), Continuous ((closure e.1).restrict (ψ a)) := by
+      intro e
+      have hEq :
+          (closure e.1).restrict (ψ a) =
+            (fun z : closure e.1 =>
+              (pou (C.dim_map e)).toFun a
+                ⟨z.1, h_closure_sub_skeleton_dim e z.2⟩) := by
+        funext z
+        exact hψ_on_closure e z
+      rw [hEq]
+      exact ((pou (C.dim_map e)).toFun a).continuous.comp (h_incl_to_skeleton_cont e)
+    refine (continuous_of_coherent (X := X) (B := {closure s | s ∈ C.sets}) CW.coeherent (ψ a)).2 ?_
+    intro b hb
+    rcases hb with ⟨e, he, rfl⟩
+    exact hψ_restrict_cont ⟨e, he⟩
+  have hψ_nonneg : ∀ a x, 0 ≤ ψ a x := by
+    intro a x
+    rcases exists_mem_of_skeleton (X := X) x with ⟨n, hx⟩
+    let xn : Skeleton X n := ⟨x, hx⟩
+    have hψx : ψ a x = (pou n).toFun a xn := by
+      simpa [xn] using hψ_on_skeleton n a xn
+    rw [hψx]
+    exact (pou n).nonneg a xn
+  have hψ_sum : ∀ x, ∑ᶠ a, ψ a x = 1 := by
+    intro x
+    rcases exists_mem_of_skeleton (X := X) x with ⟨n, hx⟩
+    let xn : Skeleton X n := ⟨x, hx⟩
+    have hψx : ∀ a, ψ a x = (pou n).toFun a xn := by
+      intro a
+      simpa [xn] using hψ_on_skeleton n a xn
+    simp_rw [hψx]
+    exact (pou n).sum_eq_one xn
+  have h_exists_skeleton_zero_neighborhood :
+      ∀ a x, x ∉ s a →
+        ∃ n, ∃ xn : Skeleton X n, xn.1 = x ∧ ∃ Vn : Set (Skeleton X n),
+          IsOpen Vn ∧ xn ∈ Vn ∧
+          (∀ z ∈ Vn, (pou n).toFun a z = 0) := by
+    intro a x hx_not
+    rcases exists_mem_of_skeleton (X := X) x with ⟨n, hx_n⟩
+    let xn : Skeleton X n := ⟨x, hx_n⟩
+    let Vn : Set (Skeleton X n) := (tsupport ((pou n).toFun a))ᶜ
+    have hVn_open : IsOpen Vn := by
+      simpa [Vn] using (isOpen_compl_iff.mpr (isClosed_tsupport ((pou n).toFun a)))
+    have hxn_in_Vn : xn ∈ Vn := by
+      have hxn_not_tsupport : xn ∉ tsupport ((pou n).toFun a) := by
+        intro hxn_tsupport
+        have hxn_sub : xn ∈ Subtype.val ⁻¹' (s a) := (pou n).subordinate a hxn_tsupport
+        have hxn_in_s : x ∈ s a := by simpa [xn, Set.mem_preimage] using hxn_sub
+        exact hx_not hxn_in_s
+      simpa [Vn] using hxn_not_tsupport
+    have hVn_zero : ∀ z ∈ Vn, (pou n).toFun a z = 0 := by
+      intro z hz
+      have hz_not_tsupport : z ∉ tsupport ((pou n).toFun a) := by
+        simpa [Vn] using hz
+      exact image_eq_zero_of_notMem_tsupport hz_not_tsupport
+    exact ⟨n, xn, rfl, Vn, hVn_open, hxn_in_Vn, hVn_zero⟩
+  have h_lift_zero_neighborhood :
+      ∀ (a : α) (n : ℕ) (V : Set (Skeleton X n)),
+        IsOpen V →
+        (∀ z ∈ V, (pou n).toFun a z = 0) →
+        ∃ V' : Set (Skeleton X (n + 1)), IsOpen V' ∧
+          (∀ z : Skeleton X n, z ∈ V ↔
+            (⟨z.1, skeleton_mono n (n + 1) (Nat.le_add_right n 1) z.2⟩ :
+              Skeleton X (n + 1)) ∈ V') ∧
+          (∀ y ∈ V', (pou (n + 1)).toFun a y = 0) := by
+    intro a n V hV_open hV_zero
+    rcases hpou_zero_extension n V hV_open with ⟨V', hV'_open, h_lift, h_zero_ext⟩
+    refine ⟨V', hV'_open, h_lift, ?_⟩
+    intro y hy
+    exact h_zero_ext a hV_zero y hy
+  have h_exists_global_zero_carrier :
+      ∀ (a : α) (x : X), x ∉ s a →
+        ∃ n, ∃ xn : Skeleton X n, xn.1 = x ∧
+          ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+            (∀ k, IsOpen (Vk k)) ∧
+            (∀ k, (∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k)) ∧
+            (∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vk (m + 1)) ∧
+            (∀ k, ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0) ∧
+            x ∈ ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k) := by
+    intro a x hx_not
+    rcases h_exists_skeleton_zero_neighborhood a x hx_not with
+      ⟨n, xn, hxn_eq, Vn, hVn_open, hxn_in, hVn_zero⟩
+    have h_lift_step :
+        ∀ m (Vm : Set (Skeleton X (n + m))),
+          IsOpen Vm →
+          (∀ y ∈ Vm, (pou (n + m)).toFun a y = 0) →
+          ∃ Vm' : Set (Skeleton X (n + (m + 1))), IsOpen Vm' ∧
+            (∀ z : Skeleton X (n + m), z ∈ Vm ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vm') ∧
+            (∀ y ∈ Vm', (pou (n + (m + 1))).toFun a y = 0) := by
+      intro m Vm hVm_open hVm_zero
+      rcases h_lift_zero_neighborhood a (n + m) Vm hVm_open hVm_zero with
+        ⟨Vm', hVm'_open, hVm'_lift, hVm'_zero⟩
+      refine ⟨?_, ?_, ?_, ?_⟩
+      · simpa [Nat.add_assoc] using Vm'
+      · simpa [Nat.add_assoc] using hVm'_open
+      · intro z
+        simpa [Nat.add_assoc] using hVm'_lift z
+      · intro y hy
+        simpa [Nat.add_assoc] using hVm'_zero y hy
+    let data : ∀ k, {Vk : Set (Skeleton X (n + k)) //
+        IsOpen Vk ∧ (∀ y ∈ Vk, (pou (n + k)).toFun a y = 0)} :=
+      Nat.rec
+        (motive := fun k =>
+          {Vk : Set (Skeleton X (n + k)) //
+            IsOpen Vk ∧ (∀ y ∈ Vk, (pou (n + k)).toFun a y = 0)})
+        ⟨Vn, hVn_open, hVn_zero⟩
+        (fun k d =>
+          let step := h_lift_step k d.1 d.2.1 d.2.2
+          ⟨Classical.choose step, (Classical.choose_spec step).1, (Classical.choose_spec step).2.2⟩)
+    let Vk : ∀ k, Set (Skeleton X (n + k)) := fun k => (data k).1
+    have hVk_open : ∀ k, IsOpen (Vk k) := by
+      intro k
+      exact (data k).2.1
+    have hVk_preimage :
+        ∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+          (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+            (Nat.le_add_right (n + m) 1) z.2⟩ :
+            Skeleton X (n + (m + 1))) ∈ Vk (m + 1) := by
+      intro m z
+      let d := data m
+      let step := h_lift_step m d.1 d.2.1 d.2.2
+      have hstep :
+          z ∈ d.1 ↔
+            (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+              (Nat.le_add_right (n + m) 1) z.2⟩ :
+              Skeleton X (n + (m + 1))) ∈ Classical.choose step := by
+        simpa [step] using (Classical.choose_spec step).2.1 z
+      have hsucc :
+          (data (m + 1)).1 = Classical.choose step := by
+        simp [data, d]
+      change z ∈ d.1 ↔
+        (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+          (Nat.le_add_right (n + m) 1) z.2⟩ :
+          Skeleton X (n + (m + 1))) ∈ (data (m + 1)).1
+      simpa [hsucc] using hstep
+    have hVk_zero : ∀ k, ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0 := by
+      intro k
+      exact (data k).2.2
+    have hVk_has_x : ∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k := by
+      intro k
+      induction k with
+      | zero =>
+          refine ⟨xn, hxn_eq, ?_⟩
+          simpa [Vk, data] using hxn_in
+      | succ k ih =>
+          rcases ih with ⟨xk, hxk_eq, hxk_in⟩
+          let xk' : Skeleton X (n + (k + 1)) :=
+            ⟨xk.1, skeleton_mono (n + k) (n + (k + 1))
+              (Nat.le_add_right (n + k) 1) xk.2⟩
+          refine ⟨xk', ?_, ?_⟩
+          · simpa [xk'] using hxk_eq
+          · simpa [xk'] using (hVk_preimage k xk).1 hxk_in
+    have hx_in_W : x ∈ ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k) := by
+      rw [Set.mem_iUnion]
+      use 0
+      rcases hVk_has_x 0 with ⟨x0, hx0_eq, hx0_in⟩
+      exact ⟨x0, hx0_in, hx0_eq⟩
+    exact ⟨n, xn, hxn_eq, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero, hx_in_W⟩
+  have hψ_zero_on_global_zero_carrier :
+      ∀ (a : α) (x : X), x ∉ s a →
+        ∃ n, ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+          IsOpen (⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)) ∧
+          x ∈ ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k) ∧
+          (∀ y ∈ ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k), ψ a y = 0) := by
+    intro a x hx_not
+    rcases h_exists_global_zero_carrier a x hx_not with
+      ⟨n, xn, hxn_eq, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero, hx_in_W⟩
+    let W : Set X := ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)
+    have hVk_lift_le :
+        ∀ {i j : ℕ} (hij : i ≤ j) (zi : Skeleton X (n + i)),
+          zi ∈ Vk i ↔
+            (⟨zi.1, skeleton_mono (n + i) (n + j) (Nat.add_le_add_left hij n) zi.2⟩ :
+              Skeleton X (n + j)) ∈ Vk j := by
+      intro i j hij
+      induction hij with
+      | refl =>
+          intro zi
+          constructor <;> intro h <;> simpa using h
+      | @step j hij ih =>
+          intro zi
+          let zj : Skeleton X (n + j) :=
+            ⟨zi.1, skeleton_mono (n + i) (n + j) (Nat.add_le_add_left hij n) zi.2⟩
+          have hizj : zi ∈ Vk i ↔ zj ∈ Vk j := by
+            simpa [zj] using ih zi
+          have hzj :
+              zj ∈ Vk j ↔
+                (⟨zj.1, skeleton_mono (n + j) (n + (j + 1))
+                  (Nat.le_add_right (n + j) 1) zj.2⟩ :
+                  Skeleton X (n + (j + 1))) ∈ Vk (j + 1) :=
+            hVk_preimage j zj
+          let zip1 : Skeleton X (n + (j + 1)) :=
+            ⟨zi.1, skeleton_mono (n + i) (n + (j + 1))
+              (Nat.add_le_add_left (Nat.le.step hij) n) zi.2⟩
+          have hzj' : zj ∈ Vk j ↔ zip1 ∈ Vk (j + 1) := by
+            simpa [zj, zip1] using hzj
+          exact hizj.trans hzj'
+    have hW_preimage :
+        ∀ m : ℕ, ((Subtype.val : Skeleton X (n + m) → X) ⁻¹' W) = Vk m := by
+      intro m
+      ext z
+      constructor
+      · intro hz
+        change z.1 ∈ W at hz
+        rw [Set.mem_iUnion] at hz
+        rcases hz with ⟨k, hk⟩
+        rcases hk with ⟨yk, hyk_in, hyk_eq⟩
+        rcases Nat.le_total k m with hkm | hmk
+        · let ym : Skeleton X (n + m) :=
+            ⟨yk.1, skeleton_mono (n + k) (n + m) (Nat.add_le_add_left hkm n) yk.2⟩
+          have hym_in : ym ∈ Vk m := (hVk_lift_le hkm yk).1 hyk_in
+          have hzy : z = ym := by
+            ext
+            simpa [ym] using hyk_eq.symm
+          simpa [hzy] using hym_in
+        · let zk : Skeleton X (n + k) :=
+            ⟨z.1, skeleton_mono (n + m) (n + k) (Nat.add_le_add_left hmk n) z.2⟩
+          have hyk_eq_zk : yk = zk := by
+            ext
+            simpa [zk] using hyk_eq
+          have hzk_in : zk ∈ Vk k := by
+            simpa [hyk_eq_zk] using hyk_in
+          exact (hVk_lift_le hmk z).2 (by simpa [zk] using hzk_in)
+      · intro hz
+        change z.1 ∈ W
+        rw [Set.mem_iUnion]
+        refine ⟨m, ⟨z, hz, rfl⟩⟩
+    have hW_open : IsOpen W := by
+      have hf : StrictMono (fun t : ℕ => n + t) := by
+        intro i j hij
+        exact Nat.add_lt_add_left hij n
+      have hcoh :
+          IsCoeherent (Set.range (fun t : ℕ ↦ ((Skeleton X (n + t)) : Set X))) :=
+        skeleton_coeherent_of_strictMono (X := X) (C := C) (fun t : ℕ => n + t) hf
+      refine (hcoh.open_crit W).2 ?_
+      intro b hb
+      rcases hb with ⟨m, rfl⟩
+      have hpre : (Subtype.val ⁻¹' W : Set (Skeleton X (n + m))) = Vk m :=
+        hW_preimage m
+      change IsOpen (Subtype.val ⁻¹' W : Set (Skeleton X (n + m)))
+      rw [hpre]
+      exact hVk_open m
+    refine ⟨n, Vk, hW_open, ?_, ?_⟩
+    · simpa [W] using hx_in_W
+    intro y hy
+    have hyW : y ∈ W := by simpa [W] using hy
+    clear hy
+    rw [Set.mem_iUnion] at hyW
+    rcases hyW with ⟨k, hyk⟩
+    rcases hyk with ⟨yk, hyk_in, rfl⟩
+    rw [hψ_on_skeleton (n + k) a yk]
+    exact hVk_zero k yk hyk_in
+  have hψ_subordinate : ∀ a, tsupport (ψ a) ⊆ s a := by
+    intro a x hx_tsupport
+    by_contra hx_not_in_s
+    rcases hψ_zero_on_global_zero_carrier a x hx_not_in_s with
+      ⟨n, Vk, hW_open, hx_in_W, hW_zero⟩
+    let W : Set X := ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)
+    have h_supp_sub : Function.support (ψ a) ⊆ Wᶜ := by
+      intro y hy hyW
+      exact (Function.mem_support.mp hy) (hW_zero y (by simpa [W] using hyW))
+    have hx_in_Wc : x ∈ Wᶜ :=
+      closure_minimal h_supp_sub (isClosed_compl_iff.mpr hW_open)
+        (by simpa [W] using hx_tsupport)
+    exact hx_in_Wc (by simpa [W] using hx_in_W)
+
+  have hψ_locallyFinite : LocallyFinite (fun a => Function.support (ψ a)) := by
+    intro x
+    have h_seed_neighborhood_outside_finite :
+        ∃ n, ∃ xn : Skeleton X n, xn.1 = x ∧
+          ∃ Vn : Set (Skeleton X n), IsOpen Vn ∧ xn ∈ Vn ∧
+            ∃ F : Set α, F.Finite ∧
+              (∀ a, a ∉ F → ∀ z ∈ Vn, (pou n).toFun a z = 0) := by
+      rcases exists_mem_of_skeleton (X := X) x with ⟨n, hx_n⟩
+      let xn : Skeleton X n := ⟨x, hx_n⟩
+      obtain ⟨t, ht_nhds, ht_fin⟩ := (pou n).locallyFinite xn
+      rcases mem_nhds_iff.mp ht_nhds with ⟨Vn, hVn_sub_t, hVn_open, hxn_in_Vn⟩
+      let F : Set α := {a : α | (Function.support ((pou n).toFun a) ∩ Vn).Nonempty}
+      have hF_fin : F.Finite := by
+        refine ht_fin.subset ?_
+        intro a ha
+        rcases ha with ⟨u, hu_supp, huVn⟩
+        exact ⟨u, hu_supp, hVn_sub_t huVn⟩
+      have h_zero_outside_F : ∀ a, a ∉ F → ∀ z ∈ Vn, (pou n).toFun a z = 0 := by
+        intro a haF z hzVn
+        by_contra hz_ne
+        apply haF
+        exact ⟨z, Function.mem_support.mpr hz_ne, hzVn⟩
+      exact ⟨n, xn, rfl, Vn, hVn_open, hxn_in_Vn, F, hF_fin, h_zero_outside_F⟩
+    have h_lift_zero_outside_finite :
+        ∀ n (F : Set α) (m : ℕ) (Vm : Set (Skeleton X (n + m))),
+          IsOpen Vm →
+          (∀ a, a ∉ F → ∀ z ∈ Vm, (pou (n + m)).toFun a z = 0) →
+          ∃ Vm' : Set (Skeleton X (n + (m + 1))), IsOpen Vm' ∧
+            (∀ z : Skeleton X (n + m), z ∈ Vm ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vm') ∧
+            (∀ a, a ∉ F → ∀ y ∈ Vm', (pou (n + (m + 1))).toFun a y = 0) := by
+      intro n F m Vm hVm_open hVm_zero
+      rcases hpou_zero_extension (n + m) Vm hVm_open with
+        ⟨Vm', hVm'_open, hVm'_lift, hVm'_zero⟩
+      refine ⟨?_, ?_, ?_, ?_⟩
+      · simpa [Nat.add_assoc] using Vm'
+      · simpa [Nat.add_assoc] using hVm'_open
+      · intro z
+        simpa [Nat.add_assoc] using hVm'_lift z
+      · intro a haF y hyVm'
+        exact hVm'_zero a (hVm_zero a haF) y (by simpa [Nat.add_assoc] using hyVm')
+    have h_chain_from_seed :
+        ∀ n (xn : Skeleton X n) (Vn : Set (Skeleton X n)) (F : Set α),
+          IsOpen Vn →
+          xn ∈ Vn →
+          xn.1 = x →
+          (∀ a, a ∉ F → ∀ z ∈ Vn, (pou n).toFun a z = 0) →
+          ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+            (∀ k, IsOpen (Vk k)) ∧
+            (∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k) ∧
+            (∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vk (m + 1)) ∧
+            (∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0) := by
+      intro n xn Vn F hVn_open hxn_in hxn_eq hVn_zero
+      let data : ∀ k, {Vk : Set (Skeleton X (n + k)) //
+          IsOpen Vk ∧
+            (∀ a, a ∉ F → ∀ y ∈ Vk, (pou (n + k)).toFun a y = 0)} :=
+        Nat.rec
+          (motive := fun k =>
+            {Vk : Set (Skeleton X (n + k)) //
+              IsOpen Vk ∧
+                (∀ a, a ∉ F → ∀ y ∈ Vk, (pou (n + k)).toFun a y = 0)})
+          ⟨Vn, hVn_open, hVn_zero⟩
+          (fun k d =>
+            let step := h_lift_zero_outside_finite n F k d.1 d.2.1 d.2.2
+            ⟨Classical.choose step, (Classical.choose_spec step).1, (Classical.choose_spec step).2.2⟩)
+      let Vk : ∀ k, Set (Skeleton X (n + k)) := fun k => (data k).1
+      have hVk_open : ∀ k, IsOpen (Vk k) := by
+        intro k
+        exact (data k).2.1
+      have hVk_zero : ∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0 := by
+        intro k
+        exact (data k).2.2
+      have hVk_preimage :
+          ∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+            (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+              (Nat.le_add_right (n + m) 1) z.2⟩ :
+              Skeleton X (n + (m + 1))) ∈ Vk (m + 1) := by
+        intro m z
+        let d := data m
+        let step := h_lift_zero_outside_finite n F m d.1 d.2.1 d.2.2
+        have hstep :
+            z ∈ d.1 ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Classical.choose step := by
+          simpa [step] using (Classical.choose_spec step).2.1 z
+        have hsucc : (data (m + 1)).1 = Classical.choose step := by
+          simp [data, d]
+        change z ∈ d.1 ↔
+          (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+            (Nat.le_add_right (n + m) 1) z.2⟩ :
+            Skeleton X (n + (m + 1))) ∈ (data (m + 1)).1
+        simpa [hsucc] using hstep
+      have hVk_has_x : ∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k := by
+        intro k
+        induction k with
+        | zero =>
+            refine ⟨xn, hxn_eq, ?_⟩
+            simpa [Vk, data] using hxn_in
+        | succ k ih =>
+            rcases ih with ⟨xk, hxk_eq, hxk_in⟩
+            let xk' : Skeleton X (n + (k + 1)) :=
+              ⟨xk.1, skeleton_mono (n + k) (n + (k + 1))
+                (Nat.le_add_right (n + k) 1) xk.2⟩
+            refine ⟨xk', ?_, ?_⟩
+            · simpa [xk'] using hxk_eq
+            · simpa [xk'] using (hVk_preimage k xk).1 hxk_in
+      exact ⟨Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+    have h_chain_with_finite_zero_control :
+        ∃ n, ∃ xn : Skeleton X n, xn.1 = x ∧
+          ∃ F : Set α, F.Finite ∧
+            ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+              (∀ k, IsOpen (Vk k)) ∧
+              (∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k) ∧
+              (∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+                (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                  (Nat.le_add_right (n + m) 1) z.2⟩ :
+                  Skeleton X (n + (m + 1))) ∈ Vk (m + 1)) ∧
+              (∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0) := by
+      rcases h_seed_neighborhood_outside_finite with
+        ⟨n, xn, hxn_eq, Vn, hVn_open, hxn_in, F, hF_fin, hVn_zero⟩
+      rcases h_chain_from_seed n xn Vn F hVn_open hxn_in hxn_eq hVn_zero with
+        ⟨Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+      exact ⟨n, xn, hxn_eq, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+    have h_open_union_from_chain :
+        ∃ n, ∃ F : Set α, F.Finite ∧
+          ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+            (∀ k, IsOpen (Vk k)) ∧
+            (∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k) ∧
+            (∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vk (m + 1)) ∧
+            (∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0) ∧
+            IsOpen (⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)) ∧
+            x ∈ ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k) := by
+      rcases h_chain_with_finite_zero_control with
+        ⟨n, xn, hxn_eq, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+      let W : Set X := ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)
+      have hx_in_W : x ∈ W := by
+        rw [Set.mem_iUnion]
+        use 0
+        rcases hVk_has_x 0 with ⟨x0, hx0_eq, hx0_in⟩
+        exact ⟨x0, hx0_in, hx0_eq⟩
+      have hVk_lift_le :
+          ∀ {i j : ℕ} (hij : i ≤ j) (zi : Skeleton X (n + i)),
+            zi ∈ Vk i ↔
+              (⟨zi.1, skeleton_mono (n + i) (n + j) (Nat.add_le_add_left hij n) zi.2⟩ :
+                Skeleton X (n + j)) ∈ Vk j := by
+        intro i j hij
+        induction hij with
+        | refl =>
+            intro zi
+            constructor <;> intro h <;> simpa using h
+        | @step j hij ih =>
+            intro zi
+            let zj : Skeleton X (n + j) :=
+              ⟨zi.1, skeleton_mono (n + i) (n + j) (Nat.add_le_add_left hij n) zi.2⟩
+            have hizj : zi ∈ Vk i ↔ zj ∈ Vk j := by
+              simpa [zj] using ih zi
+            have hzj :
+                zj ∈ Vk j ↔
+                  (⟨zj.1, skeleton_mono (n + j) (n + (j + 1))
+                    (Nat.le_add_right (n + j) 1) zj.2⟩ :
+                    Skeleton X (n + (j + 1))) ∈ Vk (j + 1) :=
+              hVk_preimage j zj
+            let zip1 : Skeleton X (n + (j + 1)) :=
+              ⟨zi.1, skeleton_mono (n + i) (n + (j + 1))
+                (Nat.add_le_add_left (Nat.le.step hij) n) zi.2⟩
+            have hzj' : zj ∈ Vk j ↔ zip1 ∈ Vk (j + 1) := by
+              simpa [zj, zip1] using hzj
+            exact hizj.trans hzj'
+      have hW_preimage :
+          ∀ m : ℕ, ((Subtype.val : Skeleton X (n + m) → X) ⁻¹' W) = Vk m := by
+        intro m
+        ext z
+        constructor
+        · intro hz
+          change z.1 ∈ W at hz
+          rw [Set.mem_iUnion] at hz
+          rcases hz with ⟨k, hk⟩
+          rcases hk with ⟨yk, hyk_in, hyk_eq⟩
+          rcases Nat.le_total k m with hkm | hmk
+          · let ym : Skeleton X (n + m) :=
+              ⟨yk.1, skeleton_mono (n + k) (n + m) (Nat.add_le_add_left hkm n) yk.2⟩
+            have hym_in : ym ∈ Vk m := (hVk_lift_le hkm yk).1 hyk_in
+            have hzy : z = ym := by
+              ext
+              simpa [ym] using hyk_eq.symm
+            simpa [hzy] using hym_in
+          · let zk : Skeleton X (n + k) :=
+              ⟨z.1, skeleton_mono (n + m) (n + k) (Nat.add_le_add_left hmk n) z.2⟩
+            have hyk_eq_zk : yk = zk := by
+              ext
+              simpa [zk] using hyk_eq
+            have hzk_in : zk ∈ Vk k := by
+              simpa [hyk_eq_zk] using hyk_in
+            exact (hVk_lift_le hmk z).2 (by simpa [zk] using hzk_in)
+        · intro hz
+          change z.1 ∈ W
+          rw [Set.mem_iUnion]
+          refine ⟨m, ⟨z, hz, rfl⟩⟩
+      have hW_open : IsOpen W := by
+        have hf : StrictMono (fun t : ℕ => n + t) := by
+          intro i j hij
+          exact Nat.add_lt_add_left hij n
+        have hcoh :
+            IsCoeherent (Set.range (fun t : ℕ ↦ ((Skeleton X (n + t)) : Set X))) :=
+          skeleton_coeherent_of_strictMono (X := X) (C := C) (fun t : ℕ => n + t) hf
+        refine (hcoh.open_crit W).2 ?_
+        intro b hb
+        rcases hb with ⟨m, rfl⟩
+        have hpre : (Subtype.val ⁻¹' W : Set (Skeleton X (n + m))) = Vk m := hW_preimage m
+        change IsOpen (Subtype.val ⁻¹' W : Set (Skeleton X (n + m)))
+        rw [hpre]
+        exact hVk_open m
+      exact ⟨n, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero,
+        hW_open, by simpa [W] using hx_in_W⟩
+    rcases h_open_union_from_chain with
+      ⟨n, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero, hW_open, hx_in_W⟩
+    let W : Set X := ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)
+    have hW_open' : IsOpen W := by
+      simpa [W] using hW_open
+    have hx_in_W' : x ∈ W := by
+      simpa [W] using hx_in_W
+    have h_zero_on_W_outside_F : ∀ a, a ∉ F → ∀ y ∈ W, ψ a y = 0 := by
+      intro a haF y hyW
+      rw [Set.mem_iUnion] at hyW
+      rcases hyW with ⟨k, hyk⟩
+      rcases hyk with ⟨yk, hyk_in, rfl⟩
+      rw [hψ_on_skeleton (n + k) a yk]
+      exact hVk_zero k a haF yk hyk_in
+    have h_active_subset :
+        {a : α | (Function.support (ψ a) ∩ W).Nonempty} ⊆ F := by
+      intro a ha
+      by_contra haF
+      rcases ha with ⟨y, hy_supp, hyW⟩
+      exact (Function.mem_support.mp hy_supp) (h_zero_on_W_outside_F a haF y hyW)
+    refine ⟨W, hW_open'.mem_nhds hx_in_W', ?_⟩
+    exact hF_fin.subset h_active_subset
+
+  refine ⟨
+    { toFun := fun a => ⟨ψ a, hψ_cont a⟩
+      locallyFinite' := by
+        simpa using hψ_locallyFinite
+      nonneg' := by
+        intro a x
+        exact hψ_nonneg a x
+      sum_eq_one' := by
+        intro x hx
+        simpa using hψ_sum x
+      sum_le_one' := by
+        intro x
+        exact (hψ_sum x).le
+    }, ?_⟩
+  intro a
+  simpa using hψ_subordinate a
+
+
+end
+end Chp5

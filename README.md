@@ -1,6 +1,6 @@
 # Cell Complex (Lean)
 
-This project formalizes core definitions and theorems about CW cell complexes in Lean, following the standard topology development in Mathlib. The original theory comes from Introduction to Topological Manifolds by John M. Lee. The contents on cell complexes are transcripted in docs/textboox_transcripted.md
+This project formalizes core definitions and theorems about CW cell complexes in Lean, following the standard topology development in Mathlib. The original theory comes from Introduction to Topological Manifolds by John M. Lee. The contents on cell complexes are transcripted in docs/textboox_transcripted.md. The name STCC is abbreviation of Set-Theoretical Cell Complex.
 
 ## Textbook correspondences 
 
@@ -19,6 +19,7 @@ Mappings from `docs/textbook_transcripted.md` to Lean theorems in `STCC/`:
 - Lemma 5.17 (quotient map from disjoint union of cells) → `quotient_sigma_cb_map` in `STCC/Construction.lean`
 - Proposition 5.18 (skeleton via attaching n-cells) → `cell_attached_to_sknp1_homeomorphic` (and helpers like `skn_sum_cnp1_to_sknp1`) in `STCC/Construction.lean`
 - Theorem 5.20 (CW Construction Theorem) → `instCWConstructorSkeletonCW0` and related constructors in `STCC/Construction.lean`
+- Theorem 5.22 (Paracompactness) → `instCWComplexParacompactSpace`
 
 ## Project Structure
 
@@ -30,6 +31,8 @@ Mappings from `docs/textbook_transcripted.md` to Lean theorems in `STCC/`:
   Connectivity and compactness results for skeletons and CW complexes, plus finite subcomplex and local compactness criteria.
 - `STCC/Construction.lean`  
   Constructions of skeletons and attaching spaces, quotient-map facts, and inductive CW construction theorems.
+- `STCC/Paracompactness.lean`
+  Paracompactness theorem and related recursive constructions.
 
 ## Building
 

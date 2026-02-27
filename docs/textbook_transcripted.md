@@ -589,91 +589,54 @@ Hausdorff. The proof of the next theorem uses another example of this technique.
 
 *Proof.* Suppose $X$ is a CW complex, and $\mathcal{U} = (U_\alpha)_{\alpha \in A}$ is
 an indexed open cover of $X$. We will show that there is a partition of unity
-$(\varphi_\alpha)_{\alpha \in A}$ subordinate to $\mathcal{U}$; it then follows from
+$(\psi_\alpha)_{\alpha \in A}$ subordinate to $\mathcal{U}$; it then follows from
 Problem 4-33 that $X$ is paracompact.
 
 For each nonnegative integer $n$, let $U_\alpha^n = U_\alpha \cap X_n$. We begin by
 constructing by induction, for each $n$, a partition of unity $(\psi_\alpha^n)$ for
 $X_n$ subordinate to $(U_\alpha^n)$.
 
-For $n = 0$, we simply choose for each $x \in X_0$ a set $U_\alpha$ such that $x \in
-U_\alpha$, and let $\psi_\alpha^0(x) = 1$ and $\psi_\beta^0(x) = 0$ for $\beta \ne
+For $n = 0$, we simply choose for each $x \in X_0$ a set $U_\alpha \in \mathcal{U}$ such that $x \in
+U_\alpha$, and let $\psi_\alpha^0(x) = 1$ and $\psi_{\alpha'}^0(x) = 0$ for $\alpha' \ne
 \alpha$.
 
-Now suppose that for $n = 0, \ldots, k$, we have defined partitions of unity
-$(\psi_\alpha^n)$ for $X_n$ subordinate to $(U_\alpha^n)$, satisfying the following
+Now suppose that for $k = 0, \ldots, n$, we have defined partitions of unity
+$(\psi_\alpha^k)$ for $X_k$ subordinate to $(U_\alpha^k)$, satisfying the following
 properties for each $\alpha \in A$ and each $k$:
 
 (i) $\psi_\alpha^k|_{X_{k-1}} = \psi_\alpha^{k-1}$.
 
-(ii) If $V_\alpha^{k-1} = \psi_\alpha^{k-1}{}^{-1}(0)$ is an open subset of $X_{k-1}$,
-then there is an open subset $V' \subset X_k$ containing $V_\alpha^{k-1}$ on which
-$\psi_\alpha^k = 0$.
+(ii) If $\psi_\alpha^{k-1} \equiv 0$ on an open subset $ V \sub X_{k-1}$,
+then there is an open subset $V' \subset X_k$ containing $V$ on which
+$\psi_\alpha^k \equiv 0$.
 
-Let $q_k : X_{k-1} \sqcup \left(\bigsqcup D_\alpha^k\right) \to X_k$ be a quotient map
-realizing $X_k$ as an adjunction space. We will extend each function
-$\psi_\alpha^{k-1}$ to $\psi_\alpha^k$ on $X_k$ by cell.
+Let $q : X_{n} \sqcup \left(\bigsqcup_{\gamma \in \Gamma} D_\gamma^{n+1}\right) \to X_{n+1}$ be a quotient map
+realizing $X_{n+1}$ as an adjunction space. We will extend each function
+$\psi_\alpha^{n}$ to $X_{n+1}$ cell by cell.
 
-For each $k$-cell $e_\beta$, let $\varphi_\beta : D_\beta^k \to X_k$ be the
-characteristic map. For each $\alpha$, let
-$\tilde{\psi}_\alpha = \psi_\alpha^{k-1} \circ \varphi_\beta|_{\partial D_\beta^k}$ and
-let $f_\beta : \partial D_\beta^k \to X_{k-1}$ be the corresponding attaching map. For
-any subset $A \subset \partial D_\beta^k$ and $0 < \varepsilon < 1$, let
-$A(\varepsilon) \subset D_\beta^k$ be the subset
+Fix $\gamma \in \Gamma$, let $\Phi_\gamma : D_\gamma^{n+1} \to X_{n+1}$ be the characteristic map $\Phi_\gamma = q|_{D_\gamma^{n+1}}$ and let $\varphi_\gamma = \Phi_\gamma|_{\partial D_\gamma^{n+1}}: \partial D_\gamma^{n+1} \to X_n$ be the corresponding attaching map. For each $\alpha \in A$, let $\tilde{\psi}_\alpha^n = \psi_\alpha^n \circ \varphi_\gamma : \partial D_\gamma^{n+1} \to [0, 1]$ and $\tilde{U}_\alpha^{n+1} = \Phi_\gamma^{-1}(U_\alpha^{n+1}) \sub D_\gamma^{n+1}$.
+
+any subset $S \subset \partial D_\gamma^{n+1}$ and $0 < \varepsilon < 1$, let
+$A(\varepsilon) \subset D_\gamma^{n+1}$ be the subset
 
 $$
-A(\varepsilon) = \{ x \in D_\beta^k : d(x, A) < \varepsilon \text{ and } 1 - \varepsilon
+S(\varepsilon) = \{ x \in D_\gamma^{n+1} : \frac{x}{|x|} \in A \text{ and } 1 - \varepsilon
 < |x| \le 1 \},
 $$
 
-where the norm $|x|$ is defined with respect to some homeomorphism of $D_\beta^k$ with
-$B^k$. In particular, $\partial D_\beta^k$ is the set of all $x \in D_\beta^k$ such
-that $|x| = 1$.
+where the norm $|x|$ is defined with respect to some homeomorphism of $D_\gamma^{n+1}$ with $\bar{\mathbb{B}}^{n+1}$. In particular, $\partial D_\gamma^{n+1}(\varepsilon)$ is the set of all $x \in D_\gamma^{n+1}$ such
+that $|x| > 1 - \varepsilon$.
 
-By compactness of the set $\partial D_\beta^k$ and local finiteness of the indexed
-cover $(U_\alpha^k)$, there are only finitely many indices $\alpha_1, \ldots, \alpha_r$
-for which $\tilde{\psi}_{\alpha_i}$ is not identically zero on $\partial D_\beta^k$.
-For each such index, $A_i = \operatorname{supp} \tilde{\psi}_{\alpha_i}$ is a compact
-subset of $\partial D_\beta^k$, so there is some $\varepsilon_i \in (0,1)$ such that
-$A_i(\varepsilon_i) \subset \varphi_\beta^{-1}(U_{\alpha_i}^k)$. Let
-$\sigma : D_\beta^k \to [0,1]$ be a continuous function that is equal to $1$ on
-$\bigcup_i A_i(\varepsilon_i/2)$ and supported in $\bigcup_i A_i(\varepsilon_i)$.
-Define
+By compactness of the set $\Phi_\gamma(\partial D_\gamma^{n+1})$ and local finiteness of the indexed cover $(\operatorname{supp} \psi_\alpha^n)_{\alpha \in A}$, there are only finitely many indices $\alpha_1, \ldots, \alpha_k$ for which $\tilde{\psi}_{\alpha_i}^n$ is not identically zero on $\partial D_\gamma^{n+1}$. For each such index, $A_i = \operatorname{supp} \tilde{\psi}_{\alpha_i}^n$ is a compact subset of $\tilde{U}_{\alpha}^{n+1} \cap \partial D_\gamma^{n+1}$, so there is some $\varepsilon_i \in (0,1)$ such that $A_i(\varepsilon_i) \subset \tilde{U}_\alpha^{n+1}$. Let $\varepsilon$ be the minimum of $\varepsilon_1, \ldots, \varepsilon_k$, and let $\sigma: D_\gamma^{n+1} \to [0, 1]$ be a bump function that is equal to 1 on $D_\gamma^{n+1} \setminus \partial D_\gamma^{n+1}(\varepsilon)$ and supported in $D_\gamma^{n+1} \setminus \partial D_\gamma^{n+1}(\varepsilon / 2)$. Choose a partition of unity $(\eta_\alpha)_{\alpha \in A}$ for $D_\gamma^{n+1}$ subordinate to the cover $(\tilde{U}_\alpha^{n+1})_{\alpha \in A}$, and for each $\alpha \in A$ define $\tilde{\psi}_\alpha^{n+1}: D_\gamma^{n+1} \to [0, 1]$ by
 
 $$
-\tilde{\psi}_{\alpha_i}'(x) = \sigma(x)\tilde{\psi}_{\alpha_i}(x) +
-(1-\sigma(x))\tilde{\psi}_{\alpha_i}\!\left(\frac{x}{|x|}\right)
+\tilde{\psi}_{\alpha}^{n+1}(x) = \sigma(x)\eta_{\alpha}(x) +
+(1-\sigma(x))\tilde{\psi}_{\alpha}^n\left(\frac{x}{|x|}\right)
 $$
 
-for $x \in D_\beta^k$. Then $\tilde{\psi}_{\alpha_i}'$ is continuous and supported in
-$\varphi_\beta^{-1}(U_{\alpha_i}^k)$, and the restriction of $\tilde{\psi}_{\alpha_i}'$
-to $\partial D_\beta^k$ is equal to $\tilde{\psi}_{\alpha_i}$. A computation shows that
-$\sum \tilde{\psi}_{\alpha_i}' = 1$ on $\partial D_\beta^k$. By construction,
-$\tilde{\psi}_{\alpha_i}'$ is supported in $\varphi_\beta^{-1}(U_{\alpha_i}^k)$ and
-satisfies (i).
+Then $\tilde{\psi}_\alpha^{n+1}$ is continuous and supported in $\tilde{U}_\alpha^{n+1}$, and the restriction of $\tilde{\psi}_\alpha^{n+1}$ to $\partial D_\gamma^{n+1}$ is equal to $\tilde{\psi}_\alpha^n$. A computation shows that $\sum_{\alpha} \tilde{\psi}_\alpha^{n+1} \equiv 1$.
 
-To check that (ii) is also satisfied, suppose $V \subset X_{k-1}$ is an open subset on
-which $\psi_\alpha^{k-1} = 0$. Then for each $y$, there is an open subset $V_y$ of
-$\partial D_\beta^k$ on which $\tilde{\psi}_\alpha = \psi_\alpha^{k-1} \circ f_\beta$ is
-zero. The union of $V$ together with the images of these sets is an open subset of
-$X_k$ on which $\psi_\alpha^k = 0$. To show that the indexed cover
-$(\psi_\alpha^{k+1})$ is locally finite, note that $X_{k+1} = X_k \cup \bigcup e_\alpha^{k+1}$,
-and thus that the interior of an $(n+1)$-cell; then for each point $x$ in $X_{k+1}$,
-there is a neighborhood $V$ of $x$ in which only finitely many of the functions
-$\psi_\alpha^{k+1}$ are nonzero by construction. On the other hand, if $x \in X_k$,
-because $(\psi_\alpha^k)$ is locally finite, there is a neighborhood $V$ of $x$ in
-$X_k$ on which $\psi_\alpha^k = 0$ except when $\alpha$ is one of finitely many
-indices. This implies that if $x \in X_k$, we may choose a neighborhood $V$ in
-$X_{k+1}$ such that $\psi_\alpha^{k+1} = 0$ on $V$ for all but finitely many indices.
-This completes the induction.
+Now repeat this construction for each $(n+1)$-cell $D_\gamma^{n+1}$. By construction, $\tilde{\psi}_\alpha^{n+1}$ passes to the quotient and determines a continuous function $\psi_\alpha^{n+1}: X_{n+1} \to [0, 1]$ supported in $U_\alpha^{n+1}$ and satisfying (i). To check that (ii) is also satisfied, suppose $V$ is an open subset of $X_n$ on which $\psi_\alpha^{n} \equiv 0$. Then for each $\gamma$, there is an open subset $\tilde{V}(\varepsilon / 2) \subset D_\gamma^{n+1}$ on which $\tilde{\psi}_\alpha^{n+1} \equiv 0$ by construction (where $\tilde{V} = \varphi_\gamma^{-1}(V)$, and $\varepsilon$ may vary with $\gamma$). The union of $V$ together with the images of these sets is an open subset $V' \subset X_{n+1}$ on which $\psi_\alpha^{n+1} \equiv 0$. To show that the indexed cover $(\operatorname{supp}\psi_\alpha^{n+1})$ is locally finite, let $x \in X_{n+1}$ be arbitrary. If $x$ is in the interior of an $(n+1)$-cell, then that cell is a neighborhood of $x$ on which only finitely many of the functions $\psi_\alpha^{n+1}$ are nonzero by construction. On the other hand, if $x \in X_n$, because $(\psi_\alpha^n)_{\alpha \in A}$ is a partition of unity there is some neighborhood V of $x$ in $X_n$ on which $\psi_\alpha^n \equiv 0$ except when $\alpha$ is one of finitely many indices, and then (ii) shows that $\psi_\alpha^{n+1} \equiv 0$ on $V'$ except when $\alpha$ is one of the same indices. Thus $(\psi_\alpha^{n+1})_{\alpha \in A}$ forms a partition of unity for $X_{n+1}$ subordinate to $(U_\alpha^{n+1})$. This completes the induction.
 
 Finally, for each $\alpha$, define $\psi_\alpha : X \to [0,1]$ to be the function whose
-restriction to each $X_n$ is $\psi_\alpha^n$. This is well defined, and because the
-topology of $X$ is coherent with its $n$-skeleton, it is continuous. Because
-$\sum \psi_\alpha = 1$ for each $n$, it follows that $\sum \psi_\alpha = 1$ on $X$. To
-prove local finiteness, note that if $x \in X_n$ for some $n$, and because
-$(\psi_\alpha^n)$ is locally finite, there is a neighborhood $V$ of $x$ in $X_n$ on
-which $\psi_\alpha^n = 0$ except for finitely many choices of $\alpha$. Then $V$ is an
-open neighborhood of $x$ in $X$ on which all but finitely many of the functions
-$\psi_\alpha$ are identically zero. Thus $(\psi_\alpha)$ is the required partition of
-unity. $\square$
+restriction to each $X_n$ is $\psi_\alpha^n$. By (i), this is well defined, and because the topology of $X$ is coherent with its n-skeleta, it is continuous. Because $\sum_\alpha \psi_\alpha^n \equiv 1$ for each $n$, it follows that $\sum_\alpha \psi_\alpha \equiv 1$ on $X$. To prove local finiteness, let $x \in X$ be arbitrary. Then $x \in X_n$ for some $n$, and because $(\psi_\alpha^n)$ is a partition of unity there is some neighborhood $V_n$ of $x$ in $X_n$ on which $\psi_\alpha^n \equiv 0$ except for finitely many choices of $\alpha$. Property (ii) guarantees that there is a sequence of sets $V_n \sub V_{n+1} \sub \ldots$ on which $\psi_\alpha \equiv 0$ except when $\alpha$ is one of the same indices, with $V_k$ open in $X_k$ for each $k$. It follows that $\bigcup_k V_k$ is a neighborhood of $x$ in X on which all but finitely many of the functions $\psi_\alpha$ are identically zero. Thus $(\psi_\alpha)$ is the required partition of unity.

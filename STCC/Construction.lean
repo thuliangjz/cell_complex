@@ -440,6 +440,56 @@ theorem cell_attached_to_sknp1_homeomorphic {n: ℕ} : IsHomeomorph (@cell_attac
       apply φ_closed_map
       exact IsClosed.preimage η_continuous (IsClosed.preimage continuous_inr SClosed)
 
+theorem skeleton_coeherent_of_strictMono (f : ℕ → ℕ) (hf : StrictMono f) :
+    IsCoeherent (Set.range (fun n : ℕ ↦ ((Skeleton X (f n)) : Set X))) := by
+  have h_id_le : ∀ n : ℕ, n ≤ f n := by
+    intro n
+    induction' n with n ih
+    · exact Nat.zero_le (f 0)
+    · have hstep : f n + 1 ≤ f (n + 1) := Nat.succ_le_of_lt (hf (Nat.lt_succ_self n))
+      exact le_trans (Nat.succ_le_succ ih) hstep
+  have h_cover : ⋃₀ (Set.range (fun n : ℕ ↦ ((Skeleton X (f n)) : Set X))) = Set.univ := by
+    rw [Set.sUnion_eq_univ_iff]
+    intro x
+    rcases exists_mem_of_skeleton (C := C) x with ⟨k, hxk⟩
+    refine ⟨((Skeleton X (f k)) : Set X), ⟨k, rfl⟩, ?_⟩
+    exact skeleton_mono (C := C) k (f k) (h_id_le k) hxk
+  have h_closed_crit :
+      ∀ A : Set X,
+        (∀ b ∈ Set.range (fun n : ℕ ↦ ((Skeleton X (f n)) : Set X)),
+          IsClosed (((↑) : b → X) ⁻¹' A)) →
+        IsClosed A := by
+    intro A hA
+    have h_cell :
+        ∀ e : C.sets,
+          IsClosed (((↑) : Skeleton X (f (C.dim_map e)) → X) ⁻¹' A) →
+          IsClosed (((↑) : closure e.1 → X) ⁻¹' A) := by
+      intro e hSk
+      have he_sub : e.1 ⊆ (Skeleton X (f (C.dim_map e)) : Set X) := by
+        rw [sub_skeleton_iff]
+        exact h_id_le (C.dim_map e)
+      have hce_sub : closure e.1 ⊆ (Skeleton X (f (C.dim_map e)) : Set X) := by
+        exact (Skeleton X (f (C.dim_map e))).cell_closure_incl e.1 e.2 he_sub
+      let g : closure e.1 → Skeleton X (f (C.dim_map e)) := fun z => ⟨z.1, hce_sub z.2⟩
+      have hg_cont : Continuous g := by
+        exact Continuous.subtype_mk continuous_subtype_val (fun z => hce_sub z.2)
+      have hpre :
+          (((↑) : closure e.1 → X) ⁻¹' A) =
+            g ⁻¹' (((↑) : Skeleton X (f (C.dim_map e)) → X) ⁻¹' A) := by
+        ext z
+        simp [g]
+      rw [hpre]
+      exact IsClosed.preimage hg_cont hSk
+    apply closed_crit_of_coeherent CW.coeherent
+    intro b hb
+    rcases hb with ⟨e, he, rfl⟩
+    let e' : C.sets := ⟨e, he⟩
+    have hSk :
+        IsClosed (((↑) : Skeleton X (f (C.dim_map e')) → X) ⁻¹' A) := by
+      exact hA ((Skeleton X (f (C.dim_map e')) : Set X)) ⟨C.dim_map e', rfl⟩
+    simpa [e'] using h_cell e' hSk
+  exact coeherent_of_closed_crit_and_cover' h_closed_crit h_cover
+
 end
 
 section helper
