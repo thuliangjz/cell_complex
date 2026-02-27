@@ -1709,7 +1709,268 @@ instance instCWComplexParacompactSpace : ParacompactSpace X := by
         (by simpa [W] using hx_tsupport)
     exact hx_in_Wc (by simpa [W] using hx_in_W)
 
-  sorry
+  have hψ_locallyFinite : LocallyFinite (fun a => Function.support (ψ a)) := by
+    intro x
+    have h_seed_neighborhood_outside_finite :
+        ∃ n, ∃ xn : Skeleton X n, xn.1 = x ∧
+          ∃ Vn : Set (Skeleton X n), IsOpen Vn ∧ xn ∈ Vn ∧
+            ∃ F : Set α, F.Finite ∧
+              (∀ a, a ∉ F → ∀ z ∈ Vn, (pou n).toFun a z = 0) := by
+      rcases exists_mem_of_skeleton (X := X) x with ⟨n, hx_n⟩
+      let xn : Skeleton X n := ⟨x, hx_n⟩
+      obtain ⟨t, ht_nhds, ht_fin⟩ := (pou n).locallyFinite xn
+      rcases mem_nhds_iff.mp ht_nhds with ⟨Vn, hVn_sub_t, hVn_open, hxn_in_Vn⟩
+      let F : Set α := {a : α | (Function.support ((pou n).toFun a) ∩ Vn).Nonempty}
+      have hF_fin : F.Finite := by
+        refine ht_fin.subset ?_
+        intro a ha
+        rcases ha with ⟨u, hu_supp, huVn⟩
+        exact ⟨u, hu_supp, hVn_sub_t huVn⟩
+      have h_zero_outside_F : ∀ a, a ∉ F → ∀ z ∈ Vn, (pou n).toFun a z = 0 := by
+        intro a haF z hzVn
+        by_contra hz_ne
+        apply haF
+        exact ⟨z, Function.mem_support.mpr hz_ne, hzVn⟩
+      exact ⟨n, xn, rfl, Vn, hVn_open, hxn_in_Vn, F, hF_fin, h_zero_outside_F⟩
+    have h_lift_zero_outside_finite :
+        ∀ n (F : Set α) (m : ℕ) (Vm : Set (Skeleton X (n + m))),
+          IsOpen Vm →
+          (∀ a, a ∉ F → ∀ z ∈ Vm, (pou (n + m)).toFun a z = 0) →
+          ∃ Vm' : Set (Skeleton X (n + (m + 1))), IsOpen Vm' ∧
+            (∀ z : Skeleton X (n + m), z ∈ Vm ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vm') ∧
+            (∀ a, a ∉ F → ∀ y ∈ Vm', (pou (n + (m + 1))).toFun a y = 0) := by
+      intro n F m Vm hVm_open hVm_zero
+      rcases hpou_zero_extension (n + m) Vm hVm_open with
+        ⟨Vm', hVm'_open, hVm'_lift, hVm'_zero⟩
+      refine ⟨?_, ?_, ?_, ?_⟩
+      · simpa [Nat.add_assoc] using Vm'
+      · simpa [Nat.add_assoc] using hVm'_open
+      · intro z
+        simpa [Nat.add_assoc] using hVm'_lift z
+      · intro a haF y hyVm'
+        exact hVm'_zero a (hVm_zero a haF) y (by simpa [Nat.add_assoc] using hyVm')
+    have h_chain_from_seed :
+        ∀ n (xn : Skeleton X n) (Vn : Set (Skeleton X n)) (F : Set α),
+          IsOpen Vn →
+          xn ∈ Vn →
+          xn.1 = x →
+          (∀ a, a ∉ F → ∀ z ∈ Vn, (pou n).toFun a z = 0) →
+          ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+            (∀ k, IsOpen (Vk k)) ∧
+            (∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k) ∧
+            (∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vk (m + 1)) ∧
+            (∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0) := by
+      intro n xn Vn F hVn_open hxn_in hxn_eq hVn_zero
+      let data : ∀ k, {Vk : Set (Skeleton X (n + k)) //
+          IsOpen Vk ∧
+            (∀ a, a ∉ F → ∀ y ∈ Vk, (pou (n + k)).toFun a y = 0)} :=
+        Nat.rec
+          (motive := fun k =>
+            {Vk : Set (Skeleton X (n + k)) //
+              IsOpen Vk ∧
+                (∀ a, a ∉ F → ∀ y ∈ Vk, (pou (n + k)).toFun a y = 0)})
+          ⟨Vn, hVn_open, hVn_zero⟩
+          (fun k d =>
+            let step := h_lift_zero_outside_finite n F k d.1 d.2.1 d.2.2
+            ⟨Classical.choose step, (Classical.choose_spec step).1, (Classical.choose_spec step).2.2⟩)
+      let Vk : ∀ k, Set (Skeleton X (n + k)) := fun k => (data k).1
+      have hVk_open : ∀ k, IsOpen (Vk k) := by
+        intro k
+        exact (data k).2.1
+      have hVk_zero : ∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0 := by
+        intro k
+        exact (data k).2.2
+      have hVk_preimage :
+          ∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+            (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+              (Nat.le_add_right (n + m) 1) z.2⟩ :
+              Skeleton X (n + (m + 1))) ∈ Vk (m + 1) := by
+        intro m z
+        let d := data m
+        let step := h_lift_zero_outside_finite n F m d.1 d.2.1 d.2.2
+        have hstep :
+            z ∈ d.1 ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Classical.choose step := by
+          simpa [step] using (Classical.choose_spec step).2.1 z
+        have hsucc : (data (m + 1)).1 = Classical.choose step := by
+          simp [data, d]
+        change z ∈ d.1 ↔
+          (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+            (Nat.le_add_right (n + m) 1) z.2⟩ :
+            Skeleton X (n + (m + 1))) ∈ (data (m + 1)).1
+        simpa [hsucc] using hstep
+      have hVk_has_x : ∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k := by
+        intro k
+        induction k with
+        | zero =>
+            refine ⟨xn, hxn_eq, ?_⟩
+            simpa [Vk, data] using hxn_in
+        | succ k ih =>
+            rcases ih with ⟨xk, hxk_eq, hxk_in⟩
+            let xk' : Skeleton X (n + (k + 1)) :=
+              ⟨xk.1, skeleton_mono (n + k) (n + (k + 1))
+                (Nat.le_add_right (n + k) 1) xk.2⟩
+            refine ⟨xk', ?_, ?_⟩
+            · simpa [xk'] using hxk_eq
+            · simpa [xk'] using (hVk_preimage k xk).1 hxk_in
+      exact ⟨Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+    have h_chain_with_finite_zero_control :
+        ∃ n, ∃ xn : Skeleton X n, xn.1 = x ∧
+          ∃ F : Set α, F.Finite ∧
+            ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+              (∀ k, IsOpen (Vk k)) ∧
+              (∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k) ∧
+              (∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+                (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                  (Nat.le_add_right (n + m) 1) z.2⟩ :
+                  Skeleton X (n + (m + 1))) ∈ Vk (m + 1)) ∧
+              (∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0) := by
+      rcases h_seed_neighborhood_outside_finite with
+        ⟨n, xn, hxn_eq, Vn, hVn_open, hxn_in, F, hF_fin, hVn_zero⟩
+      rcases h_chain_from_seed n xn Vn F hVn_open hxn_in hxn_eq hVn_zero with
+        ⟨Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+      exact ⟨n, xn, hxn_eq, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+    have h_open_union_from_chain :
+        ∃ n, ∃ F : Set α, F.Finite ∧
+          ∃ Vk : ∀ k, Set (Skeleton X (n + k)),
+            (∀ k, IsOpen (Vk k)) ∧
+            (∀ k, ∃ xk : Skeleton X (n + k), xk.1 = x ∧ xk ∈ Vk k) ∧
+            (∀ m (z : Skeleton X (n + m)), z ∈ Vk m ↔
+              (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+                (Nat.le_add_right (n + m) 1) z.2⟩ :
+                Skeleton X (n + (m + 1))) ∈ Vk (m + 1)) ∧
+            (∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0) ∧
+            IsOpen (⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)) ∧
+            x ∈ ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k) := by
+      rcases h_chain_with_finite_zero_control with
+        ⟨n, xn, hxn_eq, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero⟩
+      let W : Set X := ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)
+      have hx_in_W : x ∈ W := by
+        rw [Set.mem_iUnion]
+        use 0
+        rcases hVk_has_x 0 with ⟨x0, hx0_eq, hx0_in⟩
+        exact ⟨x0, hx0_in, hx0_eq⟩
+      have hVk_lift_le :
+          ∀ {i j : ℕ} (hij : i ≤ j) (zi : Skeleton X (n + i)),
+            zi ∈ Vk i ↔
+              (⟨zi.1, skeleton_mono (n + i) (n + j) (Nat.add_le_add_left hij n) zi.2⟩ :
+                Skeleton X (n + j)) ∈ Vk j := by
+        intro i j hij
+        induction hij with
+        | refl =>
+            intro zi
+            constructor <;> intro h <;> simpa using h
+        | @step j hij ih =>
+            intro zi
+            let zj : Skeleton X (n + j) :=
+              ⟨zi.1, skeleton_mono (n + i) (n + j) (Nat.add_le_add_left hij n) zi.2⟩
+            have hizj : zi ∈ Vk i ↔ zj ∈ Vk j := by
+              simpa [zj] using ih zi
+            have hzj :
+                zj ∈ Vk j ↔
+                  (⟨zj.1, skeleton_mono (n + j) (n + (j + 1))
+                    (Nat.le_add_right (n + j) 1) zj.2⟩ :
+                    Skeleton X (n + (j + 1))) ∈ Vk (j + 1) :=
+              hVk_preimage j zj
+            let zip1 : Skeleton X (n + (j + 1)) :=
+              ⟨zi.1, skeleton_mono (n + i) (n + (j + 1))
+                (Nat.add_le_add_left (Nat.le.step hij) n) zi.2⟩
+            have hzj' : zj ∈ Vk j ↔ zip1 ∈ Vk (j + 1) := by
+              simpa [zj, zip1] using hzj
+            exact hizj.trans hzj'
+      have hW_preimage :
+          ∀ m : ℕ, ((Subtype.val : Skeleton X (n + m) → X) ⁻¹' W) = Vk m := by
+        intro m
+        ext z
+        constructor
+        · intro hz
+          change z.1 ∈ W at hz
+          rw [Set.mem_iUnion] at hz
+          rcases hz with ⟨k, hk⟩
+          rcases hk with ⟨yk, hyk_in, hyk_eq⟩
+          rcases Nat.le_total k m with hkm | hmk
+          · let ym : Skeleton X (n + m) :=
+              ⟨yk.1, skeleton_mono (n + k) (n + m) (Nat.add_le_add_left hkm n) yk.2⟩
+            have hym_in : ym ∈ Vk m := (hVk_lift_le hkm yk).1 hyk_in
+            have hzy : z = ym := by
+              ext
+              simpa [ym] using hyk_eq.symm
+            simpa [hzy] using hym_in
+          · let zk : Skeleton X (n + k) :=
+              ⟨z.1, skeleton_mono (n + m) (n + k) (Nat.add_le_add_left hmk n) z.2⟩
+            have hyk_eq_zk : yk = zk := by
+              ext
+              simpa [zk] using hyk_eq
+            have hzk_in : zk ∈ Vk k := by
+              simpa [hyk_eq_zk] using hyk_in
+            exact (hVk_lift_le hmk z).2 (by simpa [zk] using hzk_in)
+        · intro hz
+          change z.1 ∈ W
+          rw [Set.mem_iUnion]
+          refine ⟨m, ⟨z, hz, rfl⟩⟩
+      have hW_open : IsOpen W := by
+        have hf : StrictMono (fun t : ℕ => n + t) := by
+          intro i j hij
+          exact Nat.add_lt_add_left hij n
+        have hcoh :
+            IsCoeherent (Set.range (fun t : ℕ ↦ ((Skeleton X (n + t)) : Set X))) :=
+          skeleton_coeherent_of_strictMono (X := X) (C := C) (fun t : ℕ => n + t) hf
+        refine (hcoh.open_crit W).2 ?_
+        intro b hb
+        rcases hb with ⟨m, rfl⟩
+        have hpre : (Subtype.val ⁻¹' W : Set (Skeleton X (n + m))) = Vk m := hW_preimage m
+        change IsOpen (Subtype.val ⁻¹' W : Set (Skeleton X (n + m)))
+        rw [hpre]
+        exact hVk_open m
+      exact ⟨n, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero,
+        hW_open, by simpa [W] using hx_in_W⟩
+    rcases h_open_union_from_chain with
+      ⟨n, F, hF_fin, Vk, hVk_open, hVk_has_x, hVk_preimage, hVk_zero, hW_open, hx_in_W⟩
+    let W : Set X := ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)
+    have hW_open' : IsOpen W := by
+      simpa [W] using hW_open
+    have hx_in_W' : x ∈ W := by
+      simpa [W] using hx_in_W
+    have h_zero_on_W_outside_F : ∀ a, a ∉ F → ∀ y ∈ W, ψ a y = 0 := by
+      intro a haF y hyW
+      rw [Set.mem_iUnion] at hyW
+      rcases hyW with ⟨k, hyk⟩
+      rcases hyk with ⟨yk, hyk_in, rfl⟩
+      rw [hψ_on_skeleton (n + k) a yk]
+      exact hVk_zero k a haF yk hyk_in
+    have h_active_subset :
+        {a : α | (Function.support (ψ a) ∩ W).Nonempty} ⊆ F := by
+      intro a ha
+      by_contra haF
+      rcases ha with ⟨y, hy_supp, hyW⟩
+      exact (Function.mem_support.mp hy_supp) (h_zero_on_W_outside_F a haF y hyW)
+    refine ⟨W, hW_open'.mem_nhds hx_in_W', ?_⟩
+    exact hF_fin.subset h_active_subset
+
+  refine ⟨
+    { toFun := fun a => ⟨ψ a, hψ_cont a⟩
+      locallyFinite' := by
+        simpa using hψ_locallyFinite
+      nonneg' := by
+        intro a x
+        exact hψ_nonneg a x
+      sum_eq_one' := by
+        intro x hx
+        simpa using hψ_sum x
+      sum_le_one' := by
+        intro x
+        exact (hψ_sum x).le
+    }, ?_⟩
+  intro a
+  simpa using hψ_subordinate a
 
 
 end
