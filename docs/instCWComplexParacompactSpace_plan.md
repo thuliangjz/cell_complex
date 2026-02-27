@@ -109,15 +109,21 @@ have hψ_cont : ∀ a : α, Continuous (ψ a)
 
 **How**
 
-- Use `continuous_of_coherent` (from `STCC/Basic.lean`) with the coherent family
-  from `CW.coeherent`.
-- So it suffices to prove continuity of `(closure e).restrict (ψ a)` for each cell closure.
-- For fixed cell `e`, let `d := C.dim_map e`.
-  Prove `closure e ⊆ Skeleton X d` by:
-  - `e ⊆ Skeleton X d` from `sub_skeleton_iff`,
-  - then `cell_closure_incl`.
-- On `closure e`, rewrite `ψ` by `hψ_on_skeleton` at level `d`.
-  The RHS is composition of continuous maps, hence continuous.
+- Break Step 4 into small lemmas:
+  1. For `e : C.sets`, set `d := C.dim_map e`; prove
+     `closure e.1 ⊆ Skeleton X d` using
+     - `e.1 ⊆ Skeleton X d` from `sub_skeleton_iff`,
+     - then `(Skeleton X d).cell_closure_incl`.
+  2. For fixed `e`, define the inclusion map
+     `ιe : closure e.1 → Skeleton X d`, and prove `Continuous ιe`.
+  3. For fixed `a e`, prove pointwise on `closure e.1`:
+     `(ψ a) z.1 = (pou d).toFun a (ιe z)` using `hψ_on_skeleton`.
+  4. Deduce continuity of `(closure e.1).restrict (ψ a)` by rewriting it as
+     `((pou d).toFun a) ∘ ιe` and using continuity of both factors.
+  5. Apply `continuous_of_coherent CW.coeherent (ψ a)`:
+     it is enough to show continuity on every `b ∈ {closure s | s ∈ C.sets}`.
+     Unpack `b` as `closure e.1` and use item (4).
+- Conclude `hψ_cont : ∀ a : α, Continuous (ψ a)`.
 
 ---
 
@@ -150,16 +156,34 @@ have hψ_subordinate : ∀ a, tsupport (ψ a) ⊆ s a
 
 **How**
 
-- Take `x ∈ tsupport (ψ a)`.
-- Choose a skeleton containing `x`, rewrite by `hψ_on_skeleton`.
-- Push `tsupport` membership from `ψ a` to the chosen skeleton function
-  `(pou n).toFun a` (using restriction and closure arguments on subtypes).
-- Apply `(pou n).subordinate a`.
-- Conclude `x ∈ s a`.
+- Use a contrapositive strategy:
+  prove `h_not_tsupport : ∀ a x, x ∉ s a → x ∉ tsupport (ψ a)`,
+  then conclude `hψ_subordinate`.
+- Break into micro-lemmas:
+  1. (`~20 lines`) For fixed `a x` with `x ∉ s a`, choose `n` and `xn : Skeleton X n`,
+     and build an open neighborhood
+     `Vn := (tsupport ((pou n).toFun a))ᶜ` in `Skeleton X n` with
+     `xn ∈ Vn` and `∀ z ∈ Vn, (pou n).toFun a z = 0`.
+  2. (`~20 lines`) Specialize `hpou_zero_extension` to fixed `a`:
+     from open `V` on level `n` with pointwise zero of `(pou n).toFun a`,
+     produce open `V'` on level `n+1` containing lifts and with
+     `∀ y ∈ V', (pou (n+1)).toFun a y = 0`.
+  3. (`~20 lines`) Iterate (2) from level `n` upward:
+     construct `Vm` for all `m ≥ n` such that lifted `x` belongs to `Vm`
+     and `(pou m).toFun a` vanishes on `Vm`.
+  4. (`~20 lines`) Define global neighborhood
+     `W := ⋃ m ≥ n, (Subtype.val '' Vm)`; prove `IsOpen W` and `x ∈ W`.
+  5. (`~20 lines`) Prove `∀ y ∈ W, ψ a y = 0`:
+     combine membership witness `y ∈ Vm`, level transfer via `h_restrict_le`,
+     and rewrite by `hψ_on_skeleton`.
+  6. (`~20 lines`) Conclude `x ∉ tsupport (ψ a)` since `W` is an open
+     neighborhood of `x` disjoint from `Function.support (ψ a)`.
+- Final assembly: from `h_not_tsupport`, obtain
+  `hψ_subordinate : ∀ a, tsupport (ψ a) ⊆ s a`.
 
 ---
 
-## Step 7 (about 50 lines): global local finiteness
+## Step 7 (about 120-160 lines): global local finiteness
 
 **Target type**
 
@@ -168,20 +192,72 @@ have hψ_locallyFinite :
     LocallyFinite (fun a => Function.support (ψ a))
 ```
 
-**How (core strategy from Theorem 5.22 endgame)**
+**How (split into ~20-line micro-blocks)**
 
-- Fix `x : X`, choose `n` with `x ∈ Skeleton X n`.
-- From `(pou n).locallyFinite`, get open `Vn` around `x` in `Skeleton X n`
-  and finite index set `F` controlling active supports on `Vn`.
-- For each `k`, use the zero-extension clause (Step 1) to build
-  `V_{n+k+1}` from `V_{n+k}` while preserving "all `a ∉ F` vanish".
-- Define a global neighborhood in `X` by union of the lifted `V_{n+k}`.
-- Prove:
-  - it is a neighborhood of `x`,
-  - if `a ∉ F`, then `Function.support (ψ a)` misses this neighborhood.
-- Therefore active indices near `x` are contained in finite `F`.
+1. **Seed neighborhood + finite controller (`F`)**
+   - For fixed `x : X`, choose `n` and `xn : Skeleton X n`.
+   - Use `(pou n).locallyFinite` at `xn` to get:
+     - open `Vn : Set (Skeleton X n)`,
+     - `xn ∈ Vn`,
+     - finite `F := {a | (Function.support ((pou n).toFun a) ∩ Vn).Nonempty}`.
+   - Derive:
+     ```lean
+     ∀ a, a ∉ F → ∀ z ∈ Vn, (pou n).toFun a z = 0
+     ```
 
-(This is the longest technical block; keeping it as one dedicated lemma is recommended.)
+2. **One-step lift preserving “outside `F` = 0”**
+   - Build helper:
+     ```lean
+     h_lift_zero_outside_F :
+       ∀ m (Vm : Set (Skeleton X (n + m))),
+         IsOpen Vm →
+         (∀ a, a ∉ F → ∀ z ∈ Vm, (pou (n + m)).toFun a z = 0) →
+         ∃ Vm' : Set (Skeleton X (n + (m + 1))), IsOpen Vm' ∧
+           (∀ z : Skeleton X (n + m), z ∈ Vm ↔
+             (⟨z.1, skeleton_mono (n + m) (n + (m + 1))
+               (Nat.le_add_right (n + m) 1) z.2⟩ :
+               Skeleton X (n + (m + 1))) ∈ Vm') ∧
+           (∀ a, a ∉ F → ∀ y ∈ Vm', (pou (n + (m + 1))).toFun a y = 0)
+     ```
+   - This is the `h_lift_zero_neighborhood` pattern with an extra `a ∉ F` parameter.
+
+3. **Recursive chain `Vk`**
+   - Construct `Vk : ∀ k, Set (Skeleton X (n + k))` (via `Nat.rec`) with:
+     - `∀ k, IsOpen (Vk k)`,
+     - one-point chain through `x`,
+     - compatibility
+       `z ∈ Vk m ↔ lift z ∈ Vk (m+1)`,
+     - `∀ k a, a ∉ F → ∀ y ∈ Vk k, (pou (n + k)).toFun a y = 0`.
+
+4. **Global neighborhood in `X`**
+   - Define:
+     ```lean
+     W := ⋃ k, (Subtype.val : Skeleton X (n + k) → X) '' (Vk k)
+     ```
+   - Prove:
+     - `x ∈ W`,
+     - `IsOpen W`.
+   - Openness proof should reuse the `hψ_subordinate` technique:
+     - preimage formula on each skeleton level,
+     - `skeleton_coeherent_of_strictMono (fun t => n + t)`,
+     - `open_crit`.
+
+5. **Uniform vanishing on `W` outside `F`**
+   - Prove:
+     ```lean
+     ∀ a, a ∉ F → ∀ y ∈ W, ψ a y = 0
+     ```
+   - Decompose `y ∈ W` into `(k, yk)`, rewrite by `hψ_on_skeleton`,
+     then apply chain-vanishing on `Vk k`.
+
+6. **Finite active set near `x`**
+   - Show:
+     ```lean
+     {a : α | (Function.support (ψ a) ∩ W).Nonempty} ⊆ F
+     ```
+     from Step 5.
+   - Conclude finiteness of this active set using `F.Finite`.
+   - Return local-finiteness witness at `x` with neighborhood `W`.
 
 ---
 
